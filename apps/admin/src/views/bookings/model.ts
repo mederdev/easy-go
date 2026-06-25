@@ -1,0 +1,279 @@
+import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import type { AdminCreateBookingInput, Booking, BookingStatus, FlightView } from '@easygo/shared';
+import { BOOKING_STATUS_LABEL, formatMoney, paxLabel, seatsLabel } from '@easygo/shared';
+import { api, errorMessage } from '@/lib/api';
+import { useConfigStore } from '@/stores/config';
+import { bookingRouteLabel, dateTimeLabel, flightRouteLabel, initials, timeLabel } from '@/lib/format';
+
+/** Bookings CRM: list with filters/search/pagination, detail drawer with status
+ *  changes, and the operator-side create-booking modal. */
+export function useBookingsModel() {
+  const config = useConfigStore();
+  const route = useRoute();
+  const router = useRouter();
+
+  const PAGE_SIZE = 20;
+
+  type FilterValue = 'all' | BookingStatus;
+  const filters: Array<{ value: FilterValue; label: string }> = [
+    { value: 'all', label: 'Все' },
+    { value: 'NEW', label: BOOKING_STATUS_LABEL.NEW },
+    { value: 'CONFIRMED', label: BOOKING_STATUS_LABEL.CONFIRMED },
+    { value: 'COMPLETED', label: BOOKING_STATUS_LABEL.COMPLETED },
+    { value: 'CANCELLED', label: BOOKING_STATUS_LABEL.CANCELLED },
+  ];
+
+  const activeFilter = ref<FilterValue>('all');
+  const search = ref('');
+  const offset = ref(0);
+
+  const loading = ref(true);
+  const error = ref<string | null>(null);
+  const items = ref<Booking[]>([]);
+  const total = ref(0);
+
+  const selected = ref<Booking | null>(null);
+  const statusBusy = ref(false);
+  const statusError = ref<string | null>(null);
+
+  let searchTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function money(minor: number): string {
+    return formatMoney(minor, config.currency, config.locale);
+  }
+
+  const pageStart = computed(() => (total.value === 0 ? 0 : offset.value + 1));
+  const pageEnd = computed(() => Math.min(offset.value + PAGE_SIZE, total.value));
+  const canPrev = computed(() => offset.value > 0);
+  const canNext = computed(() => offset.value + PAGE_SIZE < total.value);
+
+  async function load(): Promise<void> {
+    loading.value = true;
+    error.value = null;
+    try {
+      await config.ensure();
+      const res = await api.bookings.list({
+        limit: PAGE_SIZE,
+        offset: offset.value,
+        status: activeFilter.value === 'all' ? undefined : activeFilter.value,
+        search: search.value.trim() || undefined,
+      });
+      items.value = res.items;
+      total.value = res.total;
+    } catch (e) {
+      error.value = errorMessage(e);
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  function setFilter(value: FilterValue): void {
+    if (activeFilter.value === value) return;
+    activeFilter.value = value;
+    offset.value = 0;
+    void load();
+  }
+
+  watch(search, () => {
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      offset.value = 0;
+      void load();
+    }, 350);
+  });
+
+  function prev(): void {
+    if (!canPrev.value) return;
+    offset.value = Math.max(0, offset.value - PAGE_SIZE);
+    void load();
+  }
+  function next(): void {
+    if (!canNext.value) return;
+    offset.value += PAGE_SIZE;
+    void load();
+  }
+
+  function open(b: Booking): void {
+    selected.value = b;
+    statusError.value = null;
+  }
+  function closeDrawer(): void {
+    selected.value = null;
+  }
+
+  const nextStatuses: Record<BookingStatus, BookingStatus[]> = {
+    NEW: ['CONFIRMED', 'CANCELLED'],
+    CONFIRMED: ['COMPLETED', 'CANCELLED'],
+    COMPLETED: [],
+    CANCELLED: ['NEW'],
+  };
+
+  async function changeStatus(status: BookingStatus): Promise<void> {
+    if (!selected.value) return;
+    statusBusy.value = true;
+    statusError.value = null;
+    try {
+      const updated = await api.bookings.setStatus(selected.value.id, { status });
+      // Preserve embedded relations the PATCH response may not include.
+      const merged: Booking = { ...selected.value, ...updated };
+      selected.value = merged;
+      const idx = items.value.findIndex((x) => x.id === merged.id);
+      if (idx !== -1) items.value.splice(idx, 1, merged);
+    } catch (e) {
+      statusError.value = errorMessage(e);
+    } finally {
+      statusBusy.value = false;
+    }
+  }
+
+  function waLink(b: Booking): string {
+    const phone = b.client?.phone?.replace(/[^\d]/g, '') ?? '';
+    return `https://wa.me/${phone}`;
+  }
+
+  // ── Create booking (operator-side) ──
+  const createOpen = ref(false);
+  const creating = ref(false);
+  const createError = ref<string | null>(null);
+  const bookableFlights = ref<FlightView[]>([]);
+  const createStatuses: BookingStatus[] = ['NEW', 'CONFIRMED'];
+
+  const createForm = reactive({
+    flightId: '',
+    pax: 1,
+    name: '',
+    phone: '',
+    whatsapp: true,
+    comment: '',
+    status: 'NEW' as BookingStatus,
+  });
+
+  const selectedFlight = computed(() => bookableFlights.value.find((f) => f.id === createForm.flightId) ?? null);
+  const createTotal = computed(() => {
+    const price = selectedFlight.value?.route?.price ?? 0;
+    return money(price * (Number(createForm.pax) || 0));
+  });
+
+  async function openCreate(): Promise<void> {
+    createError.value = null;
+    createForm.flightId = '';
+    createForm.pax = 1;
+    createForm.name = '';
+    createForm.phone = '';
+    createForm.whatsapp = true;
+    createForm.comment = '';
+    createForm.status = 'NEW';
+    createOpen.value = true;
+    try {
+      const list = await api.flights.list({ status: 'SCHEDULED' });
+      bookableFlights.value = list.filter((f) => !f.soldOut);
+      createForm.flightId = bookableFlights.value[0]?.id ?? '';
+    } catch (e) {
+      createError.value = errorMessage(e);
+    }
+  }
+
+  function closeCreate(): void {
+    createOpen.value = false;
+    if (route.query.create) void router.replace({ query: { ...route.query, create: undefined } });
+  }
+
+  function flightOptionLabel(f: FlightView): string {
+    return `${flightRouteLabel(f)} · ${timeLabel(f.departAt)} · ${seatsLabel(f.seatsLeft)}`;
+  }
+
+  async function submitCreate(): Promise<void> {
+    createError.value = null;
+    if (!createForm.flightId) {
+      createError.value = 'Выберите рейс.';
+      return;
+    }
+    if (!createForm.name.trim() || createForm.phone.trim().length < 6) {
+      createError.value = 'Укажите имя и телефон клиента.';
+      return;
+    }
+    if (selectedFlight.value && createForm.pax > selectedFlight.value.seatsLeft) {
+      createError.value = `Недостаточно мест: свободно ${selectedFlight.value.seatsLeft}.`;
+      return;
+    }
+    creating.value = true;
+    try {
+      const payload: AdminCreateBookingInput = {
+        flightId: createForm.flightId,
+        pax: Number(createForm.pax) || 1,
+        name: createForm.name.trim(),
+        phone: createForm.phone.trim(),
+        whatsapp: createForm.whatsapp,
+        comment: createForm.comment.trim() || undefined,
+        status: createForm.status,
+      };
+      await api.bookings.adminCreate(payload);
+      createOpen.value = false;
+      offset.value = 0;
+      await load();
+    } catch (e) {
+      createError.value = errorMessage(e);
+    } finally {
+      creating.value = false;
+    }
+  }
+
+  // Open the create form when the topbar CTA navigates here with ?create=1.
+  watch(
+    () => route.query.create,
+    (v) => {
+      if (v) void openCreate();
+    },
+    { immediate: true },
+  );
+
+  onMounted(load);
+
+  return {
+    // list
+    filters,
+    activeFilter,
+    search,
+    loading,
+    error,
+    items,
+    total,
+    pageStart,
+    pageEnd,
+    canPrev,
+    canNext,
+    load,
+    setFilter,
+    prev,
+    next,
+    // drawer
+    selected,
+    statusBusy,
+    statusError,
+    nextStatuses,
+    open,
+    closeDrawer,
+    changeStatus,
+    waLink,
+    // create
+    createOpen,
+    creating,
+    createError,
+    bookableFlights,
+    createStatuses,
+    createForm,
+    createTotal,
+    openCreate,
+    closeCreate,
+    flightOptionLabel,
+    submitCreate,
+    // formatters / labels used by the template
+    money,
+    bookingRouteLabel,
+    dateTimeLabel,
+    initials,
+    paxLabel,
+    BOOKING_STATUS_LABEL,
+  };
+}

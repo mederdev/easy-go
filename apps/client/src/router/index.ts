@@ -18,58 +18,58 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'home',
-        component: () => import('../views/HomePage.vue'),
+        component: () => import('../views/home/index.vue'),
       },
       {
         path: 'availability',
-        component: () => import('../views/AvailabilityPage.vue'),
+        component: () => import('../views/availability/index.vue'),
       },
       {
         path: 'cabinet',
-        component: () => import('../views/CabinetPage.vue'),
+        component: () => import('../views/cabinet/index.vue'),
       },
       {
         path: 'info',
-        component: () => import('../views/InfoPage.vue'),
+        component: () => import('../views/info/index.vue'),
       },
       {
         path: 'about',
-        component: () => import('../views/AboutPage.vue'),
+        component: () => import('../views/about/index.vue'),
       },
       {
         path: 'contacts',
-        component: () => import('../views/ContactsPage.vue'),
+        component: () => import('../views/contacts/index.vue'),
       },
       {
         path: 'drivers',
-        component: () => import('../views/DriversPage.vue'),
+        component: () => import('../views/drivers/index.vue'),
       },
       {
         path: 'partners',
-        component: () => import('../views/PartnersPage.vue'),
+        component: () => import('../views/partners/index.vue'),
       },
     ],
   },
   {
     path: '/login',
-    component: () => import('../views/LoginPage.vue'),
+    component: () => import('../views/login/index.vue'),
   },
   {
     path: '/trip/:id',
-    component: () => import('../views/TripDetailPage.vue'),
+    component: () => import('../views/trip-detail/index.vue'),
   },
   {
     path: '/results',
-    component: () => import('../views/ResultsPage.vue'),
+    component: () => import('../views/results/index.vue'),
   },
   {
     path: '/booking',
-    component: () => import('../views/BookingPage.vue'),
+    component: () => import('../views/booking/index.vue'),
     meta: { requiresAuth: true },
   },
   {
     path: '/confirm',
-    component: () => import('../views/ConfirmPage.vue'),
+    component: () => import('../views/confirm/index.vue'),
     meta: { requiresAuth: true },
   },
 ];

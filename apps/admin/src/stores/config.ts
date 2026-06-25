@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import type { CurrencyCode, SystemConfig, UpdateSystemConfigInput } from '@easygo/shared';
 import { api } from '@/lib/api';
 
-interface ConfigState {
+export interface ConfigState {
   config: SystemConfig | null;
   loaded: boolean;
 }

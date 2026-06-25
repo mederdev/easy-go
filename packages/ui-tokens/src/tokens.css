@@ -1,0 +1,31 @@
+/* EasyGo design tokens as CSS variables. Import once at app root. */
+:root {
+  --eg-brand: #56A919;
+  --eg-brand-dark: #3E7C12;
+  --eg-brand-light: #EEF6E6;
+  --eg-brand-bright: #7BD93C;
+  --eg-ink: #16181C;
+  --eg-ink-soft: #3A3F45;
+  --eg-muted: #6E747C;
+  --eg-hint: #9AA0A6;
+  --eg-line: #ECEEE9;
+  --eg-border: #E2E5DF;
+  --eg-surface: #FFFFFF;
+  --eg-surface-alt: #F6F7F5;
+  --eg-page: #E7E9E3;
+  --eg-whatsapp: #25D366;
+
+  --eg-radius-sm: 10px;
+  --eg-radius-md: 14px;
+  --eg-radius-lg: 18px;
+  --eg-radius-xl: 22px;
+  --eg-radius-pill: 999px;
+
+  --eg-font: 'Manrope', system-ui, -apple-system, sans-serif;
+
+  /* Ionic theming hooks (client app) */
+  --ion-color-primary: #56A919;
+  --ion-color-primary-shade: #3E7C12;
+  --ion-color-primary-tint: #67b82f;
+  --ion-font-family: var(--eg-font);
+}

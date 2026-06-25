@@ -1,0 +1,269 @@
+// EasyGo data model. Money = integer minor units. Counters denormalized.
+// Mirrors the ER diagram in "EasyGo Architecture.dc.html".
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  operator
+  admin
+  owner
+}
+
+enum BookingStatus {
+  NEW
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum FlightStatus {
+  SCHEDULED
+  CLOSED
+  DEPARTED
+  CANCELLED
+}
+
+enum RouteStatus {
+  ACTIVE
+  DRAFT
+  ARCHIVED
+}
+
+enum CarStatus {
+  AVAILABLE
+  ON_TRIP
+  MAINTENANCE
+}
+
+enum ApplicationStatus {
+  NEW
+  REVIEWING
+  ACCEPTED
+  REJECTED
+}
+
+enum FileOwnerType {
+  CAR
+  COMPANY
+  DRIVER_APPLICATION
+  PARTNER_APPLICATION
+}
+
+enum FileKind {
+  CAR_PHOTO
+  COMPANY_PHOTO
+  LICENSE
+  ATTACHMENT
+}
+
+enum CurrencyCode {
+  KGS
+  KZT
+  USD
+  RUB
+}
+
+/// Back-office users (operator / admin / owner).
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  phone        String   @unique
+  role         UserRole @default(operator)
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+/// Booking customer. Upserted by phone from the public booking flow.
+model Client {
+  id            String    @id @default(uuid())
+  name          String
+  phone         String    @unique
+  whatsapp      Boolean   @default(true)
+  tripsCount    Int       @default(0) // denormalized
+  totalSum      Int       @default(0) // denormalized, minor units
+  lastBookingAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  bookings Booking[]
+
+  @@index([name])
+}
+
+model Driver {
+  id         String   @id @default(uuid())
+  name       String
+  phone      String
+  experience String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  cars Car[]
+}
+
+model Car {
+  id           String    @id @default(uuid())
+  model        String
+  plate        String    @unique
+  driverId     String?
+  driver       Driver?   @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  seats        Int       @default(11)
+  status       CarStatus @default(AVAILABLE)
+  locationCity String?
+  currentLat   Float?
+  currentLng   Float?
+  tripsMonth   Int       @default(0) // denormalized
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  flights Flight[]
+
+  @@index([status])
+}
+
+model Route {
+  id            String      @id @default(uuid())
+  fromCity      String
+  toCity        String
+  durationLabel String
+  price         Int // minor units, per seat
+  dailyTrips    Int         @default(0)
+  status        RouteStatus @default(ACTIVE)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  flights    Flight[]
+  dailyStats DailyStat[]
+
+  @@unique([fromCity, toCity])
+  @@index([status])
+}
+
+model Flight {
+  id            String       @id @default(uuid())
+  routeId       String
+  route         Route        @relation(fields: [routeId], references: [id], onDelete: Restrict)
+  carId         String?
+  car           Car?         @relation(fields: [carId], references: [id], onDelete: SetNull)
+  departAt      DateTime
+  pickupLat     Float?
+  pickupLng     Float?
+  pickupAddress String?
+  seatsTotal    Int          @default(11)
+  seatsTaken    Int          @default(0) // denormalized
+  status        FlightStatus @default(SCHEDULED)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  bookings Booking[]
+
+  @@index([routeId, departAt])
+  @@index([departAt])
+  @@index([status])
+}
+
+model Booking {
+  id             String        @id @default(uuid())
+  seq            Int           @unique @default(autoincrement())
+  code           String        @unique
+  clientId       String
+  client         Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  flightId       String
+  flight         Flight        @relation(fields: [flightId], references: [id], onDelete: Restrict)
+  pax            Int
+  total          Int // minor units
+  status         BookingStatus @default(NEW)
+  comment        String?
+  idempotencyKey String?       @unique
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([status])
+  @@index([clientId])
+  @@index([flightId])
+  @@index([createdAt])
+}
+
+/// Precomputed per-route, per-day analytics (source for all dashboards).
+model DailyStat {
+  id                String   @id @default(uuid())
+  date              DateTime @db.Date
+  routeId           String?
+  route             Route?   @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  ordersCount       Int      @default(0)
+  revenue           Int      @default(0) // minor units
+  newClients        Int      @default(0)
+  returningClients  Int      @default(0)
+
+  @@unique([date, routeId])
+  @@index([date])
+}
+
+model DriverApplication {
+  id         String            @id @default(uuid())
+  name       String
+  phone      String
+  hasCar     Boolean           @default(false)
+  carInfo    String?
+  experience String?
+  directions String?
+  about      String?
+  status     ApplicationStatus @default(NEW)
+  createdAt  DateTime          @default(now())
+
+  @@index([status])
+}
+
+model PartnerApplication {
+  id        String            @id @default(uuid())
+  company   String
+  sphere    String?
+  contacts  String
+  proposal  String?
+  status    ApplicationStatus @default(NEW)
+  createdAt DateTime          @default(now())
+
+  @@index([status])
+}
+
+model FileObject {
+  id          String        @id @default(uuid())
+  ownerType   FileOwnerType
+  ownerId     String
+  bucket      String
+  key         String
+  kind        FileKind
+  contentType String
+  size        Int           @default(0)
+  createdAt   DateTime      @default(now())
+
+  @@index([ownerType, ownerId])
+}
+
+/// Generic idempotency store powering the Idempotency-Key plugin.
+model IdempotencyKey {
+  key         String   @id
+  endpoint    String
+  requestHash String
+  response    Json
+  statusCode  Int      @default(200)
+  createdAt   DateTime @default(now())
+}
+
+/// Singleton system settings (id is always "singleton").
+model SystemConfig {
+  id            String       @id @default("singleton")
+  currency      CurrencyCode @default(KGS)
+  companyName   String       @default("EasyGo")
+  whatsappPhone String       @default("996700123456")
+  locale        String       @default("ru-RU")
+  updatedAt     DateTime     @updatedAt
+}

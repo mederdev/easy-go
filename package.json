@@ -1,0 +1,29 @@
+{
+  "name": "easygo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "EasyGo — intercity transfer booking platform (client app, admin CRM, API)",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=18.18"
+  },
+  "pnpm": {
+    "overrides": {
+      "ioredis": "5.11.1"
+    }
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "dev:api": "pnpm --filter @easygo/api dev",
+    "dev:admin": "pnpm --filter @easygo/admin dev",
+    "dev:client": "pnpm --filter @easygo/client dev",
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "pnpm -r run lint",
+    "infra:up": "docker compose up -d postgres redis minio createbuckets",
+    "infra:down": "docker compose down",
+    "db:migrate": "pnpm --filter @easygo/api db:migrate",
+    "db:seed": "pnpm --filter @easygo/api db:seed",
+    "db:studio": "pnpm --filter @easygo/api db:studio"
+  }
+}

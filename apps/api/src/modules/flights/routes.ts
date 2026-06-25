@@ -1,0 +1,41 @@
+import type { FastifyPluginAsync } from 'fastify';
+import {
+  CreateFlightInput,
+  ListFlightsQuery,
+  SearchFlightsQuery,
+  UpdateFlightInput,
+  Id,
+} from '@easygo/shared';
+import { parse } from '../../lib/validate.js';
+import * as svc from './service.js';
+
+const routes: FastifyPluginAsync = async (app) => {
+  // Public search used by the client app's "Найти рейсы".
+  app.get('/search', async (request) => {
+    const q = parse(SearchFlightsQuery, request.query);
+    return svc.searchFlights(q);
+  });
+
+  app.get('/:id', async (request) => {
+    const { id } = request.params as { id: string };
+    return svc.getFlight(parse(Id, id));
+  });
+
+  app.get('/', { preHandler: [app.authorize(['operator', 'admin', 'owner'])] }, async (request) => {
+    const q = parse(ListFlightsQuery, request.query);
+    return svc.listFlights(q);
+  });
+
+  app.post('/', { preHandler: [app.authorize(['admin', 'owner'])] }, async (request, reply) => {
+    const input = parse(CreateFlightInput, request.body);
+    reply.code(201);
+    return svc.createFlight(input);
+  });
+
+  app.patch('/:id', { preHandler: [app.authorize(['operator', 'admin', 'owner'])] }, async (request) => {
+    const { id } = request.params as { id: string };
+    return svc.updateFlight(parse(Id, id), parse(UpdateFlightInput, request.body));
+  });
+};
+
+export default routes;

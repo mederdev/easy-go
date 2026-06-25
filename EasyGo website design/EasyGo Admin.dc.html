@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0}
+[data-scroll]{scrollbar-width:thin;scrollbar-color:#D6DAD2 transparent}
+[data-scroll]::-webkit-scrollbar{width:8px;height:8px}
+[data-scroll]::-webkit-scrollbar-thumb{background:#D6DAD2;border-radius:8px}
+</style>
+</helmet>
+<div style="display:flex;height:100vh;overflow:hidden;background:#F4F5F2;font-family:Manrope,sans-serif;color:#16181C">
+
+  <!-- ===== SIDEBAR ===== -->
+  <aside style="width:250px;flex:none;background:#fff;border-right:1px solid #E7E9E5;display:flex;flex-direction:column;padding:20px 16px">
+    <img src="assets/logo-t.png" alt="EasyGo" style="width:148px;height:auto;margin:4px 6px 4px"/>
+    <div style="font:700 11px Manrope;letter-spacing:.12em;color:#A7ACA2;text-transform:uppercase;padding:10px 8px 6px">Панель управления</div>
+    <nav data-scroll style="display:flex;flex-direction:column;gap:3px;overflow:auto;flex:1">
+      <button onClick="{{ goDash }}" style="{{ nDash }}"><span style="font-family:'Material Symbols Outlined';font-size:21px">dashboard</span>Дашборд</button>
+      <button onClick="{{ goBook }}" style="{{ nBook }}"><span style="font-family:'Material Symbols Outlined';font-size:21px">receipt_long</span>Бронирования<span style="margin-left:auto;background:#56A919;color:#fff;font:800 11px Manrope;padding:1px 7px;border-radius:999px">6</span></button>
+      <button onClick="{{ goFlights }}" style="{{ nFlights }}"><span style="font-family:'Material Symbols Outlined';font-size:21px">event_seat</span>Рейсы</button>
+      <button onClick="{{ goRoutes }}" style="{{ nRoutes }}"><span style="font-family:'Material Symbols Outlined';font-size:21px">route</span>Маршруты</button>
+      <button onClick="{{ goFleet }}" style="{{ nFleet }}"><span style="font-family:'Material Symbols Outlined';font-size:21px">directions_car</span>Автопарк</button>
+      <button onClick="{{ goClients }}" style="{{ nClients }}"><span style="font-family:'Material Symbols Outlined';font-size:21px">groups</span>Клиенты</button>
+      <button onClick="{{ goStats }}" style="{{ nStats }}"><span style="font-family:'Material Symbols Outlined';font-size:21px">monitoring</span>Аналитика</button>
+      <div style="height:1px;background:#EEF0EC;margin:8px 8px"></div>
+      <button onClick="{{ goApps }}" style="{{ nApps }}"><span style="font-family:'Material Symbols Outlined';font-size:21px">handshake</span>Заявки на сотр.<span style="margin-left:auto;background:#F0F1EE;color:#6E747C;font:800 11px Manrope;padding:1px 7px;border-radius:999px">4</span></button>
+      <button onClick="{{ goSettings }}" style="{{ nSettings }}"><span style="font-family:'Material Symbols Outlined';font-size:21px">settings</span>Настройки</button>
+    </nav>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px;border-top:1px solid #EEF0EC;margin-top:8px">
+      <div style="width:38px;height:38px;border-radius:50%;background:#16181C;color:#7BD93C;display:flex;align-items:center;justify-content:center;font:800 14px Manrope">ОП</div>
+      <div style="flex:1;min-width:0"><div style="font:700 13px Manrope">Оператор</div><div style="font:500 11px Manrope;color:#9AA0A6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Диспетчерская · Бишкек</div></div>
+      <span style="font-family:'Material Symbols Outlined';font-size:20px;color:#B4B9B0">logout</span>
+    </div>
+  </aside>
+
+  <!-- ===== MAIN ===== -->
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+    <!-- topbar -->
+    <header style="flex:none;height:68px;background:#fff;border-bottom:1px solid #E7E9E5;display:flex;align-items:center;gap:16px;padding:0 28px">
+      <div style="flex:1"><div style="font:800 20px Manrope;letter-spacing:-.01em">{{ title }}</div><div style="font:500 12px Manrope;color:#9AA0A6">{{ subtitle }}</div></div>
+      <div style="display:flex;align-items:center;gap:9px;height:42px;width:300px;background:#F4F5F2;border-radius:12px;padding:0 14px">
+        <span style="font-family:'Material Symbols Outlined';font-size:20px;color:#A7ACA2">search</span>
+        <input placeholder="Поиск клиента, брони, авто…" style="border:none;background:transparent;outline:none;flex:1;font:500 13px Manrope;color:#16181C"/>
+      </div>
+      <button style="width:42px;height:42px;border-radius:12px;border:1px solid #E7E9E5;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative"><span style="font-family:'Material Symbols Outlined';font-size:21px;color:#5A6066">notifications</span><span style="position:absolute;top:9px;right:9px;width:8px;height:8px;border-radius:50%;background:#56A919;border:2px solid #fff"></span></button>
+      <button style="height:42px;padding:0 18px;border:none;border-radius:12px;background:#56A919;color:#fff;font:700 14px Manrope;cursor:pointer;display:flex;align-items:center;gap:7px"><span style="font-family:'Material Symbols Outlined';font-size:20px">add</span>{{ ctaLabel }}</button>
+    </header>
+
+    <!-- content -->
+    <main data-scroll style="flex:1;overflow:auto;padding:24px 28px">
+
+      <!-- ===== DASHBOARD ===== -->
+      <sc-if value="{{ sDash }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+          <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:18px 20px">
+            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:600 13px Manrope;color:#9AA0A6">Заявки сегодня</span><span style="width:34px;height:34px;border-radius:10px;background:#EEF6E6;color:#56A919;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Outlined';font-size:19px">receipt_long</span></div>
+            <div style="font:800 30px Manrope;margin-top:10px">18</div>
+            <div style="font:700 12px Manrope;color:#3E7C12;margin-top:2px">▲ 12% к вчера</div>
+          </div>
+          <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:18px 20px">
+            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:600 13px Manrope;color:#9AA0A6">Загрузка автопарка</span><span style="width:34px;height:34px;border-radius:10px;background:#EEF6E6;color:#56A919;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Outlined';font-size:19px">directions_car</span></div>
+            <div style="font:800 30px Manrope;margin-top:10px">76%</div>
+            <div style="font:700 12px Manrope;color:#9AA0A6;margin-top:2px">3 из 4 авто в рейсах</div>
+          </div>
+          <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:18px 20px">
+            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:600 13px Manrope;color:#9AA0A6">Новые клиенты · мес</span><span style="width:34px;height:34px;border-radius:10px;background:#EEF6E6;color:#56A919;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Outlined';font-size:19px">person_add</span></div>
+            <div style="font:800 30px Manrope;margin-top:10px">64</div>
+            <div style="font:700 12px Manrope;color:#3E7C12;margin-top:2px">▲ 8% к прошл. мес.</div>
+          </div>
+          <div style="background:#16181C;border-radius:16px;padding:18px 20px;color:#fff">
+            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:600 13px Manrope;color:#9CA29A">Выручка · мес</span><span style="width:34px;height:34px;border-radius:10px;background:rgba(86,169,25,.2);color:#7BD93C;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Outlined';font-size:19px">payments</span></div>
+            <div style="font:800 30px Manrope;margin-top:10px;color:#fff">1,24 <span style="font:700 16px Manrope;color:#9CA29A">млн сом</span></div>
+            <div style="font:700 12px Manrope;color:#7BD93C;margin-top:2px">▲ 15% к прошл. мес.</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:16px;margin-top:16px">
+          <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:20px 22px">
+            <div style="font:800 16px Manrope;margin-bottom:16px">Популярность маршрутов</div>
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div><div style="display:flex;justify-content:space-between;font:700 13px Manrope;margin-bottom:6px"><span>Бишкек → Алматы</span><span style="color:#9AA0A6">42%</span></div><div style="height:9px;background:#F0F1EE;border-radius:9px"><div style="width:42%;height:100%;background:#56A919;border-radius:9px"></div></div></div>
+              <div><div style="display:flex;justify-content:space-between;font:700 13px Manrope;margin-bottom:6px"><span>Алматы → Бишкек</span><span style="color:#9AA0A6">31%</span></div><div style="height:9px;background:#F0F1EE;border-radius:9px"><div style="width:31%;height:100%;background:#56A919;border-radius:9px"></div></div></div>
+              <div><div style="display:flex;justify-content:space-between;font:700 13px Manrope;margin-bottom:6px"><span>Бишкек → Иссык-Куль</span><span style="color:#9AA0A6">18%</span></div><div style="height:9px;background:#F0F1EE;border-radius:9px"><div style="width:18%;height:100%;background:#56A919;border-radius:9px"></div></div></div>
+              <div><div style="display:flex;justify-content:space-between;font:700 13px Manrope;margin-bottom:6px"><span>Прочие направления</span><span style="color:#9AA0A6">9%</span></div><div style="height:9px;background:#F0F1EE;border-radius:9px"><div style="width:9%;height:100%;background:#C9D2C0;border-radius:9px"></div></div></div>
+            </div>
+          </div>
+          <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:20px 22px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font:800 16px Manrope">Ближайшие рейсы</div><button onClick="{{ goFlights }}" style="border:none;background:transparent;color:#56A919;font:700 12px Manrope;cursor:pointer">Все рейсы</button></div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;align-items:center;gap:12px"><div style="font:800 15px Manrope;width:48px">14:00</div><div style="flex:1"><div style="font:700 13px Manrope">Бишкек → Алматы</div><div style="font:500 11px Manrope;color:#9AA0A6">KIA Carnival · 01KG777</div></div><span style="font:700 12px Manrope;color:#3E7C12">9/11</span></div>
+              <div style="height:1px;background:#EEF0EC"></div>
+              <div style="display:flex;align-items:center;gap:12px"><div style="font:800 15px Manrope;width:48px">17:00</div><div style="flex:1"><div style="font:700 13px Manrope">Бишкек → Алматы</div><div style="font:500 11px Manrope;color:#9AA0A6">KIA Carnival · 01KG333</div></div><span style="font:700 12px Manrope;color:#3E7C12">7/11</span></div>
+              <div style="height:1px;background:#EEF0EC"></div>
+              <div style="display:flex;align-items:center;gap:12px"><div style="font:800 15px Manrope;width:48px">20:00</div><div style="flex:1"><div style="font:700 13px Manrope">Бишкек → Алматы</div><div style="font:500 11px Manrope;color:#9AA0A6">KIA Carnival · 01KG555</div></div><span style="font:700 12px Manrope;color:#C0492E">10/11</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:20px 22px;margin-top:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font:800 16px Manrope">Последние заявки</div><button onClick="{{ goBook }}" style="border:none;background:transparent;color:#56A919;font:700 12px Manrope;cursor:pointer">Открыть CRM</button></div>
+          <div style="display:grid;grid-template-columns:90px 1.4fr 1.4fr 1fr 90px 120px;font:700 11px Manrope;color:#9AA0A6;text-transform:uppercase;letter-spacing:.04em;padding:0 4px 10px;border-bottom:1px solid #EEF0EC"><span>№</span><span>Клиент</span><span>Маршрут</span><span>Дата</span><span>Сумма</span><span>Статус</span></div>
+          <sc-for list="{{ recent }}" as="b" hint-placeholder-count="4">
+            <div style="display:grid;grid-template-columns:90px 1.4fr 1.4fr 1fr 90px 120px;align-items:center;font:600 13px Manrope;padding:11px 4px;border-bottom:1px solid #F4F5F2"><span style="color:#9AA0A6">{{ b.id }}</span><span style="font-weight:700">{{ b.name }}</span><span>{{ b.route }}</span><span style="color:#6E747C">{{ b.date }}</span><span style="font-weight:700">{{ b.total }}</span><span><span style="padding:3px 10px;border-radius:999px;font:700 11px Manrope;background:{{ b.bg }};color:{{ b.color }}">{{ b.status }}</span></span></div>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ===== BOOKINGS ===== -->
+      <sc-if value="{{ sBook }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+          <button onClick="{{ filtAll }}" style="{{ fAll }}">Все · 6</button>
+          <button onClick="{{ filtNew }}" style="{{ fNew }}">Новые · 1</button>
+          <button onClick="{{ filtConf }}" style="{{ fConf }}">Подтверждённые · 2</button>
+          <button onClick="{{ filtDone }}" style="{{ fDone }}">Завершённые · 2</button>
+        </div>
+        <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;overflow:hidden">
+          <div style="display:grid;grid-template-columns:80px 1.5fr 1.5fr 1.2fr 80px 110px 130px 44px;font:700 11px Manrope;color:#9AA0A6;text-transform:uppercase;letter-spacing:.04em;padding:16px 20px;border-bottom:1px solid #EEF0EC"><span>№</span><span>Клиент</span><span>Маршрут</span><span>Дата · время</span><span>Пасс.</span><span>Сумма</span><span>Статус</span><span></span></div>
+          <sc-for list="{{ bookings }}" as="b" hint-placeholder-count="6">
+            <div onClick="{{ b.open }}" style="display:grid;grid-template-columns:80px 1.5fr 1.5fr 1.2fr 80px 110px 130px 44px;align-items:center;font:600 13px Manrope;padding:15px 20px;border-bottom:1px solid #F4F5F2;cursor:pointer">
+              <span style="color:#9AA0A6;font-weight:700">{{ b.id }}</span>
+              <span><span style="font-weight:700;display:block">{{ b.name }}</span><span style="font:500 12px Manrope;color:#9AA0A6">{{ b.phone }}</span></span>
+              <span style="font-weight:700">{{ b.route }}</span>
+              <span style="color:#6E747C">{{ b.date }}</span>
+              <span style="font-weight:700">{{ b.pax }}</span>
+              <span style="font-weight:800">{{ b.total }}</span>
+              <span><span style="padding:4px 11px;border-radius:999px;font:700 11px Manrope;background:{{ b.bg }};color:{{ b.color }}">{{ b.status }}</span></span>
+              <span style="text-align:right;color:#C4C8C0;font-family:'Material Symbols Outlined';font-size:20px">chevron_right</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ===== FLIGHTS ===== -->
+      <sc-if value="{{ sFlights }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <div style="font:800 14px Manrope;color:#6E747C;margin-bottom:12px">Сегодня · 25 июня</div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px">
+          <sc-for list="{{ flights }}" as="f" hint-placeholder-count="4">
+            <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:18px 20px">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <div><div style="font:800 17px Manrope">{{ f.route }}</div><div style="font:600 12px Manrope;color:#9AA0A6;margin-top:2px">{{ f.car }} · водитель {{ f.driver }}</div></div>
+                <div style="text-align:right"><div style="font:800 22px Manrope">{{ f.time }}</div></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;margin-top:16px">
+                <div style="flex:1"><div style="height:8px;background:#F0F1EE;border-radius:8px"><div style="width:{{ f.pct }};height:100%;background:{{ f.barColor }};border-radius:8px"></div></div></div>
+                <span style="font:800 13px Manrope">{{ f.load }}</span>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px">
+                <span style="padding:5px 12px;border-radius:999px;font:700 12px Manrope;background:{{ f.statusBg }};color:{{ f.statusColor }}">{{ f.statusLabel }}</span>
+                <button style="border:1px solid #E7E9E5;background:#fff;border-radius:10px;height:36px;padding:0 14px;font:700 12px Manrope;cursor:pointer;color:#5A6066">Управлять</button>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ===== ROUTES ===== -->
+      <sc-if value="{{ sRoutes }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <div style="background:#EEF6E6;border-radius:14px;padding:14px 18px;display:flex;align-items:center;gap:12px;margin-bottom:16px"><span style="color:#3E7C12;font-family:'Material Symbols Outlined';font-size:22px">lightbulb</span><div style="font:600 13px Manrope;color:#3E7C12">Новые направления добавляются прямо из панели — без участия разработчиков.</div></div>
+        <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;overflow:hidden">
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1.2fr 120px;font:700 11px Manrope;color:#9AA0A6;text-transform:uppercase;letter-spacing:.04em;padding:16px 20px;border-bottom:1px solid #EEF0EC"><span>Маршрут</span><span>В пути</span><span>Цена / место</span><span>Рейсов в день</span><span>Статус</span></div>
+          <sc-for list="{{ routes }}" as="r" hint-placeholder-count="5">
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1.2fr 120px;align-items:center;font:600 13px Manrope;padding:15px 20px;border-bottom:1px solid #F4F5F2"><span style="font-weight:700">{{ r.name }}</span><span style="color:#6E747C">{{ r.dur }}</span><span style="font-weight:700">{{ r.price }}</span><span style="color:#6E747C">{{ r.daily }}</span><span><span style="padding:4px 11px;border-radius:999px;font:700 11px Manrope;background:{{ r.bg }};color:{{ r.color }}">{{ r.status }}</span></span></div>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ===== FLEET ===== -->
+      <sc-if value="{{ sFleet }}" hint-placeholder-val="{{ true }}">
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px">
+        <sc-for list="{{ fleet }}" as="c" hint-placeholder-count="4">
+          <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:18px 20px;display:flex;gap:16px">
+            <div style="width:64px;height:64px;border-radius:14px;background:#16181C;color:#7BD93C;display:flex;align-items:center;justify-content:center;flex:none;font-family:'Material Symbols Outlined';font-size:32px">directions_car</div>
+            <div style="flex:1">
+              <div style="display:flex;align-items:center;justify-content:space-between"><div style="font:800 16px Manrope">{{ c.model }}</div><span style="padding:4px 11px;border-radius:999px;font:700 11px Manrope;background:{{ c.bg }};color:{{ c.color }}">{{ c.status }}</span></div>
+              <div style="font:700 13px Manrope;color:#56A919;margin-top:3px">{{ c.plate }}</div>
+              <div style="display:flex;gap:18px;margin-top:12px">
+                <div><div style="font:600 10px Manrope;color:#9AA0A6;text-transform:uppercase">Водитель</div><div style="font:700 13px Manrope">{{ c.driver }}</div></div>
+                <div><div style="font:600 10px Manrope;color:#9AA0A6;text-transform:uppercase">Мест</div><div style="font:700 13px Manrope">{{ c.seats }}</div></div>
+                <div><div style="font:600 10px Manrope;color:#9AA0A6;text-transform:uppercase">Рейсов · мес</div><div style="font:700 13px Manrope">{{ c.trips }}</div></div>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      </sc-if>
+
+      <!-- ===== CLIENTS ===== -->
+      <sc-if value="{{ sClients }}" hint-placeholder-val="{{ true }}">
+      <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;overflow:hidden">
+        <div style="display:grid;grid-template-columns:1.6fr 1.3fr 90px 90px 1fr 130px;font:700 11px Manrope;color:#9AA0A6;text-transform:uppercase;letter-spacing:.04em;padding:16px 20px;border-bottom:1px solid #EEF0EC"><span>Клиент</span><span>Телефон</span><span>WhatsApp</span><span>Поездок</span><span>Сумма заказов</span><span>Последняя</span></div>
+        <sc-for list="{{ clients }}" as="c" hint-placeholder-count="6">
+          <div style="display:grid;grid-template-columns:1.6fr 1.3fr 90px 90px 1fr 130px;align-items:center;font:600 13px Manrope;padding:14px 20px;border-bottom:1px solid #F4F5F2">
+            <span style="display:flex;align-items:center;gap:11px"><span style="width:36px;height:36px;border-radius:50%;background:#EEF6E6;color:#3E7C12;display:flex;align-items:center;justify-content:center;font:800 12px Manrope">{{ c.ini }}</span><span style="font-weight:700">{{ c.name }}</span></span>
+            <span style="color:#6E747C">{{ c.phone }}</span>
+            <span><span style="font-family:'Material Symbols Outlined';font-size:19px;color:#1FAE54">check_circle</span></span>
+            <span style="font-weight:700">{{ c.trips }}</span>
+            <span style="font-weight:800">{{ c.sum }}</span>
+            <span style="color:#6E747C">{{ c.last }}</span>
+          </div>
+        </sc-for>
+      </div>
+      </sc-if>
+
+      <!-- ===== ANALYTICS ===== -->
+      <sc-if value="{{ sStats }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:20px 22px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px"><div style="font:800 16px Manrope">Заявки по неделям</div><div style="font:600 12px Manrope;color:#9AA0A6">последние 8 недель</div></div>
+          <div style="display:flex;align-items:flex-end;gap:18px;height:200px;padding:0 6px">
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px"><div style="width:100%;max-width:46px;height:46%;background:#D8E8C8;border-radius:8px 8px 0 0"></div><span style="font:700 11px Manrope;color:#9AA0A6">Н1</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px"><div style="width:100%;max-width:46px;height:58%;background:#D8E8C8;border-radius:8px 8px 0 0"></div><span style="font:700 11px Manrope;color:#9AA0A6">Н2</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px"><div style="width:100%;max-width:46px;height:52%;background:#D8E8C8;border-radius:8px 8px 0 0"></div><span style="font:700 11px Manrope;color:#9AA0A6">Н3</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px"><div style="width:100%;max-width:46px;height:70%;background:#B8DBA0;border-radius:8px 8px 0 0"></div><span style="font:700 11px Manrope;color:#9AA0A6">Н4</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px"><div style="width:100%;max-width:46px;height:64%;background:#B8DBA0;border-radius:8px 8px 0 0"></div><span style="font:700 11px Manrope;color:#9AA0A6">Н5</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px"><div style="width:100%;max-width:46px;height:82%;background:#56A919;border-radius:8px 8px 0 0"></div><span style="font:700 11px Manrope;color:#9AA0A6">Н6</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px"><div style="width:100%;max-width:46px;height:76%;background:#56A919;border-radius:8px 8px 0 0"></div><span style="font:700 11px Manrope;color:#9AA0A6">Н7</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px"><div style="width:100%;max-width:46px;height:96%;background:#56A919;border-radius:8px 8px 0 0"></div><span style="font:700 11px Manrope;color:#9AA0A6">Н8</span></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+          <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:20px 22px">
+            <div style="font:800 16px Manrope;margin-bottom:16px">Постоянные vs новые</div>
+            <div style="display:flex;align-items:center;gap:24px">
+              <div style="width:120px;height:120px;border-radius:50%;background:conic-gradient(#56A919 0 64%,#D8E8C8 64% 100%);display:flex;align-items:center;justify-content:center"><div style="width:78px;height:78px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center"><div style="font:800 20px Manrope">64%</div><div style="font:600 9px Manrope;color:#9AA0A6">постоянные</div></div></div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;align-items:center;gap:9px"><span style="width:12px;height:12px;border-radius:3px;background:#56A919"></span><span style="font:700 13px Manrope">Постоянные · 64%</span></div>
+                <div style="display:flex;align-items:center;gap:9px"><span style="width:12px;height:12px;border-radius:3px;background:#D8E8C8"></span><span style="font:700 13px Manrope">Новые · 36%</span></div>
+              </div>
+            </div>
+          </div>
+          <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:20px 22px">
+            <div style="font:800 16px Manrope;margin-bottom:14px">Выручка по направлениям</div>
+            <div style="display:flex;flex-direction:column;gap:11px">
+              <div style="display:flex;justify-content:space-between;font:600 13px Manrope"><span>Бишкек → Алматы</span><span style="font-weight:800">521 000 сом</span></div>
+              <div style="height:1px;background:#EEF0EC"></div>
+              <div style="display:flex;justify-content:space-between;font:600 13px Manrope"><span>Алматы → Бишкек</span><span style="font-weight:800">384 000 сом</span></div>
+              <div style="height:1px;background:#EEF0EC"></div>
+              <div style="display:flex;justify-content:space-between;font:600 13px Manrope"><span>Бишкек → Иссык-Куль</span><span style="font-weight:800">223 000 сом</span></div>
+              <div style="height:1px;background:#EEF0EC"></div>
+              <div style="display:flex;justify-content:space-between;font:600 13px Manrope"><span>Прочие</span><span style="font-weight:800">112 000 сом</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ===== APPLICATIONS ===== -->
+      <sc-if value="{{ sApps }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <div style="display:flex;gap:8px;margin-bottom:16px">
+          <button onClick="{{ appDrivers }}" style="{{ aDrivers }}">Водители · 3</button>
+          <button onClick="{{ appPartners }}" style="{{ aPartners }}">Партнёры · 1</button>
+        </div>
+        <sc-if value="{{ appsDrivers }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:18px 20px;display:flex;align-items:center;gap:16px">
+            <div style="width:48px;height:48px;border-radius:50%;background:#EEF6E6;color:#3E7C12;display:flex;align-items:center;justify-content:center;font:800 15px Manrope">БА</div>
+            <div style="flex:1"><div style="font:800 15px Manrope">Бакыт Асанов</div><div style="font:600 12px Manrope;color:#9AA0A6">+996 700 55 44 33 · своё авто: KIA Carnival · опыт 6 лет · Бишкек–Алматы</div></div>
+            <button style="height:40px;padding:0 18px;border:none;border-radius:11px;background:#56A919;color:#fff;font:700 13px Manrope;cursor:pointer">Принять</button>
+            <button style="height:40px;padding:0 16px;border:1px solid #E7E9E5;background:#fff;color:#6E747C;font:700 13px Manrope;border-radius:11px;cursor:pointer">Отклонить</button>
+          </div>
+          <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:18px 20px;display:flex;align-items:center;gap:16px">
+            <div style="width:48px;height:48px;border-radius:50%;background:#EEF6E6;color:#3E7C12;display:flex;align-items:center;justify-content:center;font:800 15px Manrope">ЭТ</div>
+            <div style="flex:1"><div style="font:800 15px Manrope">Эрлан Токтосунов</div><div style="font:600 12px Manrope;color:#9AA0A6">+996 555 22 11 00 · без авто · опыт 3 года · Бишкек–Иссык-Куль</div></div>
+            <button style="height:40px;padding:0 18px;border:none;border-radius:11px;background:#56A919;color:#fff;font:700 13px Manrope;cursor:pointer">Принять</button>
+            <button style="height:40px;padding:0 16px;border:1px solid #E7E9E5;background:#fff;color:#6E747C;font:700 13px Manrope;border-radius:11px;cursor:pointer">Отклонить</button>
+          </div>
+          <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:18px 20px;display:flex;align-items:center;gap:16px">
+            <div style="width:48px;height:48px;border-radius:50%;background:#EEF6E6;color:#3E7C12;display:flex;align-items:center;justify-content:center;font:800 15px Manrope">ТМ</div>
+            <div style="flex:1"><div style="font:800 15px Manrope">Талант Мамытов</div><div style="font:600 12px Manrope;color:#9AA0A6">+996 700 88 99 77 · своё авто: Toyota Alphard · опыт 9 лет · все направления</div></div>
+            <button style="height:40px;padding:0 18px;border:none;border-radius:11px;background:#56A919;color:#fff;font:700 13px Manrope;cursor:pointer">Принять</button>
+            <button style="height:40px;padding:0 16px;border:1px solid #E7E9E5;background:#fff;color:#6E747C;font:700 13px Manrope;border-radius:11px;cursor:pointer">Отклонить</button>
+          </div>
+        </div>
+        </sc-if>
+        <sc-if value="{{ appsPartners }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:18px 20px;display:flex;align-items:flex-start;gap:16px">
+            <div style="width:48px;height:48px;border-radius:13px;background:#16181C;color:#7BD93C;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Outlined';font-size:24px">hotel</div>
+            <div style="flex:1"><div style="font:800 15px Manrope">Гостиница «Иссык-Куль Резорт»</div><div style="font:600 12px Manrope;color:#9AA0A6;margin-top:2px">Сфера: отель · контакт: +996 312 90 00 00</div><div style="font:500 13px/1.5 Manrope;color:#4A4F55;margin-top:8px">Хотим организовать трансфер гостей от аэропорта и из Бишкека. Готовы к долгосрочному сотрудничеству и объёмам.</div></div>
+            <button style="height:40px;padding:0 18px;border:none;border-radius:11px;background:#56A919;color:#fff;font:700 13px Manrope;cursor:pointer;flex:none">Связаться</button>
+          </div>
+        </div>
+        </sc-if>
+      </div>
+      </sc-if>
+
+      <!-- ===== SETTINGS ===== -->
+      <sc-if value="{{ sSettings }}" hint-placeholder-val="{{ false }}">
+      <div style="max-width:640px;display:flex;flex-direction:column;gap:14px">
+        <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:20px 22px">
+          <div style="font:800 16px Manrope;margin-bottom:14px">Компания</div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div><div style="font:600 12px Manrope;color:#9AA0A6;margin-bottom:5px">Название</div><input value="EASY GO ТРАНСФЕР" style="width:100%;height:46px;padding:0 14px;border:1px solid #E2E5DF;border-radius:11px;font:600 14px Manrope;outline:none"/></div>
+            <div><div style="font:600 12px Manrope;color:#9AA0A6;margin-bottom:5px">WhatsApp для заявок</div><input value="+996 700 12 34 56" style="width:100%;height:46px;padding:0 14px;border:1px solid #E2E5DF;border-radius:11px;font:600 14px Manrope;outline:none"/></div>
+          </div>
+        </div>
+        <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:20px 22px">
+          <div style="font:800 16px Manrope;margin-bottom:14px">Уведомления</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0"><span style="font:600 14px Manrope">Авто-сообщения в WhatsApp клиенту</span><span style="width:44px;height:26px;border-radius:999px;background:#56A919;position:relative"><span style="position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;background:#fff"></span></span></div>
+          <div style="height:1px;background:#EEF0EC"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0"><span style="font:600 14px Manrope">Напоминание перед поездкой</span><span style="width:44px;height:26px;border-radius:999px;background:#56A919;position:relative"><span style="position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;background:#fff"></span></span></div>
+        </div>
+      </div>
+      </sc-if>
+
+    </main>
+  </div>
+
+  <!-- ===== BOOKING DRAWER ===== -->
+  <sc-if value="{{ drawerOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;background:rgba(16,18,20,.35);z-index:40"></div>
+  <div style="position:fixed;top:0;right:0;bottom:0;width:420px;background:#fff;z-index:41;box-shadow:-12px 0 40px -16px rgba(20,30,10,.3);display:flex;flex-direction:column">
+    <div style="padding:22px 24px;border-bottom:1px solid #EEF0EC;display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div style="flex:1"><div style="font:700 12px Manrope;color:#9AA0A6">Бронирование {{ sel.id }}</div><div style="font:800 20px Manrope;margin-top:2px">{{ sel.route }}</div></div>
+      <button onClick="{{ closeDrawer }}" style="width:38px;height:38px;border-radius:11px;border:1px solid #E7E9E5;background:#fff;cursor:pointer;font-family:'Material Symbols Outlined';font-size:20px">close</button>
+    </div>
+    <div data-scroll style="flex:1;overflow:auto;padding:22px 24px">
+      <span style="padding:5px 12px;border-radius:999px;font:700 12px Manrope;background:{{ sel.bg }};color:{{ sel.color }}">{{ sel.status }}</span>
+      <div style="margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div><div style="font:600 11px Manrope;color:#9AA0A6;text-transform:uppercase">Дата · время</div><div style="font:700 15px Manrope;margin-top:3px">{{ sel.date }}</div></div>
+        <div><div style="font:600 11px Manrope;color:#9AA0A6;text-transform:uppercase">Пассажиров</div><div style="font:700 15px Manrope;margin-top:3px">{{ sel.pax }}</div></div>
+        <div><div style="font:600 11px Manrope;color:#9AA0A6;text-transform:uppercase">Сумма</div><div style="font:800 15px Manrope;margin-top:3px;color:#56A919">{{ sel.total }}</div></div>
+        <div><div style="font:600 11px Manrope;color:#9AA0A6;text-transform:uppercase">Авто</div><div style="font:700 15px Manrope;margin-top:3px">KIA Carnival</div></div>
+      </div>
+      <div style="height:1px;background:#EEF0EC;margin:20px 0"></div>
+      <div style="font:800 14px Manrope;margin-bottom:12px">Клиент</div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:48px;height:48px;border-radius:50%;background:#EEF6E6;color:#3E7C12;display:flex;align-items:center;justify-content:center;font:800 16px Manrope">{{ sel.ini }}</div>
+        <div><div style="font:800 15px Manrope">{{ sel.name }}</div><div style="font:600 13px Manrope;color:#9AA0A6">{{ sel.phone }}</div></div>
+      </div>
+      <div style="display:flex;gap:18px;margin-top:16px;padding:14px 16px;background:#F6F7F5;border-radius:13px">
+        <div><div style="font:600 10px Manrope;color:#9AA0A6;text-transform:uppercase">Поездок</div><div style="font:800 18px Manrope">{{ sel.ctrips }}</div></div>
+        <div><div style="font:600 10px Manrope;color:#9AA0A6;text-transform:uppercase">Сумма заказов</div><div style="font:800 18px Manrope">{{ sel.csum }}</div></div>
+      </div>
+    </div>
+    <div style="padding:18px 24px;border-top:1px solid #EEF0EC;display:flex;gap:10px">
+      <a href="#" style="flex:1;height:48px;border-radius:12px;background:#25D366;color:#fff;font:700 14px Manrope;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px"><span style="font-family:'Material Symbols Outlined';font-size:20px">chat</span>WhatsApp</a>
+      <button style="height:48px;padding:0 18px;border:1px solid #E7E9E5;background:#fff;color:#16181C;font:700 14px Manrope;border-radius:12px;cursor:pointer">Изменить</button>
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { section:'dashboard', filter:'all', appTab:'drivers', sel:null };
+  nav(s){ this.setState({section:s, sel:null}); const e=document.querySelector('main[data-scroll]'); if(e) e.scrollTop=0; }
+  navBtn(active){ return 'display:flex;align-items:center;gap:11px;width:100%;text-align:left;border:none;border-radius:11px;padding:11px 12px;cursor:pointer;font:700 13.5px Manrope;'+(active?'background:#EEF6E6;color:#3E7C12':'background:transparent;color:#5A6066'); }
+  chip(active){ return 'height:38px;padding:0 16px;border-radius:11px;border:1px solid '+(active?'#56A919':'#E7E9E5')+';background:'+(active?'#EEF6E6':'#fff')+';color:'+(active?'#3E7C12':'#6E747C')+';font:700 13px Manrope;cursor:pointer'; }
+  seg(active){ return 'height:40px;padding:0 18px;border-radius:11px;border:none;background:'+(active?'#16181C':'#F0F1EE')+';color:'+(active?'#fff':'#6E747C')+';font:700 13px Manrope;cursor:pointer'; }
+  st(s){ const m={ 'Новая':['#EEF6E6','#3E7C12'],'Подтверждён':['#E6EFFB','#2C66C9'],'Завершён':['#F0F1EE','#8A8F86'],'Отменён':['#FBEDEA','#C0492E'],'Активен':['#EEF6E6','#3E7C12'],'Черновик':['#F0F1EE','#8A8F86'],'В Бишкеке':['#EEF6E6','#3E7C12'],'В Алматы':['#EEF6E6','#3E7C12'],'В пути':['#FEF3E2','#C77A18'],'На обслуживании':['#FBEDEA','#C0492E'] }; return m[s]||['#F0F1EE','#8A8F86']; }
+  renderVals(){
+    const s=this.state, sec=x=>s.section===x;
+    const titles={ dashboard:['Дашборд','Обзор за сегодня · 25 июня','Новое бронирование'], bookings:['Бронирования','CRM · заявки клиентов','Новое бронирование'], flights:['Рейсы','Расписание и загрузка','Создать рейс'], routes:['Маршруты','Направления и цены','Добавить маршрут'], fleet:['Автопарк','Транспорт и статусы','Добавить авто'], clients:['Клиенты','База клиентов','Добавить клиента'], stats:['Аналитика','Показатели бизнеса','Экспорт'], applications:['Заявки на сотрудничество','Водители и партнёры','Пригласить'], settings:['Настройки','Параметры платформы','Сохранить'] };
+    const t=titles[s.section]||titles.dashboard;
+    const mk=(id,name,phone,route,date,pax,total,status,ctrips,csum,ini)=>{ const c=this.st(status); const o={id,name,phone,route,date,pax,total,status,bg:c[0],color:c[1],ctrips,csum,ini}; o.open=()=>this.setState({sel:o}); return o; };
+    const bookings=[
+      mk('№1042','Айгуль Сапарова','+996 700 12 34 56','Бишкек → Алматы','25.06 · 14:00',2,'7 000 сом','Новая',12,'42 000 сом','АС'),
+      mk('№1041','Тимур Джапаров','+996 555 88 77 66','Алматы → Бишкек','25.06 · 17:00',1,'3 500 сом','Подтверждён',8,'28 000 сом','ТД'),
+      mk('№1040','Нурлан Кадыров','+996 700 33 22 11','Бишкек → Иссык-Куль','26.06 · 08:00',4,'8 000 сом','Подтверждён',5,'18 500 сом','НК'),
+      mk('№1039','Жанна Орозова','+996 770 11 99 88','Бишкек → Алматы','24.06 · 20:00',3,'10 500 сом','Завершён',3,'12 000 сом','ЖО'),
+      mk('№1038','Марат Бектуров','+996 700 45 67 89','Иссык-Куль → Бишкек','24.06 · 15:00',2,'4 000 сом','Завершён',6,'21 000 сом','МБ'),
+      mk('№1037','Динара Алиева','+996 555 12 34 00','Бишкек → Алматы','24.06 · 14:00',1,'3 500 сом','Отменён',2,'7 000 сом','ДА'),
+    ];
+    const f=s.filter;
+    const fmap={ all:()=>true, new:b=>b.status==='Новая', conf:b=>b.status==='Подтверждён', done:b=>b.status==='Завершён' };
+    const shown=bookings.filter(fmap[f]||fmap.all);
+    const flights=[
+      {route:'Бишкек → Алматы',time:'14:00',car:'KIA Carnival',driver:'Бакыт',load:'9/11',pct:'82%',barColor:'#56A919',statusLabel:'Продажи открыты',statusBg:'#EEF6E6',statusColor:'#3E7C12'},
+      {route:'Бишкек → Алматы',time:'17:00',car:'KIA Carnival',driver:'Талант',load:'7/11',pct:'64%',barColor:'#56A919',statusLabel:'Продажи открыты',statusBg:'#EEF6E6',statusColor:'#3E7C12'},
+      {route:'Бишкек → Алматы',time:'20:00',car:'KIA Carnival',driver:'Эрлан',load:'10/11',pct:'91%',barColor:'#C77A18',statusLabel:'Мало мест',statusBg:'#FEF3E2',statusColor:'#C77A18'},
+      {route:'Алматы → Бишкек',time:'08:00',car:'KIA Carnival',driver:'Бакыт',load:'11/11',pct:'100%',barColor:'#C0492E',statusLabel:'Продажи закрыты',statusBg:'#FBEDEA',statusColor:'#C0492E'},
+    ];
+    const rt=(name,dur,price,daily,status)=>{ const c=this.st(status); return {name,dur,price,daily,status,bg:c[0],color:c[1]}; };
+    const routes=[
+      rt('Бишкек → Алматы','~4 ч','3 500 сом','3 рейса','Активен'),
+      rt('Алматы → Бишкек','~4 ч','3 500 сом','3 рейса','Активен'),
+      rt('Бишкек → Иссык-Куль','~5 ч','2 000 сом','2 рейса','Активен'),
+      rt('Иссык-Куль → Бишкек','~5 ч','2 000 сом','2 рейса','Активен'),
+      rt('Бишкек → Каракол','~6 ч','2 500 сом','по запросу','Черновик'),
+    ];
+    const cr=(model,plate,driver,seats,trips,status)=>{ const c=this.st(status); return {model,plate,driver,seats,trips,status,bg:c[0],color:c[1]}; };
+    const fleet=[
+      cr('KIA Carnival','01 KG 777 ABC','Бакыт А.',11,28,'В Бишкеке'),
+      cr('KIA Carnival','01 KG 555 DEF','Эрлан Т.',11,24,'В Алматы'),
+      cr('KIA Carnival','01 KG 333 GHI','Талант М.',11,31,'В пути'),
+      cr('KIA Carnival','01 KG 111 JKL','—',11,19,'На обслуживании'),
+    ];
+    const clients=[
+      {ini:'АС',name:'Айгуль Сапарова',phone:'+996 700 12 34 56',trips:12,sum:'42 000 сом',last:'25.06.2026'},
+      {ini:'ТД',name:'Тимур Джапаров',phone:'+996 555 88 77 66',trips:8,sum:'28 000 сом',last:'25.06.2026'},
+      {ini:'НК',name:'Нурлан Кадыров',phone:'+996 700 33 22 11',trips:5,sum:'18 500 сом',last:'26.06.2026'},
+      {ini:'МБ',name:'Марат Бектуров',phone:'+996 700 45 67 89',trips:6,sum:'21 000 сом',last:'24.06.2026'},
+      {ini:'ЖО',name:'Жанна Орозова',phone:'+996 770 11 99 88',trips:3,sum:'12 000 сом',last:'24.06.2026'},
+      {ini:'ДА',name:'Динара Алиева',phone:'+996 555 12 34 00',trips:2,sum:'7 000 сом',last:'24.06.2026'},
+    ];
+    return {
+      title:t[0], subtitle:t[1], ctaLabel:t[2],
+      sDash:sec('dashboard'), sBook:sec('bookings'), sFlights:sec('flights'), sRoutes:sec('routes'),
+      sFleet:sec('fleet'), sClients:sec('clients'), sStats:sec('stats'), sApps:sec('applications'), sSettings:sec('settings'),
+      nDash:this.navBtn(sec('dashboard')), nBook:this.navBtn(sec('bookings')), nFlights:this.navBtn(sec('flights')),
+      nRoutes:this.navBtn(sec('routes')), nFleet:this.navBtn(sec('fleet')), nClients:this.navBtn(sec('clients')),
+      nStats:this.navBtn(sec('stats')), nApps:this.navBtn(sec('applications')), nSettings:this.navBtn(sec('settings')),
+      fAll:this.chip(f==='all'), fNew:this.chip(f==='new'), fConf:this.chip(f==='conf'), fDone:this.chip(f==='done'),
+      aDrivers:this.seg(s.appTab==='drivers'), aPartners:this.seg(s.appTab==='partners'),
+      appsDrivers:s.appTab==='drivers', appsPartners:s.appTab==='partners',
+      recent:bookings.slice(0,4), bookings:shown, flights, routes, fleet, clients,
+      drawerOpen:!!s.sel, sel:s.sel||{},
+      goDash:()=>this.nav('dashboard'), goBook:()=>this.nav('bookings'), goFlights:()=>this.nav('flights'),
+      goRoutes:()=>this.nav('routes'), goFleet:()=>this.nav('fleet'), goClients:()=>this.nav('clients'),
+      goStats:()=>this.nav('stats'), goApps:()=>this.nav('applications'), goSettings:()=>this.nav('settings'),
+      filtAll:()=>this.setState({filter:'all'}), filtNew:()=>this.setState({filter:'new'}),
+      filtConf:()=>this.setState({filter:'conf'}), filtDone:()=>this.setState({filter:'done'}),
+      appDrivers:()=>this.setState({appTab:'drivers'}), appPartners:()=>this.setState({appTab:'partners'}),
+      closeDrawer:()=>this.setState({sel:null}),
+    };
+  }
+}
+</script>
+</body>
+</html>

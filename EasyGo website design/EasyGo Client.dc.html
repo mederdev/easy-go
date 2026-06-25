@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0}
+[data-scroll]{scrollbar-width:none}
+[data-scroll]::-webkit-scrollbar{width:0;height:0}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;background:#E7E9E3;font-family:Manrope,sans-serif;color:#16181C">
+
+  <!-- ===== INDEX RAIL ===== -->
+  <aside style="width:268px;flex:none;background:#fff;border-right:1px solid #E7E9E5;height:100vh;position:sticky;top:0;display:flex;flex-direction:column;padding:22px 18px;gap:18px;overflow:auto">
+    <img src="assets/logo-t.png" alt="EasyGo" style="width:150px;height:auto"/>
+    <div style="font:600 11px Manrope;letter-spacing:.14em;color:#9AA0A6;text-transform:uppercase">Клиентский сайт · Мобайл</div>
+
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <div style="font:700 11px Manrope;letter-spacing:.1em;color:#A7ACA2;text-transform:uppercase;padding:8px 10px 4px">Бронирование</div>
+      <button onClick="{{ goHome }}" style="{{ navHomeStyle }}"><span style="font-family:'Material Symbols Outlined';font-size:20px">home</span>Главная</button>
+      <button onClick="{{ search }}" style="{{ navResStyle }}"><span style="font-family:'Material Symbols Outlined';font-size:20px">search</span>Доступные рейсы</button>
+      <button onClick="{{ goBooking }}" style="{{ navBookStyle }}"><span style="font-family:'Material Symbols Outlined';font-size:20px">edit_note</span>Оформление заявки</button>
+      <button onClick="{{ goConfirm }}" style="{{ navConfStyle }}"><span style="font-family:'Material Symbols Outlined';font-size:20px">task_alt</span>Заявка отправлена</button>
+      <button onClick="{{ goAvail }}" style="{{ navAvailStyle }}"><span style="font-family:'Material Symbols Outlined';font-size:20px">directions_car</span>Свободный транспорт</button>
+
+      <div style="font:700 11px Manrope;letter-spacing:.1em;color:#A7ACA2;text-transform:uppercase;padding:14px 10px 4px">Аккаунт и инфо</div>
+      <button onClick="{{ goCab }}" style="{{ navCabStyle }}"><span style="font-family:'Material Symbols Outlined';font-size:20px">account_circle</span>Личный кабинет</button>
+      <button onClick="{{ goAbout }}" style="{{ navAboutStyle }}"><span style="font-family:'Material Symbols Outlined';font-size:20px">info</span>О компании</button>
+      <button onClick="{{ goContacts }}" style="{{ navContactsStyle }}"><span style="font-family:'Material Symbols Outlined';font-size:20px">call</span>Контакты</button>
+
+      <div style="font:700 11px Manrope;letter-spacing:.1em;color:#A7ACA2;text-transform:uppercase;padding:14px 10px 4px">Сотрудничество</div>
+      <button onClick="{{ goDrivers }}" style="{{ navDriversStyle }}"><span style="font-family:'Material Symbols Outlined';font-size:20px">badge</span>Водителям</button>
+      <button onClick="{{ goPartners }}" style="{{ navPartnersStyle }}"><span style="font-family:'Material Symbols Outlined';font-size:20px">handshake</span>Партнёрам</button>
+    </div>
+    <div style="margin-top:auto;font:500 12px Manrope;color:#B4B9B0;line-height:1.5">EASY GO ТРАНСФЕР<br/>Бишкек · Алматы · Иссык-Куль</div>
+  </aside>
+
+  <!-- ===== STAGE ===== -->
+  <main style="flex:1;display:flex;align-items:center;justify-content:center;padding:40px 24px;min-height:100vh">
+    <div style="width:392px;height:812px;background:#0E0F12;border-radius:46px;padding:11px;box-shadow:0 30px 70px -20px rgba(20,30,10,.35),0 0 0 1px rgba(0,0,0,.06);flex:none">
+      <div style="width:100%;height:100%;background:#fff;border-radius:36px;overflow:hidden;position:relative;display:flex;flex-direction:column">
+
+        <!-- status bar -->
+        <div style="height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 30px;font:700 14px Manrope;color:#16181C">
+          <span>9:41</span>
+          <span style="display:flex;gap:7px;align-items:center;font-family:'Material Symbols Outlined';font-size:17px"><span>signal_cellular_alt</span><span>wifi</span><span>battery_full</span></span>
+        </div>
+
+        <!-- ===== SCROLL AREA ===== -->
+        <div data-scroll style="flex:1;overflow-y:auto;overflow-x:hidden">
+
+          <!-- ============ HOME ============ -->
+          <sc-if value="{{ sHome }}" hint-placeholder-val="{{ true }}">
+          <div style="">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 18px 14px">
+              <img src="assets/logo-t.png" alt="EasyGo" style="height:26px;width:auto"/>
+              <a href="#" style="width:38px;height:38px;border-radius:11px;background:#EEF6E6;display:flex;align-items:center;justify-content:center;color:#56A919;text-decoration:none;font-family:'Material Symbols Outlined';font-size:21px">chat</a>
+            </div>
+            <div style="padding:0 18px 4px">
+              <h1 style="margin:0;font:800 27px/1.15 Manrope;letter-spacing:-.02em">Поездки между<br/>городами — легко</h1>
+              <p style="margin:8px 0 0;font:500 14px/1.5 Manrope;color:#6E747C">Бишкек, Алматы, Иссык-Куль и любые индивидуальные маршруты. Свой автопарк.</p>
+            </div>
+
+            <!-- booking widget -->
+            <div style="margin:16px 16px 0;background:#fff;border:1px solid #ECEEE9;border-radius:20px;box-shadow:0 14px 34px -18px rgba(20,30,10,.25);padding:8px">
+              <div style="position:relative">
+                <div style="display:flex;align-items:center;gap:12px;padding:13px 14px">
+                  <span style="font-family:'Material Symbols Outlined';font-size:20px;color:#56A919">trip_origin</span>
+                  <div style="flex:1"><div style="font:600 11px Manrope;color:#9AA0A6;letter-spacing:.04em;text-transform:uppercase">Откуда</div><div style="font:700 16px Manrope">{{ from }}</div></div>
+                </div>
+                <div style="height:1px;background:#EEF0EC;margin-left:46px"></div>
+                <div style="display:flex;align-items:center;gap:12px;padding:13px 14px">
+                  <span style="font-family:'Material Symbols Outlined';font-size:20px;color:#16181C">place</span>
+                  <div style="flex:1"><div style="font:600 11px Manrope;color:#9AA0A6;letter-spacing:.04em;text-transform:uppercase">Куда</div><div style="font:700 16px Manrope">{{ to }}</div></div>
+                </div>
+                <button onClick="{{ swap }}" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;border:1px solid #E7E9E5;background:#fff;color:#56A919;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(0,0,0,.06)"><span style="font-family:'Material Symbols Outlined';font-size:20px">swap_vert</span></button>
+              </div>
+              <div style="display:flex;gap:8px;padding:8px 6px 0">
+                <div style="flex:1;background:#F6F7F5;border-radius:14px;padding:11px 14px">
+                  <div style="font:600 11px Manrope;color:#9AA0A6;letter-spacing:.04em;text-transform:uppercase">Дата</div>
+                  <div style="font:700 15px Manrope;margin-top:2px">Сегодня, 25 июня</div>
+                </div>
+                <div style="flex:none;background:#F6F7F5;border-radius:14px;padding:8px 10px;display:flex;align-items:center;gap:6px">
+                  <button onClick="{{ decPax }}" style="width:34px;height:34px;border-radius:10px;border:none;background:#fff;color:#16181C;font-family:'Material Symbols Outlined';font-size:18px;cursor:pointer">remove</button>
+                  <div style="text-align:center;min-width:30px"><div style="font:800 17px Manrope">{{ pax }}</div><div style="font:600 9px Manrope;color:#9AA0A6;text-transform:uppercase">пасс.</div></div>
+                  <button onClick="{{ incPax }}" style="width:34px;height:34px;border-radius:10px;border:none;background:#56A919;color:#fff;font-family:'Material Symbols Outlined';font-size:18px;cursor:pointer">add</button>
+                </div>
+              </div>
+              <button onClick="{{ search }}" style="width:100%;margin-top:8px;height:54px;border:none;border-radius:15px;background:#56A919;color:#fff;font:700 16px Manrope;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px"><span style="font-family:'Material Symbols Outlined';font-size:21px">search</span>Найти рейсы</button>
+            </div>
+
+            <!-- popular routes -->
+            <div style="padding:24px 18px 6px;display:flex;align-items:baseline;justify-content:space-between">
+              <h2 style="margin:0;font:800 18px Manrope;letter-spacing:-.01em">Популярные маршруты</h2>
+            </div>
+            <div style="padding:0 16px;display:flex;flex-direction:column;gap:10px">
+              <button onClick="{{ pickBA }}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:14px;cursor:pointer">
+                <span style="width:42px;height:42px;border-radius:12px;background:#EEF6E6;color:#56A919;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Outlined';font-size:22px">route</span>
+                <div style="flex:1"><div style="font:700 15px Manrope">Бишкек → Алматы</div><div style="font:500 12px Manrope;color:#9AA0A6">~4 ч · ежедневно</div></div>
+                <div style="text-align:right"><div style="font:800 15px Manrope">3 500 сом</div><div style="font:600 11px Manrope;color:#56A919">/ место</div></div>
+              </button>
+              <button onClick="{{ pickAB }}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:14px;cursor:pointer">
+                <span style="width:42px;height:42px;border-radius:12px;background:#EEF6E6;color:#56A919;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Outlined';font-size:22px">route</span>
+                <div style="flex:1"><div style="font:700 15px Manrope">Алматы → Бишкек</div><div style="font:500 12px Manrope;color:#9AA0A6">~4 ч · ежедневно</div></div>
+                <div style="text-align:right"><div style="font:800 15px Manrope">3 500 сом</div><div style="font:600 11px Manrope;color:#56A919">/ место</div></div>
+              </button>
+              <button onClick="{{ pickBI }}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:14px;cursor:pointer">
+                <span style="width:42px;height:42px;border-radius:12px;background:#EEF6E6;color:#56A919;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Outlined';font-size:22px">route</span>
+                <div style="flex:1"><div style="font:700 15px Manrope">Бишкек → Иссык-Куль</div><div style="font:500 12px Manrope;color:#9AA0A6">~5 ч · ежедневно</div></div>
+                <div style="text-align:right"><div style="font:800 15px Manrope">2 000 сом</div><div style="font:600 11px Manrope;color:#56A919">/ место</div></div>
+              </button>
+            </div>
+
+            <!-- availability teaser -->
+            <button onClick="{{ goAvail }}" style="display:flex;align-items:center;gap:12px;width:calc(100% - 32px);margin:18px 16px 0;text-align:left;background:#16181C;border:none;border-radius:18px;padding:16px 18px;cursor:pointer">
+              <span style="width:44px;height:44px;border-radius:12px;background:rgba(86,169,25,.18);color:#7BD93C;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Outlined';font-size:24px">local_taxi</span>
+              <div style="flex:1"><div style="font:700 15px Manrope;color:#fff">Свободный транспорт сейчас</div><div style="font:500 12px Manrope;color:#9CA29A">Бишкек — 11 мест · Алматы — 8 мест</div></div>
+              <span style="font-family:'Material Symbols Outlined';font-size:22px;color:#fff">chevron_right</span>
+            </button>
+
+            <!-- why us -->
+            <div style="padding:26px 18px 10px"><h2 style="margin:0;font:800 18px Manrope;letter-spacing:-.01em">Почему EasyGo</h2></div>
+            <div style="padding:0 16px 8px;display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;gap:12px;align-items:flex-start;background:#F6F7F5;border-radius:14px;padding:14px">
+                <span style="color:#56A919;font-family:'Material Symbols Outlined';font-size:22px">verified</span>
+                <div><div style="font:700 14px Manrope">Собственный автопарк</div><div style="font:500 13px/1.45 Manrope;color:#6E747C">KIA Carnival и комфортные минивэны. Видно свободные места онлайн.</div></div>
+              </div>
+              <div style="display:flex;gap:12px;align-items:flex-start;background:#F6F7F5;border-radius:14px;padding:14px">
+                <span style="color:#56A919;font-family:'Material Symbols Outlined';font-size:22px">schedule</span>
+                <div><div style="font:700 14px Manrope">Бронь за минуту</div><div style="font:500 13px/1.45 Manrope;color:#6E747C">Выберите рейс и оставьте заявку прямо на сайте.</div></div>
+              </div>
+              <div style="display:flex;gap:12px;align-items:flex-start;background:#F6F7F5;border-radius:14px;padding:14px">
+                <span style="color:#56A919;font-family:'Material Symbols Outlined';font-size:22px">chat</span>
+                <div><div style="font:700 14px Manrope">Связь в WhatsApp</div><div style="font:500 13px/1.45 Manrope;color:#6E747C">Привычное общение с оператором в один клик.</div></div>
+              </div>
+            </div>
+            <div style="height:96px"></div>
+          </div>
+          </sc-if>
+
+          <!-- ============ RESULTS ============ -->
+          <sc-if value="{{ sResults }}" hint-placeholder-val="{{ true }}">
+          <div style="">
+            <div style="display:flex;align-items:center;gap:12px;padding:8px 16px 12px">
+              <button onClick="{{ goHome }}" style="width:38px;height:38px;border-radius:11px;border:1px solid #E7E9E5;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Outlined';font-size:21px">arrow_back</button>
+              <div><div style="font:800 18px Manrope">{{ routeTitle }}</div><div style="font:600 12px Manrope;color:#9AA0A6">{{ paxLabel }} · KIA Carnival</div></div>
+            </div>
+            <div style="display:flex;gap:8px;padding:2px 16px 12px">
+              <button onClick="{{ setToday }}" style="{{ tabTodayStyle }}">Сегодня</button>
+              <button onClick="{{ setTom }}" style="{{ tabTomStyle }}">Завтра</button>
+            </div>
+            <div style="padding:0 16px;display:flex;flex-direction:column;gap:10px">
+              <sc-for list="{{ tripsList }}" as="trip" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:14px 16px">
+                  <div style="text-align:center"><div style="font:800 20px Manrope">{{ trip.time }}</div><div style="font:600 10px Manrope;color:#9AA0A6;text-transform:uppercase">отправл.</div></div>
+                  <div style="width:1px;align-self:stretch;background:#EEF0EC"></div>
+                  <div style="flex:1">
+                    <div style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;background:{{ trip.seatBg }};color:{{ trip.seatColor }};font:700 11px Manrope"><span style="font-family:'Material Symbols Outlined';font-size:14px">event_seat</span>{{ trip.seatsLabel }}</div>
+                    <div style="font:600 12px Manrope;color:#9AA0A6;margin-top:6px">KIA Carnival · 11 мест</div>
+                  </div>
+                  <div style="text-align:right">
+                    <div style="font:800 16px Manrope">{{ trip.priceLabel }}</div>
+                    <button onClick="{{ trip.choose }}" style="margin-top:6px;height:36px;padding:0 16px;border:none;border-radius:10px;background:#56A919;color:#fff;font:700 13px Manrope;cursor:pointer">Выбрать</button>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="margin:16px;padding:14px 16px;border:1px dashed #D8DBD3;border-radius:14px;display:flex;gap:10px;align-items:center">
+              <span style="color:#56A919;font-family:'Material Symbols Outlined';font-size:20px">add_circle</span>
+              <div style="font:500 13px/1.4 Manrope;color:#6E747C">Нет подходящего времени? <b style="color:#16181C">Оставьте индивидуальную заявку</b></div>
+            </div>
+            <div style="height:96px"></div>
+          </div>
+          </sc-if>
+
+          <!-- ============ BOOKING ============ -->
+          <sc-if value="{{ sBooking }}" hint-placeholder-val="{{ true }}">
+          <div style="">
+            <div style="display:flex;align-items:center;gap:12px;padding:8px 16px 12px">
+              <button onClick="{{ search }}" style="width:38px;height:38px;border-radius:11px;border:1px solid #E7E9E5;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Outlined';font-size:21px">arrow_back</button>
+              <div style="font:800 18px Manrope">Оформление заявки</div>
+            </div>
+            <div style="margin:0 16px;background:#16181C;border-radius:18px;padding:16px 18px;color:#fff">
+              <div style="font:800 17px Manrope">{{ routeTitle }}</div>
+              <div style="display:flex;gap:18px;margin-top:10px">
+                <div><div style="font:600 10px Manrope;color:#8B918A;text-transform:uppercase">Дата</div><div style="font:700 14px Manrope;color:#fff">Сегодня, 25.06</div></div>
+                <div><div style="font:600 10px Manrope;color:#8B918A;text-transform:uppercase">Время</div><div style="font:700 14px Manrope;color:#fff">{{ selTime }}</div></div>
+                <div><div style="font:600 10px Manrope;color:#8B918A;text-transform:uppercase">Авто</div><div style="font:700 14px Manrope;color:#fff">KIA Carnival</div></div>
+              </div>
+            </div>
+            <div style="padding:18px 16px 4px;font:800 14px Manrope;color:#16181C">Пассажиры</div>
+            <div style="margin:0 16px;display:flex;align-items:center;justify-content:space-between;background:#F6F7F5;border-radius:14px;padding:10px 14px">
+              <div style="font:600 14px Manrope;color:#6E747C">Количество мест</div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <button onClick="{{ decPax }}" style="width:38px;height:38px;border-radius:11px;border:none;background:#fff;color:#16181C;font-family:'Material Symbols Outlined';font-size:19px;cursor:pointer">remove</button>
+                <div style="font:800 18px Manrope;min-width:24px;text-align:center">{{ pax }}</div>
+                <button onClick="{{ incPax }}" style="width:38px;height:38px;border-radius:11px;border:none;background:#56A919;color:#fff;font-family:'Material Symbols Outlined';font-size:19px;cursor:pointer">add</button>
+              </div>
+            </div>
+            <div style="padding:18px 16px 8px;font:800 14px Manrope">Контактные данные</div>
+            <div style="padding:0 16px;display:flex;flex-direction:column;gap:10px">
+              <div><div style="font:600 12px Manrope;color:#9AA0A6;margin-bottom:5px">Имя</div><input placeholder="Ваше имя" style="width:100%;height:50px;padding:0 14px;border:1px solid #E2E5DF;border-radius:12px;font:500 15px Manrope;color:#16181C;outline:none"/></div>
+              <div><div style="font:600 12px Manrope;color:#9AA0A6;margin-bottom:5px">Телефон</div><input placeholder="+996 700 000 000" style="width:100%;height:50px;padding:0 14px;border:1px solid #E2E5DF;border-radius:12px;font:500 15px Manrope;color:#16181C;outline:none"/></div>
+              <label style="display:flex;align-items:center;gap:10px;padding:4px 2px;font:600 13px Manrope;color:#6E747C;cursor:pointer"><span style="width:22px;height:22px;border-radius:6px;background:#56A919;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Outlined';font-size:16px">check</span>Этот номер используется в WhatsApp</label>
+              <div><div style="font:600 12px Manrope;color:#9AA0A6;margin-bottom:5px">Комментарий <span style="color:#C4C8C0">(необязательно)</span></div><textarea placeholder="Багаж, детское кресло, адрес подачи…" style="width:100%;height:84px;padding:12px 14px;border:1px solid #E2E5DF;border-radius:12px;font:500 14px Manrope;color:#16181C;outline:none;resize:none"></textarea></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin:18px 16px 0;padding:14px 16px;background:#F6F7F5;border-radius:14px">
+              <div><div style="font:600 11px Manrope;color:#9AA0A6;text-transform:uppercase">Итого</div><div style="font:800 22px Manrope;color:#16181C">{{ total }}</div></div>
+              <button onClick="{{ submitBooking }}" style="height:54px;padding:0 26px;border:none;border-radius:15px;background:#56A919;color:#fff;font:700 16px Manrope;cursor:pointer;display:flex;align-items:center;gap:8px">Отправить заявку<span style="font-family:'Material Symbols Outlined';font-size:20px">arrow_forward</span></button>
+            </div>
+            <div style="height:96px"></div>
+          </div>
+          </sc-if>
+
+          <!-- ============ CONFIRM ============ -->
+          <sc-if value="{{ sConfirm }}" hint-placeholder-val="{{ true }}">
+          <div style=";padding:40px 22px;text-align:center;display:flex;flex-direction:column;align-items:center">
+            <div style="width:92px;height:92px;border-radius:50%;background:#EEF6E6;display:flex;align-items:center;justify-content:center;margin-bottom:18px"><span style="font-family:'Material Symbols Outlined';font-size:52px;color:#56A919">check_circle</span></div>
+            <h1 style="margin:0;font:800 24px Manrope;letter-spacing:-.01em">Заявка отправлена!</h1>
+            <p style="margin:10px 0 0;font:500 14px/1.5 Manrope;color:#6E747C;max-width:280px">Оператор свяжется с вами в WhatsApp, чтобы подтвердить бронирование.</p>
+            <div style="width:100%;margin:22px 0 0;background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:16px 18px;text-align:left">
+              <div style="display:flex;justify-content:space-between;padding:7px 0"><span style="font:600 13px Manrope;color:#9AA0A6">Маршрут</span><span style="font:700 13px Manrope">{{ routeTitle }}</span></div>
+              <div style="height:1px;background:#EEF0EC"></div>
+              <div style="display:flex;justify-content:space-between;padding:7px 0"><span style="font:600 13px Manrope;color:#9AA0A6">Дата и время</span><span style="font:700 13px Manrope">Сегодня, {{ selTime }}</span></div>
+              <div style="height:1px;background:#EEF0EC"></div>
+              <div style="display:flex;justify-content:space-between;padding:7px 0"><span style="font:600 13px Manrope;color:#9AA0A6">Пассажиров</span><span style="font:700 13px Manrope">{{ pax }}</span></div>
+              <div style="height:1px;background:#EEF0EC"></div>
+              <div style="display:flex;justify-content:space-between;padding:9px 0 2px"><span style="font:700 14px Manrope">Итого</span><span style="font:800 18px Manrope;color:#56A919">{{ total }}</span></div>
+            </div>
+            <a href="#" style="width:100%;margin-top:18px;height:54px;border-radius:15px;background:#25D366;color:#fff;font:700 16px Manrope;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:9px"><span style="font-family:'Material Symbols Outlined';font-size:22px">chat</span>Написать оператору в WhatsApp</a>
+            <button onClick="{{ goHome }}" style="width:100%;margin-top:10px;height:50px;border-radius:14px;border:1px solid #E2E5DF;background:#fff;color:#16181C;font:700 15px Manrope;cursor:pointer">На главную</button>
+          </div>
+          </sc-if>
+
+          <!-- ============ AVAILABILITY ============ -->
+          <sc-if value="{{ sAvail }}" hint-placeholder-val="{{ true }}">
+          <div style="">
+            <div style="padding:8px 18px 4px"><h1 style="margin:0;font:800 23px Manrope;letter-spacing:-.01em">Свободный транспорт</h1><p style="margin:6px 0 0;font:500 13px Manrope;color:#6E747C">Актуальное наличие по основным локациям</p></div>
+            <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+              <div style="background:#fff;border:1px solid #ECEEE9;border-radius:18px;padding:16px 18px">
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                  <div style="display:flex;align-items:center;gap:9px"><span style="font-family:'Material Symbols Outlined';font-size:20px;color:#56A919">location_on</span><span style="font:800 17px Manrope">Бишкек</span></div>
+                  <span style="display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:999px;background:#EEF6E6;color:#3E7C12;font:700 12px Manrope">Свободно</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;margin-top:14px;padding:12px;background:#F6F7F5;border-radius:13px">
+                  <span style="width:46px;height:46px;border-radius:12px;background:#16181C;color:#7BD93C;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Outlined';font-size:24px">directions_car</span>
+                  <div style="flex:1"><div style="font:700 15px Manrope">KIA Carnival</div><div style="font:500 12px Manrope;color:#9AA0A6">Минивэн · комфорт</div></div>
+                  <div style="text-align:right"><div style="font:800 20px Manrope;color:#56A919">11</div><div style="font:600 10px Manrope;color:#9AA0A6;text-transform:uppercase">мест</div></div>
+                </div>
+              </div>
+              <div style="background:#fff;border:1px solid #ECEEE9;border-radius:18px;padding:16px 18px">
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                  <div style="display:flex;align-items:center;gap:9px"><span style="font-family:'Material Symbols Outlined';font-size:20px;color:#56A919">location_on</span><span style="font:800 17px Manrope">Алматы</span></div>
+                  <span style="display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:999px;background:#EEF6E6;color:#3E7C12;font:700 12px Manrope">Свободно</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;margin-top:14px;padding:12px;background:#F6F7F5;border-radius:13px">
+                  <span style="width:46px;height:46px;border-radius:12px;background:#16181C;color:#7BD93C;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Outlined';font-size:24px">directions_car</span>
+                  <div style="flex:1"><div style="font:700 15px Manrope">KIA Carnival</div><div style="font:500 12px Manrope;color:#9AA0A6">Минивэн · комфорт</div></div>
+                  <div style="text-align:right"><div style="font:800 20px Manrope;color:#56A919">8</div><div style="font:600 10px Manrope;color:#9AA0A6;text-transform:uppercase">мест</div></div>
+                </div>
+              </div>
+              <div style="display:flex;gap:10px;align-items:center;padding:14px 16px;background:#EEF6E6;border-radius:14px">
+                <span style="color:#3E7C12;font-family:'Material Symbols Outlined';font-size:20px">verified_user</span>
+                <div style="font:600 13px/1.4 Manrope;color:#3E7C12">Весь транспорт — собственный автопарк EasyGo</div>
+              </div>
+            </div>
+            <div style="height:96px"></div>
+          </div>
+          </sc-if>
+
+          <!-- ============ CABINET ============ -->
+          <sc-if value="{{ sTrips }}" hint-placeholder-val="{{ true }}">
+          <div style="">
+            <div style="padding:8px 18px 0;display:flex;align-items:center;gap:13px">
+              <div style="width:52px;height:52px;border-radius:50%;background:#16181C;color:#7BD93C;display:flex;align-items:center;justify-content:center;font:800 20px Manrope">АК</div>
+              <div><div style="font:800 19px Manrope">Акрам</div><div style="font:600 12px Manrope;color:#9AA0A6">+996 700 12 34 56</div></div>
+            </div>
+            <div style="margin:16px;background:linear-gradient(135deg,#16181C,#23261D);border-radius:18px;padding:18px;color:#fff;display:flex;align-items:center;justify-content:space-between">
+              <div><div style="font:600 12px Manrope;color:#9CA29A">Бонусный баланс</div><div style="font:800 28px Manrope;color:#7BD93C;margin-top:2px">1 250 <span style="font:700 15px Manrope;color:#fff">баллов</span></div></div>
+              <span style="width:48px;height:48px;border-radius:14px;background:rgba(86,169,25,.18);color:#7BD93C;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Outlined';font-size:26px">redeem</span>
+            </div>
+            <div style="display:flex;gap:8px;padding:0 16px 12px">
+              <button onClick="{{ setCabUp }}" style="{{ cabUpStyle }}">Предстоящие</button>
+              <button onClick="{{ setCabHist }}" style="{{ cabHistStyle }}">История</button>
+            </div>
+            <sc-if value="{{ cabUpcoming }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:0 16px;display:flex;flex-direction:column;gap:10px">
+              <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:15px 16px">
+                <div style="display:flex;justify-content:space-between;align-items:center"><div style="font:800 15px Manrope">Бишкек → Алматы</div><span style="padding:4px 10px;border-radius:999px;background:#EEF6E6;color:#3E7C12;font:700 11px Manrope">Подтверждён</span></div>
+                <div style="display:flex;gap:16px;margin-top:10px;font:600 13px Manrope;color:#6E747C"><span style="display:flex;align-items:center;gap:5px"><span style="font-family:'Material Symbols Outlined';font-size:17px;color:#56A919">calendar_today</span>28 июня</span><span style="display:flex;align-items:center;gap:5px"><span style="font-family:'Material Symbols Outlined';font-size:17px;color:#56A919">schedule</span>14:00</span><span style="display:flex;align-items:center;gap:5px"><span style="font-family:'Material Symbols Outlined';font-size:17px;color:#56A919">group</span>2</span></div>
+              </div>
+            </div>
+            </sc-if>
+            <sc-if value="{{ cabHistory }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:0 16px;display:flex;flex-direction:column;gap:10px">
+              <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:15px 16px;opacity:.92">
+                <div style="display:flex;justify-content:space-between;align-items:center"><div style="font:800 15px Manrope">Алматы → Бишкек</div><span style="padding:4px 10px;border-radius:999px;background:#F0F1EE;color:#8A8F86;font:700 11px Manrope">Завершён</span></div>
+                <div style="display:flex;gap:16px;margin-top:10px;font:600 13px Manrope;color:#6E747C"><span>12 мая</span><span>3 500 сом</span></div>
+              </div>
+              <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:15px 16px;opacity:.92">
+                <div style="display:flex;justify-content:space-between;align-items:center"><div style="font:800 15px Manrope">Бишкек → Иссык-Куль</div><span style="padding:4px 10px;border-radius:999px;background:#F0F1EE;color:#8A8F86;font:700 11px Manrope">Завершён</span></div>
+                <div style="display:flex;gap:16px;margin-top:10px;font:600 13px Manrope;color:#6E747C"><span>3 мая</span><span>4 000 сом</span></div>
+              </div>
+            </div>
+            </sc-if>
+            <div style="height:96px"></div>
+          </div>
+          </sc-if>
+
+          <!-- ============ ABOUT ============ -->
+          <sc-if value="{{ sAbout }}" hint-placeholder-val="{{ true }}">
+          <div style="">
+            <div style="padding:8px 18px 0"><h1 style="margin:0;font:800 24px Manrope;letter-spacing:-.01em">О компании</h1></div>
+            <div style="margin:14px 16px 0;height:150px;border-radius:16px;background:repeating-linear-gradient(135deg,#F1F3EF,#F1F3EF 11px,#E9ECE6 11px,#E9ECE6 22px);display:flex;align-items:center;justify-content:center"><span style="font:600 12px 'Courier New',monospace;color:#A7ACA2;letter-spacing:.05em">[ ФОТО АВТОПАРКА ]</span></div>
+            <div style="padding:16px 18px 0"><p style="margin:0;font:500 14px/1.6 Manrope;color:#4A4F55">EasyGo — современный сервис пассажирских перевозок между городами Кыргызстана и Казахстана. Мы заменили звонки и переписки удобным онлайн-бронированием и собственным комфортным автопарком.</p></div>
+            <div style="padding:18px 16px 6px"><div style="font:800 16px Manrope">Наши преимущества</div></div>
+            <div style="padding:0 16px;display:flex;flex-direction:column;gap:9px">
+              <div style="display:flex;gap:11px;align-items:center;background:#F6F7F5;border-radius:13px;padding:13px 14px"><span style="color:#56A919;font-family:'Material Symbols Outlined';font-size:20px">check_circle</span><span style="font:600 14px Manrope">Свой автопарк KIA Carnival</span></div>
+              <div style="display:flex;gap:11px;align-items:center;background:#F6F7F5;border-radius:13px;padding:13px 14px"><span style="color:#56A919;font-family:'Material Symbols Outlined';font-size:20px">check_circle</span><span style="font:600 14px Manrope">Ежедневные рейсы по расписанию</span></div>
+              <div style="display:flex;gap:11px;align-items:center;background:#F6F7F5;border-radius:13px;padding:13px 14px"><span style="color:#56A919;font-family:'Material Symbols Outlined';font-size:20px">check_circle</span><span style="font:600 14px Manrope">Индивидуальные маршруты под заказ</span></div>
+            </div>
+            <div style="padding:18px 16px 6px"><div style="font:800 16px Manrope">Отзывы клиентов</div></div>
+            <div style="padding:0 16px;display:flex;flex-direction:column;gap:10px">
+              <div style="background:#fff;border:1px solid #ECEEE9;border-radius:14px;padding:14px 16px">
+                <div style="color:#F5A623;font-family:'Material Symbols Outlined';font-size:16px;letter-spacing:1px">star star star star star</div>
+                <p style="margin:8px 0 0;font:500 13px/1.5 Manrope;color:#4A4F55">«Доехали быстро и комфортно. Водитель вежливый, машина чистая. Буду пользоваться ещё.»</p>
+                <div style="font:700 12px Manrope;color:#9AA0A6;margin-top:8px">Айгуль · Бишкек → Алматы</div>
+              </div>
+            </div>
+            <div style="margin:18px 16px;display:flex;gap:10px;align-items:center;padding:14px 16px;border:1px dashed #D8DBD3;border-radius:14px"><span style="color:#56A919;font-family:'Material Symbols Outlined';font-size:20px">verified_user</span><div style="font:600 13px/1.4 Manrope;color:#6E747C">Лицензии и разрешительные документы доступны по запросу</div></div>
+            <div style="height:96px"></div>
+          </div>
+          </sc-if>
+
+          <!-- ============ CONTACTS ============ -->
+          <sc-if value="{{ sContacts }}" hint-placeholder-val="{{ true }}">
+          <div style="">
+            <div style="padding:8px 18px 0"><h1 style="margin:0;font:800 24px Manrope;letter-spacing:-.01em">Контакты</h1></div>
+            <div style="margin:14px 16px 0;height:150px;border-radius:16px;background:repeating-linear-gradient(135deg,#EEF1ED,#EEF1ED 11px,#E7EAE4 11px,#E7EAE4 22px);position:relative;display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Outlined';font-size:40px;color:#56A919">location_on</span><span style="position:absolute;bottom:10px;font:600 11px 'Courier New',monospace;color:#A7ACA2">[ КАРТА ОФИСА ]</span></div>
+            <div style="padding:16px;display:flex;flex-direction:column;gap:10px">
+              <a href="#" style="display:flex;align-items:center;gap:13px;background:#fff;border:1px solid #ECEEE9;border-radius:14px;padding:14px 16px;text-decoration:none"><span style="width:42px;height:42px;border-radius:12px;background:#EEF6E6;color:#56A919;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Outlined';font-size:21px">call</span><div style="flex:1"><div style="font:600 12px Manrope;color:#9AA0A6">Телефон</div><div style="font:700 15px Manrope;color:#16181C">+996 700 12 34 56</div></div><span style="font-family:'Material Symbols Outlined';color:#C4C8C0">chevron_right</span></a>
+              <a href="#" style="display:flex;align-items:center;gap:13px;background:#fff;border:1px solid #ECEEE9;border-radius:14px;padding:14px 16px;text-decoration:none"><span style="width:42px;height:42px;border-radius:12px;background:#E6F8EC;color:#1Fae54;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Outlined';font-size:21px">chat</span><div style="flex:1"><div style="font:600 12px Manrope;color:#9AA0A6">WhatsApp</div><div style="font:700 15px Manrope;color:#16181C">Написать в чат</div></div><span style="font-family:'Material Symbols Outlined';color:#C4C8C0">chevron_right</span></a>
+              <a href="#" style="display:flex;align-items:center;gap:13px;background:#fff;border:1px solid #ECEEE9;border-radius:14px;padding:14px 16px;text-decoration:none"><span style="width:42px;height:42px;border-radius:12px;background:#EEF6E6;color:#56A919;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Outlined';font-size:21px">mail</span><div style="flex:1"><div style="font:600 12px Manrope;color:#9AA0A6">Email</div><div style="font:700 15px Manrope;color:#16181C">info@easygo.kg</div></div><span style="font-family:'Material Symbols Outlined';color:#C4C8C0">chevron_right</span></a>
+              <div style="display:flex;align-items:flex-start;gap:13px;background:#fff;border:1px solid #ECEEE9;border-radius:14px;padding:14px 16px"><span style="width:42px;height:42px;border-radius:12px;background:#EEF6E6;color:#56A919;display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Outlined';font-size:21px">storefront</span><div style="flex:1"><div style="font:600 12px Manrope;color:#9AA0A6">Офис · пункт отправления</div><div style="font:700 14px/1.4 Manrope;color:#16181C">г. Бишкек, ул. Чуй 120</div><div style="font:500 12px Manrope;color:#9AA0A6;margin-top:2px">Ежедневно 07:00 — 22:00</div></div></div>
+            </div>
+            <div style="height:96px"></div>
+          </div>
+          </sc-if>
+
+          <!-- ============ DRIVERS ============ -->
+          <sc-if value="{{ sDrivers }}" hint-placeholder-val="{{ true }}">
+          <div style="">
+            <div style="padding:8px 18px 0"><h1 style="margin:0;font:800 23px Manrope;letter-spacing:-.01em">Водителям</h1><p style="margin:6px 0 0;font:500 13px/1.5 Manrope;color:#6E747C">Присоединяйтесь к автопарку EasyGo. Заполните заявку — мы свяжемся с вами.</p></div>
+            <sc-if value="{{ driverSent }}" hint-placeholder-val="{{ false }}">
+              <div style="margin:18px 16px;background:#EEF6E6;border-radius:16px;padding:22px;text-align:center"><span style="font-family:'Material Symbols Outlined';font-size:42px;color:#56A919">task_alt</span><div style="font:800 17px Manrope;margin-top:8px">Заявка отправлена</div><div style="font:500 13px Manrope;color:#3E7C12;margin-top:4px">Спасибо! Мы рассмотрим её и свяжемся с вами.</div></div>
+            </sc-if>
+            <sc-if value="{{ driverNotSent }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:16px;display:flex;flex-direction:column;gap:11px">
+              <div><div style="font:600 12px Manrope;color:#9AA0A6;margin-bottom:5px">Имя</div><input placeholder="Ваше имя" style="width:100%;height:50px;padding:0 14px;border:1px solid #E2E5DF;border-radius:12px;font:500 15px Manrope;outline:none"/></div>
+              <div><div style="font:600 12px Manrope;color:#9AA0A6;margin-bottom:5px">Телефон / WhatsApp</div><input placeholder="+996 700 000 000" style="width:100%;height:50px;padding:0 14px;border:1px solid #E2E5DF;border-radius:12px;font:500 15px Manrope;outline:none"/></div>
+              <div style="display:flex;gap:8px"><button style="flex:1;height:46px;border-radius:12px;border:2px solid #56A919;background:#EEF6E6;color:#3E7C12;font:700 14px Manrope;cursor:pointer">Есть свой автомобиль</button><button style="flex:1;height:46px;border-radius:12px;border:1px solid #E2E5DF;background:#fff;color:#6E747C;font:700 14px Manrope;cursor:pointer">Без авто</button></div>
+              <div><div style="font:600 12px Manrope;color:#9AA0A6;margin-bottom:5px">Марка и данные авто</div><input placeholder="Напр. KIA Carnival, 11 мест" style="width:100%;height:50px;padding:0 14px;border:1px solid #E2E5DF;border-radius:12px;font:500 15px Manrope;outline:none"/></div>
+              <div><div style="font:600 12px Manrope;color:#9AA0A6;margin-bottom:5px">Опыт работы</div><input placeholder="Напр. 5 лет" style="width:100%;height:50px;padding:0 14px;border:1px solid #E2E5DF;border-radius:12px;font:500 15px Manrope;outline:none"/></div>
+              <div><div style="font:600 12px Manrope;color:#9AA0A6;margin-bottom:5px">Города и направления</div><input placeholder="Напр. Бишкек — Алматы" style="width:100%;height:50px;padding:0 14px;border:1px solid #E2E5DF;border-radius:12px;font:500 15px Manrope;outline:none"/></div>
+              <div><div style="font:600 12px Manrope;color:#9AA0A6;margin-bottom:5px">О себе <span style="color:#C4C8C0">(необязательно)</span></div><textarea placeholder="Дополнительная информация" style="width:100%;height:74px;padding:12px 14px;border:1px solid #E2E5DF;border-radius:12px;font:500 14px Manrope;outline:none;resize:none"></textarea></div>
+              <button onClick="{{ sendDriver }}" style="height:54px;border:none;border-radius:15px;background:#56A919;color:#fff;font:700 16px Manrope;cursor:pointer;margin-top:4px">Отправить заявку</button>
+            </div>
+            </sc-if>
+            <div style="height:96px"></div>
+          </div>
+          </sc-if>
+
+          <!-- ============ PARTNERS ============ -->
+          <sc-if value="{{ sPartners }}" hint-placeholder-val="{{ true }}">
+          <div style="">
+            <div style="padding:8px 18px 0"><h1 style="margin:0;font:800 23px Manrope;letter-spacing:-.01em">Партнёрам</h1><p style="margin:6px 0 0;font:500 13px/1.5 Manrope;color:#6E747C">Турагентства, отели, базы отдыха и другой бизнес — давайте сотрудничать.</p></div>
+            <sc-if value="{{ partnerSent }}" hint-placeholder-val="{{ false }}">
+              <div style="margin:18px 16px;background:#EEF6E6;border-radius:16px;padding:22px;text-align:center"><span style="font-family:'Material Symbols Outlined';font-size:42px;color:#56A919">task_alt</span><div style="font:800 17px Manrope;margin-top:8px">Заявка отправлена</div><div style="font:500 13px Manrope;color:#3E7C12;margin-top:4px">Мы обсудим условия сотрудничества и свяжемся с вами.</div></div>
+            </sc-if>
+            <sc-if value="{{ partnerNotSent }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:16px;display:flex;flex-direction:column;gap:11px">
+              <div><div style="font:600 12px Manrope;color:#9AA0A6;margin-bottom:5px">Название компании</div><input placeholder="Название" style="width:100%;height:50px;padding:0 14px;border:1px solid #E2E5DF;border-radius:12px;font:500 15px Manrope;outline:none"/></div>
+              <div><div style="font:600 12px Manrope;color:#9AA0A6;margin-bottom:5px">Сфера деятельности</div><input placeholder="Напр. отель, турагентство" style="width:100%;height:50px;padding:0 14px;border:1px solid #E2E5DF;border-radius:12px;font:500 15px Manrope;outline:none"/></div>
+              <div><div style="font:600 12px Manrope;color:#9AA0A6;margin-bottom:5px">Контактные данные</div><input placeholder="Телефон, email" style="width:100%;height:50px;padding:0 14px;border:1px solid #E2E5DF;border-radius:12px;font:500 15px Manrope;outline:none"/></div>
+              <div><div style="font:600 12px Manrope;color:#9AA0A6;margin-bottom:5px">Предложение по сотрудничеству</div><textarea placeholder="Опишите вашу компанию и формат взаимодействия" style="width:100%;height:96px;padding:12px 14px;border:1px solid #E2E5DF;border-radius:12px;font:500 14px Manrope;outline:none;resize:none"></textarea></div>
+              <button onClick="{{ sendPartner }}" style="height:54px;border:none;border-radius:15px;background:#56A919;color:#fff;font:700 16px Manrope;cursor:pointer;margin-top:4px">Отправить заявку</button>
+            </div>
+            </sc-if>
+            <div style="height:96px"></div>
+          </div>
+          </sc-if>
+
+        </div>
+
+        <!-- ===== BOTTOM NAV ===== -->
+        <div style="flex:none;height:74px;border-top:1px solid #EEF0EC;background:#fff;display:flex;align-items:stretch;padding:6px 8px 18px">
+          <button onClick="{{ goHome }}" style="{{ tabHomeStyle }}"><span style="font-family:'Material Symbols Outlined';font-size:23px">home</span>Главная</button>
+          <button onClick="{{ goAvail }}" style="{{ tabAvailStyle }}"><span style="font-family:'Material Symbols Outlined';font-size:23px">directions_car</span>Транспорт</button>
+          <button onClick="{{ goCab }}" style="{{ tabCabStyle }}"><span style="font-family:'Material Symbols Outlined';font-size:23px">account_circle</span>Кабинет</button>
+          <button onClick="{{ goMenuQuick }}" style="{{ tabMenuStyle }}"><span style="font-family:'Material Symbols Outlined';font-size:23px">menu</span>Ещё</button>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    screen:'home',
+    from:'Бишкек', to:'Алматы', day:'today', pax:2,
+    sel:{time:'14:00',seats:2,price:3500},
+    driverSent:false, partnerSent:false, cabTab:'upcoming'
+  };
+  nav(s){ this.setState({screen:s}); this.toTop(); }
+  toTop(){ requestAnimationFrame(()=>{const e=document.querySelector('[data-scroll]'); if(e) e.scrollTop=0;}); }
+  setDay(d){ this.setState({day:d}); }
+  setPax(n){ this.setState({pax:Math.max(1,Math.min(11,n))}); }
+  swap(){ this.setState(s=>({from:s.to,to:s.from})); }
+  pickRoute(f,t){ this.setState({from:f,to:t,screen:'results'}); this.toTop(); }
+  choose(tr){ this.setState({sel:tr,screen:'booking'}); this.toTop(); }
+  seatWord(n){ const b=n%10,a=n%100; if(a>=11&&a<=14)return 'осталось '+n+' мест'; if(b===1)return 'осталось '+n+' место'; if(b>=2&&b<=4)return 'осталось '+n+' места'; return 'осталось '+n+' мест'; }
+  paxWord(n){ const b=n%10,a=n%100; if(a>=11&&a<=14)return n+' пассажиров'; if(b===1)return n+' пассажир'; if(b>=2&&b<=4)return n+' пассажира'; return n+' пассажиров'; }
+  navBtn(active){ return 'display:flex;align-items:center;gap:11px;width:100%;text-align:left;border:none;border-radius:11px;padding:10px 11px;cursor:pointer;font:700 13.5px Manrope;'+(active?'background:#EEF6E6;color:#3E7C12':'background:transparent;color:#5A6066'); }
+  tab(active){ return 'flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:transparent;cursor:pointer;font:700 10px Manrope;color:'+(active?'#56A919':'#A7ACA2'); }
+  seg(active){ return 'flex:1;height:40px;border-radius:11px;border:none;cursor:pointer;font:700 13.5px Manrope;'+(active?'background:#16181C;color:#fff':'background:#F2F3F0;color:#6E747C'); }
+  renderVals(){
+    const s=this.state, fmt=n=>n.toLocaleString('ru-RU');
+    const trips={ today:[{time:'14:00',seats:2,price:3500},{time:'17:00',seats:4,price:3500},{time:'20:00',seats:1,price:3500}], tomorrow:[{time:'08:00',seats:5,price:3500},{time:'15:00',seats:3,price:3500}] };
+    const list=(trips[s.day]||[]).map(t=>({
+      time:t.time, priceLabel:fmt(t.price)+' сом', seatsLabel:this.seatWord(t.seats),
+      seatBg:t.seats<=2?'#FBEDEA':'#EEF6E6', seatColor:t.seats<=2?'#C0492E':'#3E7C12',
+      choose:()=>this.choose(t)
+    }));
+    const inMenu=['menu','about','contacts','drivers','partners'].includes(s.screen);
+    const sc=x=>s.screen===x;
+    return {
+      sHome:sc('home'), sResults:sc('results'), sBooking:sc('booking'), sConfirm:sc('confirm'),
+      sAvail:sc('availability'), sTrips:sc('trips'), sAbout:sc('about'), sContacts:sc('contacts'),
+      sDrivers:sc('drivers'), sPartners:sc('partners'),
+      from:s.from, to:s.to, routeTitle:s.from+' → '+s.to,
+      isToday:s.day==='today', pax:s.pax, paxLabel:this.paxWord(s.pax),
+      tripsList:list,
+      selTime:s.sel?s.sel.time:'', total:fmt((s.sel?s.sel.price:0)*s.pax)+' сом',
+      driverSent:s.driverSent, driverNotSent:!s.driverSent,
+      partnerSent:s.partnerSent, partnerNotSent:!s.partnerSent,
+      cabUpcoming:s.cabTab==='upcoming', cabHistory:s.cabTab==='history',
+      // rail nav styles
+      navHomeStyle:this.navBtn(sc('home')), navResStyle:this.navBtn(sc('results')),
+      navBookStyle:this.navBtn(sc('booking')), navConfStyle:this.navBtn(sc('confirm')),
+      navAvailStyle:this.navBtn(sc('availability')), navCabStyle:this.navBtn(sc('trips')),
+      navAboutStyle:this.navBtn(sc('about')), navContactsStyle:this.navBtn(sc('contacts')),
+      navDriversStyle:this.navBtn(sc('drivers')), navPartnersStyle:this.navBtn(sc('partners')),
+      // bottom tabs
+      tabHomeStyle:this.tab(sc('home')), tabAvailStyle:this.tab(sc('availability')),
+      tabCabStyle:this.tab(sc('trips')), tabMenuStyle:this.tab(inMenu),
+      // segmented
+      tabTodayStyle:this.seg(s.day==='today'), tabTomStyle:this.seg(s.day==='tomorrow'),
+      cabUpStyle:this.seg(s.cabTab==='upcoming'), cabHistStyle:this.seg(s.cabTab==='history'),
+      // handlers
+      goHome:()=>this.nav('home'), search:()=>this.nav('results'), goBooking:()=>this.nav('booking'),
+      goConfirm:()=>this.nav('confirm'), goAvail:()=>this.nav('availability'), goCab:()=>this.nav('trips'),
+      goAbout:()=>this.nav('about'), goContacts:()=>this.nav('contacts'), goDrivers:()=>this.nav('drivers'),
+      goPartners:()=>this.nav('partners'), goMenuQuick:()=>this.nav('about'),
+      setToday:()=>this.setDay('today'), setTom:()=>this.setDay('tomorrow'),
+      incPax:()=>this.setPax(s.pax+1), decPax:()=>this.setPax(s.pax-1), swap:()=>this.swap(),
+      pickBA:()=>this.pickRoute('Бишкек','Алматы'), pickAB:()=>this.pickRoute('Алматы','Бишкек'),
+      pickBI:()=>this.pickRoute('Бишкек','Иссык-Куль'),
+      submitBooking:()=>this.nav('confirm'),
+      sendDriver:()=>this.setState({driverSent:true}), sendPartner:()=>this.setState({partnerSent:true}),
+      setCabUp:()=>this.setState({cabTab:'upcoming'}), setCabHist:()=>this.setState({cabTab:'history'}),
+    };
+  }
+}
+</script>
+</body>
+</html>

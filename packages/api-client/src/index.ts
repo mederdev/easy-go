@@ -20,6 +20,11 @@ import type {
   ListBookingsQuery,
   ListClientsQuery,
   LoginInput,
+  ClientAuthResponse,
+  MyBookingsQuery,
+  OtpRequestInput,
+  OtpRequestResponse,
+  OtpVerifyInput,
   Paginated,
   PartnerApplication,
   PresignUploadInput,
@@ -29,6 +34,7 @@ import type {
   SystemConfig,
   UpdateBookingStatusInput,
   UpdateCarInput,
+  UpdateMyProfileInput,
   UpdateRouteInput,
   UpdateSystemConfigInput,
 } from '@easygo/shared';
@@ -110,6 +116,22 @@ export function createApiClient(opts: ApiClientOptions) {
     auth: {
       login: (input: LoginInput) => request<AuthResponse>('POST', '/auth/login', input),
       me: () => request<AuthUser>('GET', '/auth/me'),
+    },
+
+    // Customer phone+OTP auth.
+    clientAuth: {
+      requestOtp: (input: OtpRequestInput) => request<OtpRequestResponse>('POST', '/client-auth/request-otp', input),
+      verify: (input: OtpVerifyInput) => request<ClientAuthResponse>('POST', '/client-auth/verify', input),
+    },
+
+    // Authenticated customer (личный кабинет), scoped to the bearer token.
+    me: {
+      get: () => request<Client>('GET', '/me'),
+      update: (input: UpdateMyProfileInput) => request<Client>('PATCH', '/me', input),
+      bookings: (query?: MyBookingsQuery) =>
+        request<Paginated<Booking>>('GET', '/me/bookings', undefined, { query: query as unknown as Query }),
+      booking: (id: string) => request<Booking>('GET', `/me/bookings/${id}`),
+      cancelBooking: (id: string) => request<Booking>('PATCH', `/me/bookings/${id}/cancel`),
     },
 
     config: {

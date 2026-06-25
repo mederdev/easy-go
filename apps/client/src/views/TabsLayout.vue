@@ -15,13 +15,13 @@ import { IonPage, IonTabs, IonTabBar, IonTabButton, IonLabel, IonRouterOutlet } 
           <span class="ms tab-icon">directions_car</span>
           <IonLabel>Транспорт</IonLabel>
         </IonTabButton>
+        <IonTabButton tab="info" href="/tabs/info">
+          <span class="ms tab-icon">info</span>
+          <IonLabel>Инфо</IonLabel>
+        </IonTabButton>
         <IonTabButton tab="cabinet" href="/tabs/cabinet">
           <span class="ms tab-icon">account_circle</span>
           <IonLabel>Кабинет</IonLabel>
-        </IonTabButton>
-        <IonTabButton tab="about" href="/tabs/about">
-          <span class="ms tab-icon">menu</span>
-          <IonLabel>Ещё</IonLabel>
         </IonTabButton>
       </IonTabBar>
     </IonTabs>

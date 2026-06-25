@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { IonPage, IonContent } from '@ionic/vue';
+import BackButton from '../components/BackButton.vue';
 </script>
 
 <template>
   <IonPage>
     <IonContent :fullscreen="true">
+      <div style="padding: 8px 16px 0"><BackButton /></div>
       <div class="about-header">
         <h1 class="about-header__title">О компании</h1>
       </div>

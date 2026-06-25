@@ -3,6 +3,7 @@ import { IonPage, IonContent } from '@ionic/vue';
 import { useConfigStore } from '../stores/config.js';
 import { openWhatsApp } from '../lib/whatsapp.js';
 import MapView from '../components/MapView.vue';
+import BackButton from '../components/BackButton.vue';
 
 // Office / departure point: г. Бишкек, ул. Чуй 120
 const OFFICE = { lat: 42.8767, lng: 74.6055 };
@@ -21,6 +22,7 @@ async function onWhatsApp() {
 <template>
   <IonPage>
     <IonContent :fullscreen="true">
+      <div style="padding: 8px 16px 0"><BackButton /></div>
       <div class="contacts-header">
         <h1 class="contacts-header__title">Контакты</h1>
       </div>

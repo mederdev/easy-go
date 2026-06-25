@@ -5,6 +5,7 @@ import type { CreatePartnerApplicationInput } from '@easygo/shared';
 import { ApiError } from '@easygo/api-client';
 import { api } from '../lib/api.js';
 import ErrorBanner from '../components/ErrorBanner.vue';
+import BackButton from '../components/BackButton.vue';
 
 const company = ref('');
 const sphere = ref('');
@@ -55,6 +56,7 @@ async function submit() {
 <template>
   <IonPage>
     <IonContent :fullscreen="true">
+      <div style="padding: 8px 16px 0"><BackButton /></div>
       <div class="partners-header">
         <h1 class="partners-header__title">Партнёрам</h1>
         <p class="partners-header__sub">

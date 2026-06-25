@@ -1,15 +1,26 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { IonPage, IonContent } from '@ionic/vue';
+import { useRouter } from 'vue-router';
 import type { Car } from '@easygo/shared';
 import { api } from '../lib/api.js';
 import { ApiError } from '@easygo/api-client';
+import { useBookingStore } from '../stores/booking.js';
 import LoadingSpinner from '../components/LoadingSpinner.vue';
 import ErrorBanner from '../components/ErrorBanner.vue';
+
+const router = useRouter();
+const booking = useBookingStore();
 
 const cars = ref<Car[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
+
+/** Tap a city → preset it as the origin and go to search. */
+function rideFrom(city: string): void {
+  booking.setRoute(city, city === 'Бишкек' ? 'Алматы' : 'Бишкек');
+  void router.push('/tabs/home');
+}
 
 onMounted(async () => {
   loading.value = true;
@@ -76,6 +87,10 @@ const cities = ['Бишкек', 'Алматы'];
                 <div class="avail-car__seats-label">мест</div>
               </div>
             </div>
+            <button class="avail-cta" @click="rideFrom(city)">
+              Поехать из «{{ city }}»
+              <span class="ms">arrow_forward</span>
+            </button>
           </div>
         </template>
 
@@ -102,6 +117,10 @@ const cities = ['Бишкек', 'Алматы'];
                 <div class="avail-car__seats-label">мест</div>
               </div>
             </div>
+            <button class="avail-cta" @click="rideFrom('Бишкек')">
+              Поехать из «Бишкек»
+              <span class="ms">arrow_forward</span>
+            </button>
           </div>
 
           <div class="avail-city-card">
@@ -125,6 +144,10 @@ const cities = ['Бишкек', 'Алматы'];
                 <div class="avail-car__seats-label">мест</div>
               </div>
             </div>
+            <button class="avail-cta" @click="rideFrom('Алматы')">
+              Поехать из «Алматы»
+              <span class="ms">arrow_forward</span>
+            </button>
           </div>
         </template>
 
@@ -268,5 +291,25 @@ const cities = ['Бишкек', 'Алматы'];
 .avail-note__text {
   font: 600 13px/1.4 'Manrope', sans-serif;
   color: var(--eg-green-accent);
+}
+
+.avail-cta {
+  width: 100%;
+  margin-top: 12px;
+  height: 48px;
+  border: none;
+  border-radius: 13px;
+  background: var(--eg-green);
+  color: #fff;
+  font: 700 14px 'Manrope', sans-serif;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.avail-cta .ms {
+  font-size: 19px;
 }
 </style>

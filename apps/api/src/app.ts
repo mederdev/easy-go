@@ -10,6 +10,8 @@ import idempotencyPlugin from './plugins/idempotency.js';
 import errorHandler from './plugins/error-handler.js';
 
 import authRoutes from './modules/auth/routes.js';
+import clientAuthRoutes from './modules/client-auth/routes.js';
+import meRoutes from './modules/me/routes.js';
 import configRoutes from './modules/config/routes.js';
 import routeRoutes from './modules/routes/routes.js';
 import flightRoutes from './modules/flights/routes.js';
@@ -46,6 +48,8 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   // Domain modules
   await app.register(authRoutes, { prefix: '/auth' });
+  await app.register(clientAuthRoutes, { prefix: '/client-auth' });
+  await app.register(meRoutes, { prefix: '/me' });
   await app.register(configRoutes, { prefix: '/config' });
   await app.register(routeRoutes, { prefix: '/routes' });
   await app.register(flightRoutes, { prefix: '/flights' });

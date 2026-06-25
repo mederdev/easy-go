@@ -52,3 +52,9 @@ export const ListBookingsQuery = PaginationQuery.extend({
   search: z.string().trim().optional(),
 });
 export type ListBookingsQuery = z.infer<typeof ListBookingsQuery>;
+
+/** Customer's own bookings (scoped to the authenticated client). */
+export const MyBookingsQuery = PaginationQuery.extend({
+  status: BookingStatus.optional(),
+});
+export type MyBookingsQuery = z.infer<typeof MyBookingsQuery>;

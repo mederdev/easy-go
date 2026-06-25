@@ -1,11 +1,36 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { actionSheetController } from '@ionic/vue';
+import type { Route } from '@easygo/shared';
+import { CITIES } from '@easygo/shared';
 import { useBookingStore } from '../stores/booking.js';
+import { api } from '../lib/api.js';
 import PaxStepper from './PaxStepper.vue';
 
 const router = useRouter();
 const store = useBookingStore();
+
+// City options come from the active routes the admin created.
+const routes = ref<Route[]>([]);
+onMounted(async () => {
+  try {
+    routes.value = await api.routes.public();
+  } catch {
+    routes.value = [];
+  }
+});
+
+const fromCities = computed<string[]>(() => {
+  const set = new Set(routes.value.map((r) => r.fromCity));
+  return set.size ? [...set] : [...CITIES];
+});
+
+/** Destinations reachable from a given origin (so a route always exists). */
+function destinationsFor(from: string): string[] {
+  const dests = [...new Set(routes.value.filter((r) => r.fromCity === from).map((r) => r.toCity))];
+  return dests.length ? dests : fromCities.value.filter((c) => c !== from);
+}
 
 const todayLabel = computed(() => {
   return new Intl.DateTimeFormat('ru-RU', {
@@ -23,6 +48,28 @@ const displayDate = computed(() => {
   }).format(new Date(store.date + 'T00:00:00'));
 });
 
+function selectCity(kind: 'from' | 'to', city: string): void {
+  if (kind === 'from') {
+    const dests = destinationsFor(city);
+    const to = dests.includes(store.toCity) ? store.toCity : dests[0] ?? store.toCity;
+    store.setRoute(city, to);
+  } else {
+    store.setRoute(store.fromCity, city);
+  }
+}
+
+async function pickCity(kind: 'from' | 'to'): Promise<void> {
+  const options = kind === 'from' ? fromCities.value : destinationsFor(store.fromCity);
+  const sheet = await actionSheetController.create({
+    header: kind === 'from' ? 'Откуда' : 'Куда',
+    buttons: [
+      ...options.map((city) => ({ text: city, handler: () => selectCity(kind, city) })),
+      { text: 'Отмена', role: 'cancel' },
+    ],
+  });
+  await sheet.present();
+}
+
 function swap() {
   store.swapCities();
 }
@@ -35,22 +82,22 @@ function search() {
 <template>
   <div class="search-widget">
     <div class="search-widget__route">
-      <div class="search-widget__field">
+      <button type="button" class="search-widget__field" @click="pickCity('from')">
         <span class="ms search-widget__icon search-widget__icon--green">trip_origin</span>
         <div class="search-widget__field-content">
           <div class="search-widget__label">Откуда</div>
           <div class="search-widget__value">{{ store.fromCity }}</div>
         </div>
-      </div>
+      </button>
       <div class="search-widget__divider"></div>
-      <div class="search-widget__field">
+      <button type="button" class="search-widget__field" @click="pickCity('to')">
         <span class="ms search-widget__icon">place</span>
         <div class="search-widget__field-content">
           <div class="search-widget__label">Куда</div>
           <div class="search-widget__value">{{ store.toCity }}</div>
         </div>
-      </div>
-      <button class="search-widget__swap" @click="swap" aria-label="Поменять города местами">
+      </button>
+      <button class="search-widget__swap" @click.stop="swap" aria-label="Поменять города местами">
         <span class="ms">swap_vert</span>
       </button>
     </div>
@@ -93,7 +140,19 @@ function search() {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 13px 14px;
+  padding: 13px 56px 13px 14px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 12px;
+  font: inherit;
+  color: inherit;
+}
+
+.search-widget__field:active {
+  background: #fafbf9;
 }
 
 .search-widget__icon {

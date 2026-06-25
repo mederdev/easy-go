@@ -7,13 +7,17 @@ import { Errors } from '../lib/errors.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
-    /** preHandler: requires a valid JWT. */
+    /** preHandler: requires a valid back-office JWT (kind=user). */
     authenticate: preHandlerHookHandler;
-    /** preHandler factory: requires the user to hold one of `roles`. */
+    /** preHandler factory: requires a back-office user holding one of `roles`. */
     authorize: (roles: UserRole[]) => preHandlerHookHandler;
+    /** preHandler: requires a valid customer JWT (kind=client). */
+    authenticateClient: preHandlerHookHandler;
   }
   interface FastifyRequest {
     auth?: JwtClaims;
+    /** Set by `authenticateClient` — the authenticated customer's id. */
+    clientId?: string;
   }
 }
 
@@ -30,24 +34,31 @@ export default fp(async (app) => {
     sign: { expiresIn: env.JWT_EXPIRES_IN },
   });
 
-  app.decorate('authenticate', async function (request: FastifyRequest, _reply: FastifyReply) {
+  async function verify(request: FastifyRequest): Promise<JwtClaims> {
     try {
       await request.jwtVerify();
-      request.auth = request.user;
     } catch {
       throw Errors.unauthorized();
     }
+    request.auth = request.user;
+    return request.user;
+  }
+
+  app.decorate('authenticate', async function (request: FastifyRequest, _reply: FastifyReply) {
+    const claims = await verify(request);
+    if (claims.kind !== 'user') throw Errors.forbidden();
   });
 
   app.decorate('authorize', function (roles: UserRole[]): preHandlerHookHandler {
     return async function (request: FastifyRequest, _reply: FastifyReply) {
-      try {
-        await request.jwtVerify();
-        request.auth = request.user;
-      } catch {
-        throw Errors.unauthorized();
-      }
-      if (!roles.includes(request.user.role)) throw Errors.forbidden();
+      const claims = await verify(request);
+      if (claims.kind !== 'user' || !roles.includes(claims.role)) throw Errors.forbidden();
     };
+  });
+
+  app.decorate('authenticateClient', async function (request: FastifyRequest, _reply: FastifyReply) {
+    const claims = await verify(request);
+    if (claims.kind !== 'client') throw Errors.forbidden();
+    request.clientId = claims.sub;
   });
 }, { name: 'auth' });

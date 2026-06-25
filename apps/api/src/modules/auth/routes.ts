@@ -7,7 +7,7 @@ const routes: FastifyPluginAsync = async (app) => {
   app.post('/login', async (request): Promise<AuthResponse> => {
     const input = parse(LoginInput, request.body);
     const user = await login(input);
-    const claims: JwtClaims = { sub: user.id, role: user.role, name: user.name };
+    const claims: JwtClaims = { kind: 'user', sub: user.id, role: user.role, name: user.name };
     const token = app.jwt.sign(claims);
     return { token, user };
   });

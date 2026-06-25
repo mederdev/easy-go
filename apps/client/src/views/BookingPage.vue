@@ -1,18 +1,28 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { IonPage, IonContent } from '@ionic/vue';
 import { useRouter } from 'vue-router';
 import { formatMoney } from '@easygo/shared';
 import { useBookingStore } from '../stores/booking.js';
+import { useAuthStore } from '../stores/auth.js';
 import ErrorBanner from '../components/ErrorBanner.vue';
 
 const router = useRouter();
 const store = useBookingStore();
+const auth = useAuthStore();
 
 const name = ref('');
 const phone = ref('');
 const whatsappSame = ref(true);
 const comment = ref('');
+
+// Pre-fill contact details for a logged-in customer.
+onMounted(() => {
+  if (auth.client) {
+    name.value = auth.client.name;
+    phone.value = auth.client.phone;
+  }
+});
 
 const nameError = ref('');
 const phoneError = ref('');

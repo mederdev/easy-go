@@ -5,6 +5,7 @@ import type { CreateDriverApplicationInput } from '@easygo/shared';
 import { ApiError } from '@easygo/api-client';
 import { api } from '../lib/api.js';
 import ErrorBanner from '../components/ErrorBanner.vue';
+import BackButton from '../components/BackButton.vue';
 
 const name = ref('');
 const phone = ref('');
@@ -61,6 +62,7 @@ async function submit() {
 <template>
   <IonPage>
     <IonContent :fullscreen="true">
+      <div style="padding: 8px 16px 0"><BackButton /></div>
       <div class="drivers-header">
         <h1 class="drivers-header__title">Водителям</h1>
         <p class="drivers-header__sub">

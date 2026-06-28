@@ -1,44 +1,54 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import PaxStepper from '@/components/PaxStepper.vue';
+import CityInput from '@/components/CityInput.vue';
+import DatePickerModal from '@/components/DatePickerModal.vue';
 import { useSearchModel } from './model';
 
 const {
   store,
   displayDate,
-  pickCity,
+  minDate,
+  highlightedDates,
+  onCityInput,
+  onDateChange,
   swap,
   search,
 } = useSearchModel();
+
+const dateModalOpen = ref(false);
 </script>
 
 <template>
   <div class="search-widget">
+    <!-- Route -->
     <div class="search-widget__route">
-      <button type="button" class="search-widget__field" @click="pickCity('from')">
-        <span class="ms search-widget__icon search-widget__icon--green">trip_origin</span>
-        <div class="search-widget__field-content">
-          <div class="search-widget__label">Откуда</div>
-          <div class="search-widget__value">{{ store.fromCity }}</div>
-        </div>
-      </button>
+      <CityInput
+        :model-value="store.fromCity"
+        label="Откуда"
+        icon="trip_origin"
+        placeholder="Город отправления"
+        @update:model-value="onCityInput('from', $event)"
+      />
       <div class="search-widget__divider"></div>
-      <button type="button" class="search-widget__field" @click="pickCity('to')">
-        <span class="ms search-widget__icon">place</span>
-        <div class="search-widget__field-content">
-          <div class="search-widget__label">Куда</div>
-          <div class="search-widget__value">{{ store.toCity }}</div>
-        </div>
-      </button>
+      <CityInput
+        :model-value="store.toCity"
+        label="Куда"
+        icon="place"
+        placeholder="Город назначения"
+        @update:model-value="onCityInput('to', $event)"
+      />
       <button class="search-widget__swap" @click.stop="swap" aria-label="Поменять города местами">
         <span class="ms">swap_vert</span>
       </button>
     </div>
 
+    <!-- Date + Pax -->
     <div class="search-widget__bottom">
-      <div class="search-widget__date">
+      <button type="button" class="search-widget__date" @click="dateModalOpen = true">
         <div class="search-widget__label">Дата</div>
         <div class="search-widget__date-value">{{ displayDate }}</div>
-      </div>
+      </button>
       <PaxStepper
         :model-value="store.pax"
         @update:model-value="store.setPax($event)"
@@ -51,6 +61,14 @@ const {
       <span class="ms">search</span>
       Найти рейсы
     </button>
+
+    <DatePickerModal
+      v-model:open="dateModalOpen"
+      :model-value="store.date"
+      :min-date="minDate"
+      :highlighted-dates="highlightedDates"
+      @update:model-value="onDateChange"
+    />
   </div>
 </template>
 
@@ -64,54 +82,14 @@ const {
   padding: 8px;
 }
 
+@media (min-width: 768px) {
+  .search-widget {
+    margin: 16px 0 0;
+  }
+}
+
 .search-widget__route {
   position: relative;
-}
-
-.search-widget__field {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 13px 56px 13px 14px;
-  width: 100%;
-  background: transparent;
-  border: none;
-  text-align: left;
-  cursor: pointer;
-  border-radius: 12px;
-  font: inherit;
-  color: inherit;
-}
-
-.search-widget__field:active {
-  background: #fafbf9;
-}
-
-.search-widget__icon {
-  font-size: 20px;
-  color: var(--eg-ink);
-  flex-shrink: 0;
-}
-
-.search-widget__icon--green {
-  color: var(--eg-green);
-}
-
-.search-widget__field-content {
-  flex: 1;
-}
-
-.search-widget__label {
-  font: 600 11px 'Manrope', sans-serif;
-  color: var(--eg-muted-light);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.search-widget__value {
-  font: 700 16px 'Manrope', sans-serif;
-  color: var(--eg-ink);
-  margin-top: 1px;
 }
 
 .search-widget__divider {
@@ -148,9 +126,24 @@ const {
 
 .search-widget__date {
   flex: 1;
-  background: var(--eg-bg-subtle);
+  background: var(--eg-bg-subtle, #EEF6E6);
   border-radius: 14px;
   padding: 11px 14px;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.search-widget__date:active {
+  opacity: 0.85;
+}
+
+.search-widget__label {
+  font: 600 11px 'Manrope', sans-serif;
+  color: var(--eg-muted-light);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .search-widget__date-value {
@@ -173,7 +166,6 @@ const {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  font-size: 20px;
 }
 
 .search-widget__btn .ms {

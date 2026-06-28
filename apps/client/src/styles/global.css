@@ -111,3 +111,33 @@ button {
     transition: transform 0.12s ease;
   }
 }
+
+/* =====================================================================
+   Desktop responsive layout
+   ===================================================================== */
+
+/* Centered content column: wrap page innards in <div class="pg"> */
+.pg {
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  /* Content column — max-width centered */
+  .pg {
+    max-width: 720px;
+    margin-left: 50%;
+    transform: translateX(-50%);
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+
+  /* Narrow variant for login / auth screens */
+  .pg--narrow {
+    max-width: 480px;
+  }
+
+  /* Hide mobile bottom tab bar */
+  ion-tab-bar {
+    display: none !important;
+  }
+}

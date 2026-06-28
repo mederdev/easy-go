@@ -16,6 +16,7 @@ const {
 <template>
   <IonPage>
     <IonContent :fullscreen="true">
+      <div class="pg pg--narrow">
       <div class="confirm-page">
         <!-- Success Icon -->
         <div class="confirm-icon">
@@ -60,6 +61,7 @@ const {
         <button class="confirm-home-btn" @click="goHome">
           На главную
         </button>
+      </div>
       </div>
     </IonContent>
   </IonPage>

@@ -17,6 +17,7 @@ const {
 <template>
   <IonPage>
     <IonContent :fullscreen="true">
+      <div class="pg">
       <div class="avail-header">
         <h1 class="avail-header__title">Свободный транспорт</h1>
         <p class="avail-header__sub">Актуальное наличие по основным локациям</p>
@@ -127,11 +128,23 @@ const {
       </div>
 
       <div style="height: 32px"></div>
+      </div>
     </IonContent>
   </IonPage>
 </template>
 
 <style scoped>
+@media (min-width: 768px) {
+  .avail-header { padding: 20px 0 4px; }
+  .avail-list {
+    padding: 16px 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .avail-note { grid-column: 1 / -1; }
+}
+
 .avail-header {
   padding: 12px 18px 4px;
 }

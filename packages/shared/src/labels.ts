@@ -14,13 +14,18 @@ export const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
   CONFIRMED: 'Подтверждён',
   COMPLETED: 'Завершён',
   CANCELLED: 'Отменён',
+  CANCELLED_BY_CLIENT: 'Отменён клиентом',
+  CANCELLED_BY_COMPANY: 'Отменён компанией',
 };
 
 export const FLIGHT_STATUS_LABEL: Record<FlightStatus, string> = {
   SCHEDULED: 'Продажи открыты',
   CLOSED: 'Продажи закрыты',
-  DEPARTED: 'Отправлен',
+  DEPARTED: 'В пути',
+  COMPLETED: 'Завершён',
   CANCELLED: 'Отменён',
+  CANCELLED_BY_CLIENT: 'Отменён клиентом',
+  CANCELLED_BY_COMPANY: 'Отменён компанией',
 };
 
 export const ROUTE_STATUS_LABEL: Record<RouteStatus, string> = {

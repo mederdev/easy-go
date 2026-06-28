@@ -1,6 +1,6 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import type { AdminCreateBookingInput, Booking, BookingStatus, FlightView } from '@easygo/shared';
+import type { AdminCreateBookingInput, Booking, BookingStatus, Client, FlightView } from '@easygo/shared';
 import { BOOKING_STATUS_LABEL, formatMoney, paxLabel, seatsLabel } from '@easygo/shared';
 import { api, errorMessage } from '@/lib/api';
 import { useConfigStore } from '@/stores/config';
@@ -22,6 +22,8 @@ export function useBookingsModel() {
     { value: 'CONFIRMED', label: BOOKING_STATUS_LABEL.CONFIRMED },
     { value: 'COMPLETED', label: BOOKING_STATUS_LABEL.COMPLETED },
     { value: 'CANCELLED', label: BOOKING_STATUS_LABEL.CANCELLED },
+    { value: 'CANCELLED_BY_CLIENT', label: BOOKING_STATUS_LABEL.CANCELLED_BY_CLIENT },
+    { value: 'CANCELLED_BY_COMPANY', label: BOOKING_STATUS_LABEL.CANCELLED_BY_COMPANY },
   ];
 
   const activeFilter = ref<FilterValue>('all');
@@ -103,10 +105,12 @@ export function useBookingsModel() {
   }
 
   const nextStatuses: Record<BookingStatus, BookingStatus[]> = {
-    NEW: ['CONFIRMED', 'CANCELLED'],
-    CONFIRMED: ['COMPLETED', 'CANCELLED'],
+    NEW: ['CONFIRMED', 'CANCELLED_BY_CLIENT', 'CANCELLED_BY_COMPANY'],
+    CONFIRMED: ['COMPLETED', 'CANCELLED_BY_CLIENT', 'CANCELLED_BY_COMPANY'],
     COMPLETED: [],
     CANCELLED: ['NEW'],
+    CANCELLED_BY_CLIENT: ['NEW'],
+    CANCELLED_BY_COMPANY: ['NEW'],
   };
 
   async function changeStatus(status: BookingStatus): Promise<void> {
@@ -130,6 +134,56 @@ export function useBookingsModel() {
   function waLink(b: Booking): string {
     const phone = b.client?.phone?.replace(/[^\d]/g, '') ?? '';
     return `https://wa.me/${phone}`;
+  }
+
+  // ── Client search (for create booking form) ──
+  const clientSearch = ref('');
+  const clientSuggestions = ref<Client[]>([]);
+  const clientSearching = ref(false);
+  const clientSearchOpen = ref(false);
+  const selectedClient = ref<Client | null>(null);
+
+  let clientSearchTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function onClientSearchInput(): void {
+    if (clientSearchTimer) clearTimeout(clientSearchTimer);
+    if (!clientSearch.value.trim()) {
+      clientSuggestions.value = [];
+      clientSearchOpen.value = false;
+      return;
+    }
+    clientSearchTimer = setTimeout(async () => {
+      clientSearching.value = true;
+      try {
+        const res = await api.clients.list({ search: clientSearch.value.trim(), limit: 6, offset: 0 });
+        clientSuggestions.value = res.items;
+        clientSearchOpen.value = res.items.length > 0;
+      } catch {
+        clientSuggestions.value = [];
+      } finally {
+        clientSearching.value = false;
+      }
+    }, 300);
+  }
+
+  function pickClientSuggestion(c: Client): void {
+    selectedClient.value = c;
+    createForm.name = c.name;
+    createForm.phone = c.phone;
+    createForm.whatsapp = c.whatsapp;
+    clientSearch.value = '';
+    clientSuggestions.value = [];
+    clientSearchOpen.value = false;
+  }
+
+  function clearSelectedClient(): void {
+    selectedClient.value = null;
+    createForm.name = '';
+    createForm.phone = '';
+  }
+
+  function blurClientSearch(): void {
+    setTimeout(() => { clientSearchOpen.value = false; }, 150);
   }
 
   // ── Create booking (operator-side) ──
@@ -164,6 +218,10 @@ export function useBookingsModel() {
     createForm.whatsapp = true;
     createForm.comment = '';
     createForm.status = 'NEW';
+    clientSearch.value = '';
+    clientSuggestions.value = [];
+    clientSearchOpen.value = false;
+    selectedClient.value = null;
     createOpen.value = true;
     try {
       const list = await api.flights.list({ status: 'SCHEDULED' });
@@ -268,6 +326,16 @@ export function useBookingsModel() {
     closeCreate,
     flightOptionLabel,
     submitCreate,
+    // client search
+    clientSearch,
+    clientSuggestions,
+    clientSearching,
+    clientSearchOpen,
+    selectedClient,
+    onClientSearchInput,
+    pickClientSuggestion,
+    clearSelectedClient,
+    blurClientSearch,
     // formatters / labels used by the template
     money,
     bookingRouteLabel,

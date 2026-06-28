@@ -14,7 +14,6 @@ const {
   load,
   setDriver,
   setPartner,
-  driverMeta,
   isPending,
   initials,
 } = useApplicationsModel();
@@ -56,26 +55,39 @@ const {
               <span class="name">{{ app.name }}</span>
               <StatusChip kind="application" :status="app.status" />
             </div>
-            <div class="meta">{{ driverMeta(app) }}</div>
+            <div class="details">
+              <span class="dl">Телефон</span>
+              <span class="dv">{{ app.phone }}</span>
+              <span class="dl">Авто</span>
+              <span class="dv">{{ app.hasCar ? (app.carInfo ?? 'есть') : 'нет' }}</span>
+              <template v-if="app.experience">
+                <span class="dl">Опыт</span>
+                <span class="dv">{{ app.experience }}</span>
+              </template>
+              <template v-if="app.directions">
+                <span class="dl">Направления</span>
+                <span class="dv">{{ app.directions }}</span>
+              </template>
+            </div>
             <div v-if="app.about" class="about">{{ app.about }}</div>
-          </div>
-          <div v-if="isPending(app.status)" class="actions">
-            <button
-              type="button"
-              class="accept"
-              :disabled="busyId === app.id"
-              @click="setDriver(app, 'ACCEPTED')"
-            >
-              Принять
-            </button>
-            <button
-              type="button"
-              class="reject"
-              :disabled="busyId === app.id"
-              @click="setDriver(app, 'REJECTED')"
-            >
-              Отклонить
-            </button>
+            <div v-if="isPending(app.status)" class="actions">
+              <button
+                type="button"
+                class="accept"
+                :disabled="busyId === app.id"
+                @click="setDriver(app, 'ACCEPTED')"
+              >
+                Принять
+              </button>
+              <button
+                type="button"
+                class="reject"
+                :disabled="busyId === app.id"
+                @click="setDriver(app, 'REJECTED')"
+              >
+                Отклонить
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -94,28 +106,33 @@ const {
               <span class="name">{{ app.company }}</span>
               <StatusChip kind="application" :status="app.status" />
             </div>
-            <div class="meta">
-              <template v-if="app.sphere">Сфера: {{ app.sphere }} · </template>контакт: {{ app.contacts }}
+            <div class="details">
+              <template v-if="app.sphere">
+                <span class="dl">Сфера</span>
+                <span class="dv">{{ app.sphere }}</span>
+              </template>
+              <span class="dl">Контакт</span>
+              <span class="dv">{{ app.contacts }}</span>
             </div>
             <div v-if="app.proposal" class="about">{{ app.proposal }}</div>
-          </div>
-          <div v-if="isPending(app.status)" class="actions">
-            <button
-              type="button"
-              class="accept"
-              :disabled="busyId === app.id"
-              @click="setPartner(app, 'ACCEPTED')"
-            >
-              Принять
-            </button>
-            <button
-              type="button"
-              class="reject"
-              :disabled="busyId === app.id"
-              @click="setPartner(app, 'REJECTED')"
-            >
-              Отклонить
-            </button>
+            <div v-if="isPending(app.status)" class="actions">
+              <button
+                type="button"
+                class="accept"
+                :disabled="busyId === app.id"
+                @click="setPartner(app, 'ACCEPTED')"
+              >
+                Принять
+              </button>
+              <button
+                type="button"
+                class="reject"
+                :disabled="busyId === app.id"
+                @click="setPartner(app, 'REJECTED')"
+              >
+                Отклонить
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -154,11 +171,8 @@ const {
   border-radius: 16px;
   padding: 18px 20px;
   display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.card.partner {
   align-items: flex-start;
+  gap: 16px;
 }
 .avatar {
   width: 48px;
@@ -167,6 +181,7 @@ const {
   align-items: center;
   justify-content: center;
   flex: none;
+  overflow: hidden;
   font: 800 15px var(--eg-font);
 }
 .avatar.round {
@@ -178,15 +193,17 @@ const {
   border-radius: 13px;
   background: var(--eg-ink);
   color: var(--eg-brand-bright);
-  font-size: 24px;
+  font-size: 26px;
 }
 .info {
   flex: 1;
   min-width: 0;
+  width: 0;
 }
 .name-row {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
 }
 .name {
@@ -203,10 +220,27 @@ const {
   color: var(--eg-ink-soft);
   margin-top: 8px;
 }
+.details {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: 4px 14px;
+  margin-top: 8px;
+}
+.dl {
+  font: 600 12px var(--eg-font);
+  color: var(--eg-hint);
+  white-space: nowrap;
+}
+.dv {
+  font: 700 13px var(--eg-font);
+  color: var(--eg-ink);
+}
 .actions {
   display: flex;
   gap: 10px;
-  flex: none;
+  justify-content: flex-end;
+  margin-top: 14px;
 }
 .accept {
   height: 40px;

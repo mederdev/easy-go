@@ -1,7 +1,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import type { Car, CreateFlightInput, FlightStatus, FlightView, Route } from '@easygo/shared';
-import { FLIGHT_STATUS_LABEL } from '@easygo/shared';
-import { api } from '@/lib/api';
+import type { Booking, Car, CreateFlightInput, FlightStatus, FlightView, Route } from '@easygo/shared';
+import { BOOKING_STATUS_LABEL, FLIGHT_STATUS_LABEL } from '@easygo/shared';
+import { api, errorMessage } from '@/lib/api';
 import { flightRouteLabel, routeLabel, timeLabel } from '@/lib/format';
 import { useCrudList } from '@/composables/useCrudList';
 import { useFormModel } from '@/composables/useFormModel';
@@ -20,7 +20,7 @@ export function useFlightsModel() {
   });
 
   const form = useFormModel();
-  const statuses: FlightStatus[] = ['SCHEDULED', 'CLOSED', 'DEPARTED', 'CANCELLED'];
+  const statuses: FlightStatus[] = ['SCHEDULED', 'CLOSED', 'DEPARTED', 'CANCELLED', 'CANCELLED_BY_CLIENT', 'CANCELLED_BY_COMPANY'];
 
   function todayStr(): string {
     const d = new Date();
@@ -105,6 +105,62 @@ export function useFlightsModel() {
     return `Сегодня · ${d.getDate()} ${months[d.getMonth()]}`;
   });
 
+  // ── Flight detail modal ──────────────────────────────────────────────────
+  const detailOpen = ref(false);
+  const detailFlight = ref<FlightView | null>(null);
+  const detailBookings = ref<Booking[]>([]);
+  const detailLoading = ref(false);
+  const detailError = ref<string | null>(null);
+
+  async function openDetail(f: FlightView): Promise<void> {
+    detailFlight.value = f;
+    detailOpen.value = true;
+    detailLoading.value = true;
+    detailError.value = null;
+    detailBookings.value = [];
+    detailStatusEdit.value = f.status;
+    try {
+      const res = await api.bookings.list({ flightId: f.id, limit: 100, offset: 0 });
+      detailBookings.value = res.items;
+    } catch (e) {
+      detailError.value = errorMessage(e);
+    } finally {
+      detailLoading.value = false;
+    }
+  }
+
+  function closeDetail(): void {
+    detailOpen.value = false;
+    detailFlight.value = null;
+    detailBookings.value = [];
+    detailStatusEdit.value = null;
+    detailStatusSaving.value = false;
+    detailStatusError.value = null;
+  }
+
+  const detailStatusEdit = ref<FlightStatus | null>(null);
+  const detailStatusSaving = ref(false);
+  const detailStatusError = ref<string | null>(null);
+
+  async function saveDetailStatus(): Promise<void> {
+    if (!detailFlight.value || !detailStatusEdit.value) return;
+    if (detailStatusEdit.value === detailFlight.value.status) return;
+    detailStatusSaving.value = true;
+    detailStatusError.value = null;
+    try {
+      const updated = await api.flights.update(detailFlight.value.id, { status: detailStatusEdit.value });
+      detailFlight.value = updated;
+      const idx = flights.value.findIndex((f) => f.id === updated.id);
+      if (idx !== -1) flights.value[idx] = updated;
+    } catch (e) {
+      detailStatusError.value = errorMessage(e);
+    } finally {
+      detailStatusSaving.value = false;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   form.watchCreateCta(openCreate);
 
   onMounted(load);
@@ -131,5 +187,17 @@ export function useFlightsModel() {
     routeLabel,
     timeLabel,
     FLIGHT_STATUS_LABEL,
+    BOOKING_STATUS_LABEL,
+    detailOpen,
+    detailFlight,
+    detailBookings,
+    detailLoading,
+    detailError,
+    openDetail,
+    closeDetail,
+    detailStatusEdit,
+    detailStatusSaving,
+    detailStatusError,
+    saveDetailStatus,
   };
 }

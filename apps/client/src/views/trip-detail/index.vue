@@ -26,6 +26,7 @@ const {
 <template>
   <IonPage>
     <IonContent :fullscreen="true">
+      <div class="pg">
       <div class="head">
         <button class="back" @click="router.back()"><span class="ms">arrow_back</span></button>
         <div class="head-title">Поездка {{ booking?.code ?? '' }}</div>
@@ -74,11 +75,21 @@ const {
       </template>
 
       <div style="height: 40px"></div>
+      </div>
     </IonContent>
   </IonPage>
 </template>
 
 <style scoped>
+@media (min-width: 768px) {
+  .head { padding: 20px 0 12px; }
+  .hero { margin: 0; }
+  .details { margin: 0; }
+  .wa { width: 100%; margin: 18px 0 0; }
+  .cancel { width: 100%; margin: 10px 0 0; }
+  .confirm { margin: 10px 0 0; }
+}
+
 .head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
 .back {
   width: 38px; height: 38px; border-radius: 11px; border: 1px solid #e7e9e5; background: #fff;

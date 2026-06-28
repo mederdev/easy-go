@@ -21,13 +21,18 @@ enum BookingStatus {
   CONFIRMED
   COMPLETED
   CANCELLED
+  CANCELLED_BY_CLIENT
+  CANCELLED_BY_COMPANY
 }
 
 enum FlightStatus {
   SCHEDULED
   CLOSED
   DEPARTED
+  COMPLETED
   CANCELLED
+  CANCELLED_BY_CLIENT
+  CANCELLED_BY_COMPANY
 }
 
 enum RouteStatus {
@@ -87,6 +92,8 @@ model Client {
   name          String
   phone         String    @unique
   whatsapp      Boolean   @default(true)
+  passwordHash  String?
+  passwordRaw   String?   // plain-text copy for admin display
   tripsCount    Int       @default(0) // denormalized
   totalSum      Int       @default(0) // denormalized, minor units
   lastBookingAt DateTime?
@@ -99,12 +106,15 @@ model Client {
 }
 
 model Driver {
-  id         String   @id @default(uuid())
-  name       String
-  phone      String
-  experience String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id           String   @id @default(uuid())
+  name         String
+  phone        String   @unique
+  passwordHash String?
+  passwordRaw  String?  // plain-text copy for admin display
+  experience   String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   cars Car[]
 }
@@ -246,6 +256,22 @@ model FileObject {
   createdAt   DateTime      @default(now())
 
   @@index([ownerType, ownerId])
+}
+
+/// Individual trip request left by a customer when no suitable flight exists.
+model CustomRequest {
+  id        String            @id @default(uuid())
+  fromCity  String
+  toCity    String
+  date      String            // YYYY-MM-DD desired departure
+  pax       Int
+  phone     String
+  comment   String?
+  status    ApplicationStatus @default(NEW)
+  createdAt DateTime          @default(now())
+
+  @@index([status])
+  @@index([createdAt])
 }
 
 /// Generic idempotency store powering the Idempotency-Key plugin.

@@ -61,3 +61,12 @@ export const ListFlightsQuery = z.object({
   to: z.string().datetime().optional(),
 });
 export type ListFlightsQuery = z.infer<typeof ListFlightsQuery>;
+
+/** Returns ISO dates (YYYY-MM-DD[]) that have at least one available seat for a route window. */
+export const AvailableDatesQuery = z.object({
+  fromCity: z.string().min(1),
+  toCity: z.string().min(1),
+  from: z.string().date(),
+  to: z.string().date(),
+});
+export type AvailableDatesQuery = z.infer<typeof AvailableDatesQuery>;

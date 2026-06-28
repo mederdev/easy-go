@@ -16,6 +16,7 @@ const navMain: NavItem[] = [
   { to: '/flights', label: 'Рейсы', icon: 'event_seat' },
   { to: '/routes', label: 'Маршруты', icon: 'route' },
   { to: '/fleet', label: 'Автопарк', icon: 'directions_car' },
+  { to: '/drivers', label: 'Водители', icon: 'person' },
   { to: '/clients', label: 'Клиенты', icon: 'groups' },
   { to: '/analytics', label: 'Аналитика', icon: 'monitoring' },
 ];
@@ -58,6 +59,7 @@ function onCta(): void {
     flights: '/flights',
     routes: '/routes',
     fleet: '/fleet',
+    drivers: '/drivers',
     clients: '/clients',
     applications: '/applications',
     settings: '/settings',

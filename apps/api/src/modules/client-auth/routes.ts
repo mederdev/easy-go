@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { OtpRequestInput, OtpVerifyInput, type ClientJwtClaims } from '@easygo/shared';
+import { ClientLoginInput, OtpRequestInput, OtpVerifyInput, type ClientJwtClaims } from '@easygo/shared';
 import { parse } from '../../lib/validate.js';
 import * as svc from './service.js';
 
@@ -14,6 +14,15 @@ const routes: FastifyPluginAsync = async (app) => {
   app.post('/verify', async (request) => {
     const input = parse(OtpVerifyInput, request.body);
     const client = await svc.verifyAndUpsertClient(input);
+    const claims: ClientJwtClaims = { kind: 'client', sub: client.id, name: client.name };
+    const token = app.jwt.sign(claims);
+    return { token, client };
+  });
+
+  // Альтернатива: телефон + пароль (после того как пароль установлен).
+  app.post('/login', async (request) => {
+    const input = parse(ClientLoginInput, request.body);
+    const client = await svc.loginWithPassword(input);
     const claims: ClientJwtClaims = { kind: 'client', sub: client.id, name: client.name };
     const token = app.jwt.sign(claims);
     return { token, client };

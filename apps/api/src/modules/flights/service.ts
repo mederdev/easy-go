@@ -1,4 +1,5 @@
 import type {
+  AvailableDatesQuery,
   CreateFlightInput,
   ListFlightsQuery,
   SearchFlightsQuery,
@@ -43,6 +44,27 @@ export async function searchFlights(q: SearchFlightsQuery) {
   return flights
     .map(toFlightView)
     .filter((f) => f.seatsLeft >= q.pax);
+}
+
+/** Returns ISO dates that have ≥1 bookable seat for the given route window. */
+export async function getAvailableDates(q: AvailableDatesQuery): Promise<string[]> {
+  const start = new Date(`${q.from}T00:00:00.000Z`);
+  const end = new Date(`${q.to}T23:59:59.999Z`);
+  const flights = await prisma.flight.findMany({
+    where: {
+      status: 'SCHEDULED',
+      departAt: { gte: start, lte: end },
+      route: { fromCity: q.fromCity, toCity: q.toCity, status: 'ACTIVE' },
+    },
+    select: { departAt: true, seatsTotal: true, seatsTaken: true },
+  });
+  const dates = new Set<string>();
+  for (const f of flights) {
+    if (f.seatsTotal > f.seatsTaken) {
+      dates.add(f.departAt.toISOString().slice(0, 10));
+    }
+  }
+  return [...dates].sort();
 }
 
 export async function listFlights(q: ListFlightsQuery) {

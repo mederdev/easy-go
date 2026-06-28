@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import {
+  AvailableDatesQuery,
   CreateFlightInput,
   ListFlightsQuery,
   SearchFlightsQuery,
@@ -14,6 +15,12 @@ const routes: FastifyPluginAsync = async (app) => {
   app.get('/search', async (request) => {
     const q = parse(SearchFlightsQuery, request.query);
     return svc.searchFlights(q);
+  });
+
+  // Public: dates with available seats for a route window (for date-strip dots + calendar highlights).
+  app.get('/available-dates', async (request) => {
+    const q = parse(AvailableDatesQuery, request.query);
+    return svc.getAvailableDates(q);
   });
 
   app.get('/:id', async (request) => {

@@ -15,6 +15,7 @@ const sections = [
 <template>
   <IonPage>
     <IonContent :fullscreen="true">
+      <div class="pg">
       <div class="head">
         <h1 class="head-title">Информация</h1>
         <p class="head-sub">О сервисе и сотрудничество</p>
@@ -36,12 +37,19 @@ const sections = [
         <div class="brand-text">EASY GO ТРАНСФЕР · Бишкек · Алматы · Иссык-Куль</div>
       </div>
 
-      <div style="height: 96px"></div>
+      <div style="height: 40px"></div>
+      </div>
     </IonContent>
   </IonPage>
 </template>
 
 <style scoped>
+@media (min-width: 768px) {
+  .head { padding: 20px 0 0; }
+  .list { padding: 16px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .brand { padding: 8px 0 0; }
+}
+
 .head { padding: 12px 18px 0; }
 .head-title { margin: 0; font: 800 24px 'Manrope', sans-serif; letter-spacing: -0.01em; color: var(--eg-ink); }
 .head-sub { margin: 6px 0 0; font: 500 13px 'Manrope', sans-serif; color: var(--eg-muted); }

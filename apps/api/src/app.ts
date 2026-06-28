@@ -11,6 +11,8 @@ import errorHandler from './plugins/error-handler.js';
 
 import authRoutes from './modules/auth/routes.js';
 import clientAuthRoutes from './modules/client-auth/routes.js';
+import driverAuthRoutes from './modules/driver-auth/routes.js';
+import driverFlightRoutes from './modules/driver-flights/routes.js';
 import meRoutes from './modules/me/routes.js';
 import configRoutes from './modules/config/routes.js';
 import routeRoutes from './modules/routes/routes.js';
@@ -22,6 +24,8 @@ import fleetRoutes from './modules/fleet/routes.js';
 import applicationRoutes from './modules/applications/routes.js';
 import analyticsRoutes from './modules/analytics/routes.js';
 import fileRoutes from './modules/files/routes.js';
+import cityRoutes from './modules/cities/routes.js';
+import customRequestRoutes from './modules/custom-requests/routes.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -49,6 +53,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   // Domain modules
   await app.register(authRoutes, { prefix: '/auth' });
   await app.register(clientAuthRoutes, { prefix: '/client-auth' });
+  await app.register(driverAuthRoutes, { prefix: '/driver-auth' });
+  await app.register(driverFlightRoutes, { prefix: '/driver-flights' });
   await app.register(meRoutes, { prefix: '/me' });
   await app.register(configRoutes, { prefix: '/config' });
   await app.register(routeRoutes, { prefix: '/routes' });
@@ -60,6 +66,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(applicationRoutes, { prefix: '/applications' });
   await app.register(analyticsRoutes, { prefix: '/analytics' });
   await app.register(fileRoutes, { prefix: '/files' });
+  await app.register(cityRoutes, { prefix: '/cities' });
+  await app.register(customRequestRoutes, { prefix: '/custom-requests' });
 
   return app;
 }

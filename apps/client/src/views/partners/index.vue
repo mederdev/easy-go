@@ -21,7 +21,8 @@ const {
 <template>
   <IonPage>
     <IonContent :fullscreen="true">
-      <div style="padding: 8px 16px 0"><BackButton /></div>
+      <div class="pg">
+      <div style="padding: 8px 0 0"><BackButton /></div>
       <div class="partners-header">
         <h1 class="partners-header__title">Партнёрам</h1>
         <p class="partners-header__sub">
@@ -94,11 +95,18 @@ const {
       </div>
 
       <div style="height: 32px"></div>
+      </div>
     </IonContent>
   </IonPage>
 </template>
 
 <style scoped>
+@media (min-width: 768px) {
+  .partners-header { padding: 12px 0 0; }
+  .partners-form { padding: 16px 0; }
+  .partners-success { margin: 18px 0; }
+}
+
 .partners-header {
   padding: 12px 18px 0;
 }

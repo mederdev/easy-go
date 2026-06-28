@@ -1,9 +1,13 @@
 import { computed, onMounted, ref, watch } from 'vue';
-import type { Client } from '@easygo/shared';
+import type { Booking, Client } from '@easygo/shared';
 import { formatMoney } from '@easygo/shared';
 import { api, errorMessage } from '@/lib/api';
 import { useConfigStore } from '@/stores/config';
-import { dateLabel, initials } from '@/lib/format';
+import { dateLabel, dateTimeLabel, initials } from '@/lib/format';
+
+type ClientDetail = Client & {
+  bookings: Array<Booking & { flight?: { route?: { fromCity: string; toCity: string } | null; departAt: string } | null }>;
+};
 
 /** Clients directory: paginated list with debounced name/phone search. */
 export function useClientsModel() {
@@ -17,6 +21,29 @@ export function useClientsModel() {
   const total = ref(0);
   const offset = ref(0);
   const search = ref('');
+
+  const modalOpen = ref(false);
+  const modalClient = ref<ClientDetail | null>(null);
+  const modalLoading = ref(false);
+  const modalError = ref<string | null>(null);
+
+  async function selectClient(id: string): Promise<void> {
+    modalOpen.value = true;
+    modalClient.value = null;
+    modalLoading.value = true;
+    modalError.value = null;
+    try {
+      modalClient.value = (await api.clients.get(id)) as unknown as ClientDetail;
+    } catch (e) {
+      modalError.value = errorMessage(e);
+    } finally {
+      modalLoading.value = false;
+    }
+  }
+
+  function closeModal(): void {
+    modalOpen.value = false;
+  }
 
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -84,6 +111,13 @@ export function useClientsModel() {
     next,
     money,
     dateLabel,
+    dateTimeLabel,
     initials,
+    modalOpen,
+    modalClient,
+    modalLoading,
+    modalError,
+    selectClient,
+    closeModal,
   };
 }

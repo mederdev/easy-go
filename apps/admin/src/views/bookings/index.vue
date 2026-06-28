@@ -41,6 +41,15 @@ const {
   closeCreate,
   flightOptionLabel,
   submitCreate,
+  clientSearch,
+  clientSuggestions,
+  clientSearching,
+  clientSearchOpen,
+  selectedClient,
+  onClientSearchInput,
+  pickClientSuggestion,
+  clearSelectedClient,
+  blurClientSearch,
   money,
   bookingRouteLabel,
   dateTimeLabel,
@@ -221,14 +230,47 @@ const {
             <option v-for="f in bookableFlights" :key="f.id" :value="f.id">{{ flightOptionLabel(f) }}</option>
           </select>
         </label>
+        <div class="field client-search-field">
+          <span class="label">Выбрать из существующих <span class="opt">(необязательно)</span></span>
+          <div v-if="selectedClient" class="client-chip">
+            <span class="material-symbols-outlined chip-icon">person</span>
+            <span class="chip-name">{{ selectedClient.name }}</span>
+            <span class="chip-phone">{{ selectedClient.phone }}</span>
+            <button type="button" class="chip-clear" @click="clearSelectedClient">
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
+          <div v-else class="client-search-wrap">
+            <span class="material-symbols-outlined cs-icon" :class="{ spinning: clientSearching }">{{ clientSearching ? 'progress_activity' : 'search' }}</span>
+            <input
+              v-model="clientSearch"
+              class="cs-input"
+              placeholder="Поиск по имени или телефону…"
+              autocomplete="off"
+              @input="onClientSearchInput"
+              @blur="blurClientSearch"
+            />
+            <div v-if="clientSearchOpen" class="suggestions">
+              <div
+                v-for="c in clientSuggestions"
+                :key="c.id"
+                class="suggestion"
+                @mousedown.prevent="pickClientSuggestion(c)"
+              >
+                <span class="sug-name">{{ c.name }}</span>
+                <span class="sug-phone">{{ c.phone }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="two">
           <label class="field">
             <span class="label">Имя клиента</span>
-            <input v-model="createForm.name" placeholder="Айгуль Сапарова" />
+            <input v-model="createForm.name" :disabled="!!selectedClient" placeholder="Айгуль Сапарова" />
           </label>
           <label class="field">
             <span class="label">Телефон</span>
-            <input v-model="createForm.phone" placeholder="+996 700 000 000" />
+            <input v-model="createForm.phone" :disabled="!!selectedClient" placeholder="+996 700 000 000" />
           </label>
         </div>
         <div class="two">
@@ -620,6 +662,112 @@ const {
   width: 18px;
   height: 18px;
   accent-color: var(--eg-brand);
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+/* ── Client search ── */
+.client-search-field {
+  position: relative;
+}
+.client-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.cs-icon {
+  position: absolute;
+  left: 12px;
+  font-size: 18px;
+  color: #a7aca2;
+  pointer-events: none;
+  animation: none;
+}
+.cs-icon.spinning {
+  animation: spin 0.9s linear infinite;
+}
+.cs-input {
+  height: 46px !important;
+  padding: 0 12px 0 38px !important;
+  width: 100%;
+}
+.suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--eg-border);
+  border-radius: 11px;
+  box-shadow: 0 8px 24px -8px rgba(0,0,0,0.13);
+  z-index: 20;
+  overflow: hidden;
+}
+.suggestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  cursor: pointer;
+  gap: 10px;
+}
+.suggestion:not(:last-child) {
+  border-bottom: 1px solid #f4f5f2;
+}
+.suggestion:hover {
+  background: #f8faf6;
+}
+.sug-name {
+  font: 700 13px var(--eg-font);
+}
+.sug-phone {
+  font: 500 12px var(--eg-font);
+  color: var(--eg-hint);
+}
+.client-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 46px;
+  padding: 0 12px;
+  border: 1px solid var(--eg-brand);
+  border-radius: 11px;
+  background: var(--eg-brand-light);
+}
+.chip-icon {
+  font-size: 18px;
+  color: var(--eg-brand-dark);
+}
+.chip-name {
+  font: 700 14px var(--eg-font);
+  color: var(--eg-ink);
+  flex: 1;
+}
+.chip-phone {
+  font: 500 13px var(--eg-font);
+  color: var(--eg-hint);
+}
+.chip-clear {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: var(--eg-muted);
+  padding: 0;
+}
+.chip-clear:hover {
+  background: rgba(0,0,0,0.06);
+}
+.chip-clear .material-symbols-outlined {
+  font-size: 16px;
+}
+.form input:disabled {
+  background: #f4f5f2;
+  color: var(--eg-muted);
+  cursor: default;
 }
 .total-row {
   display: flex;

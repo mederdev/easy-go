@@ -1,7 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { MyBookingsQuery, UpdateMyProfileInput, Id } from '@easygo/shared';
+import { MyBookingsQuery, SetClientPasswordInput, UpdateMyProfileInput, Id } from '@easygo/shared';
 import { parse } from '../../lib/validate.js';
 import * as svc from './service.js';
+import { setClientPassword } from '../client-auth/service.js';
 
 /** Customer self-service, scoped to the authenticated client (kind=client JWT). */
 const routes: FastifyPluginAsync = async (app) => {
@@ -11,6 +12,10 @@ const routes: FastifyPluginAsync = async (app) => {
 
   app.patch('/', async (request) =>
     svc.updateMyProfile(request.clientId!, parse(UpdateMyProfileInput, request.body)),
+  );
+
+  app.patch('/password', async (request) =>
+    setClientPassword(request.clientId!, parse(SetClientPasswordInput, request.body)),
   );
 
   app.get('/bookings', async (request) =>

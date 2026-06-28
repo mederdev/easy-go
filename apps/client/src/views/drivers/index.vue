@@ -24,7 +24,8 @@ const {
 <template>
   <IonPage>
     <IonContent :fullscreen="true">
-      <div style="padding: 8px 16px 0"><BackButton /></div>
+      <div class="pg">
+      <div style="padding: 8px 0 0"><BackButton /></div>
       <div class="drivers-header">
         <h1 class="drivers-header__title">Водителям</h1>
         <p class="drivers-header__sub">
@@ -130,11 +131,18 @@ const {
       </div>
 
       <div style="height: 32px"></div>
+      </div>
     </IonContent>
   </IonPage>
 </template>
 
 <style scoped>
+@media (min-width: 768px) {
+  .drivers-header { padding: 12px 0 0; }
+  .drivers-form { padding: 16px 0; }
+  .drivers-success { margin: 18px 0; }
+}
+
 .drivers-header {
   padding: 12px 18px 0;
 }

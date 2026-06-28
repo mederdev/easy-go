@@ -1,17 +1,18 @@
-import { ref, onMounted } from 'vue';
+import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { onIonViewWillEnter } from '@ionic/vue';
 import type { Route } from '@easygo/shared';
 import { api } from '@/lib/api';
 
-/** Home screen: hero, search widget, and popular routes fetched on mount with a
- *  silent fallback to the static mock routes. */
+/** Home screen: hero, search widget, and popular routes fetched on every visit
+ *  (onIonViewWillEnter re-fires even when the tab page is already mounted). */
 export function useHomeModel() {
   const router = useRouter();
 
   const routes = ref<Route[]>([]);
   const routesLoading = ref(false);
 
-  onMounted(async () => {
+  onIonViewWillEnter(async () => {
     routesLoading.value = true;
     try {
       routes.value = await api.routes.public();

@@ -18,89 +18,91 @@ const {
 <template>
   <IonPage>
     <IonContent :fullscreen="true">
-      <!-- Header -->
-      <div class="home-header">
-        <img src="/assets/logo.svg" alt="EasyGo" class="home-header__logo" />
-        <a
-          href="#"
-          class="home-header__chat-btn"
-          @click.prevent="router.push('/tabs/contacts')"
-          aria-label="Написать в WhatsApp"
-        >
-          <span class="ms">chat</span>
-        </a>
-      </div>
-
-      <!-- Hero -->
-      <div class="home-hero">
-        <h1 class="home-hero__title">Поездки между<br/>городами — легко</h1>
-        <p class="home-hero__subtitle">
-          Бишкек, Алматы, Иссык-Куль и любые индивидуальные маршруты. Свой автопарк.
-        </p>
-      </div>
-
-      <!-- Search Widget -->
-      <SearchWidget />
-
-      <!-- Popular Routes -->
-      <SectionHeader title="Популярные маршруты" />
-      <div class="home-routes">
-        <LoadingSpinner v-if="routesLoading" />
-        <template v-else-if="routes.length > 0">
-          <RouteCard
-            v-for="route in routes"
-            :key="route.id"
-            :from-city="route.fromCity"
-            :to-city="route.toCity"
-            :duration="route.durationLabel ?? undefined"
-            :price="route.price"
-          />
-        </template>
-        <template v-else>
-          <RouteCard
-            v-for="r in staticRoutes"
-            :key="r.fromCity + r.toCity"
-            :from-city="r.fromCity"
-            :to-city="r.toCity"
-            :duration="r.duration"
-            :price="r.price"
-          />
-        </template>
-      </div>
-
-      <!-- Availability Teaser -->
-      <button class="home-avail-teaser" @click="router.push('/tabs/availability')">
-        <span class="home-avail-teaser__icon ms-wrap">
-          <span class="ms">local_taxi</span>
-        </span>
-        <div class="home-avail-teaser__content">
-          <div class="home-avail-teaser__title">Свободный транспорт сейчас</div>
-          <div class="home-avail-teaser__sub">Бишкек — 11 мест · Алматы — 8 мест</div>
+      <div class="pg">
+        <!-- Header -->
+        <div class="home-header">
+          <img src="/assets/logo.svg" alt="EasyGo" class="home-header__logo" />
+          <a
+            href="#"
+            class="home-header__chat-btn"
+            @click.prevent="router.push('/tabs/contacts')"
+            aria-label="Написать в WhatsApp"
+          >
+            <span class="ms">chat</span>
+          </a>
         </div>
-        <span class="ms home-avail-teaser__arrow">chevron_right</span>
-      </button>
 
-      <!-- Why EasyGo -->
-      <SectionHeader title="Почему EasyGo" />
-      <div class="home-why">
-        <WhyUsCard
-          icon="verified"
-          title="Собственный автопарк"
-          text="KIA Carnival и комфортные минивэны. Видно свободные места онлайн."
-        />
-        <WhyUsCard
-          icon="schedule"
-          title="Бронь за минуту"
-          text="Выберите рейс и оставьте заявку прямо на сайте."
-        />
-        <WhyUsCard
-          icon="chat"
-          title="Связь в WhatsApp"
-          text="Привычное общение с оператором в один клик."
-        />
+        <!-- Hero -->
+        <div class="home-hero">
+          <h1 class="home-hero__title">Поездки между<br/>городами — легко</h1>
+          <p class="home-hero__subtitle">
+            Бишкек, Алматы, Иссык-Куль и любые индивидуальные маршруты. Свой автопарк.
+          </p>
+        </div>
+
+        <!-- Search Widget -->
+        <SearchWidget />
+
+        <!-- Popular Routes -->
+        <SectionHeader title="Популярные маршруты" />
+        <div class="home-routes">
+          <LoadingSpinner v-if="routesLoading" />
+          <template v-else-if="routes.length > 0">
+            <RouteCard
+              v-for="route in routes"
+              :key="route.id"
+              :from-city="route.fromCity"
+              :to-city="route.toCity"
+              :duration="route.durationLabel ?? undefined"
+              :price="route.price"
+            />
+          </template>
+          <template v-else>
+            <RouteCard
+              v-for="r in staticRoutes"
+              :key="r.fromCity + r.toCity"
+              :from-city="r.fromCity"
+              :to-city="r.toCity"
+              :duration="r.duration"
+              :price="r.price"
+            />
+          </template>
+        </div>
+
+        <!-- Availability Teaser -->
+        <button class="home-avail-teaser" @click="router.push('/tabs/availability')">
+          <span class="home-avail-teaser__icon ms-wrap">
+            <span class="ms">local_taxi</span>
+          </span>
+          <div class="home-avail-teaser__content">
+            <div class="home-avail-teaser__title">Свободный транспорт сейчас</div>
+            <div class="home-avail-teaser__sub">Бишкек — 11 мест · Алматы — 8 мест</div>
+          </div>
+          <span class="ms home-avail-teaser__arrow">chevron_right</span>
+        </button>
+
+        <!-- Why EasyGo -->
+        <SectionHeader title="Почему EasyGo" />
+        <div class="home-why">
+          <WhyUsCard
+            icon="verified"
+            title="Собственный автопарк"
+            text="KIA Carnival и комфортные минивэны. Видны свободные места онлайн."
+          />
+          <WhyUsCard
+            icon="schedule"
+            title="Бронь за минуту"
+            text="Выберите рейс и оставьте заявку прямо на сайте."
+          />
+          <WhyUsCard
+            icon="chat"
+            title="Связь в WhatsApp"
+            text="Привычное общение с оператором в один клик."
+          />
+        </div>
+
+        <div style="height: 32px"></div>
       </div>
-
-      <div style="height: 32px"></div>
     </IonContent>
   </IonPage>
 </template>
@@ -211,5 +213,39 @@ const {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+@media (min-width: 768px) {
+  .home-header {
+    padding: 20px 0 16px;
+  }
+
+  .home-hero {
+    padding: 0 0 8px;
+  }
+
+  .home-hero__title {
+    font-size: 38px;
+    line-height: 1.1;
+  }
+
+  .home-routes {
+    padding: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .home-avail-teaser {
+    width: 100%;
+    margin: 18px 0 0;
+  }
+
+  .home-why {
+    padding: 0 0 8px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
 }
 </style>

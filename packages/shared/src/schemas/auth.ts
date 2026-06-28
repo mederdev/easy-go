@@ -40,7 +40,14 @@ export const ClientJwtClaims = z.object({
 });
 export type ClientJwtClaims = z.infer<typeof ClientJwtClaims>;
 
-export const JwtClaims = z.discriminatedUnion('kind', [UserJwtClaims, ClientJwtClaims]);
+export const DriverJwtClaims = z.object({
+  kind: z.literal('driver'),
+  sub: Id, // driverId
+  name: z.string(),
+});
+export type DriverJwtClaims = z.infer<typeof DriverJwtClaims>;
+
+export const JwtClaims = z.discriminatedUnion('kind', [UserJwtClaims, ClientJwtClaims, DriverJwtClaims]);
 export type JwtClaims = z.infer<typeof JwtClaims>;
 
 // ── Customer phone + OTP auth ──
@@ -68,6 +75,19 @@ export const ClientAuthResponse = z.object({
   client: Client,
 });
 export type ClientAuthResponse = z.infer<typeof ClientAuthResponse>;
+
+/** Customer phone + password login (after password has been set). */
+export const ClientLoginInput = z.object({
+  phone: Phone,
+  password: z.string().min(6).max(100),
+});
+export type ClientLoginInput = z.infer<typeof ClientLoginInput>;
+
+/** Customer sets or changes their password from личный кабинет. */
+export const SetClientPasswordInput = z.object({
+  password: z.string().min(6).max(100),
+});
+export type SetClientPasswordInput = z.infer<typeof SetClientPasswordInput>;
 
 /** Customer self-service profile update (cannot change phone — it's identity). */
 export const UpdateMyProfileInput = z.object({

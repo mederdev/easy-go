@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import StateBlock from '@/components/StateBlock.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import AppModal from '@/components/AppModal.vue';
+import StatusChip from '@/components/StatusChip.vue';
 import { useClientsModel } from './model';
 
 const {
@@ -18,7 +20,14 @@ const {
   next,
   money,
   dateLabel,
+  dateTimeLabel,
   initials,
+  modalOpen,
+  modalClient,
+  modalLoading,
+  modalError,
+  selectClient,
+  closeModal,
 } = useClientsModel();
 </script>
 
@@ -47,7 +56,7 @@ const {
           title="Клиентов не найдено"
           description="Измените поисковый запрос."
         />
-        <div v-for="c in items" :key="c.id" class="row data-row">
+        <div v-for="c in items" :key="c.id" class="row data-row clickable" @click="selectClient(c.id)">
           <span class="name-cell">
             <span class="avatar">{{ initials(c.name) }}</span>
             <span class="strong">{{ c.name }}</span>
@@ -77,6 +86,61 @@ const {
         </div>
       </div>
     </StateBlock>
+
+    <AppModal
+      :open="modalOpen"
+      :title="modalClient ? modalClient.name : 'Клиент'"
+      :subtitle="modalClient ? modalClient.phone : undefined"
+      @close="closeModal"
+    >
+      <div v-if="modalLoading" class="modal-state">
+        <span class="material-symbols-outlined spin">progress_activity</span>
+      </div>
+      <div v-else-if="modalError" class="modal-state error">{{ modalError }}</div>
+      <template v-else-if="modalClient">
+        <div class="client-stats">
+          <div class="stat-card">
+            <span class="stat-label">Поездок</span>
+            <span class="stat-value">{{ modalClient.tripsCount }}</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Сумма заказов</span>
+            <span class="stat-value">{{ money(modalClient.totalSum) }}</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Зарегистрирован</span>
+            <span class="stat-value">{{ dateLabel(modalClient.createdAt) }}</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">WhatsApp</span>
+            <span class="stat-value wa-val" :class="{ off: !modalClient.whatsapp }">
+              <span class="material-symbols-outlined">{{ modalClient.whatsapp ? 'check_circle' : 'cancel' }}</span>
+            </span>
+          </div>
+        </div>
+
+        <div class="section-title">История поездок</div>
+
+        <div v-if="modalClient.bookings.length === 0" class="no-bookings">
+          <span class="material-symbols-outlined">inbox</span>
+          Поездок нет
+        </div>
+        <div v-else class="booking-list">
+          <div v-for="b in modalClient.bookings" :key="b.id" class="booking-row">
+            <div class="booking-left">
+              <span class="booking-code">{{ b.code }}</span>
+              <span class="booking-route">{{ b.flight?.route ? `${b.flight.route.fromCity} → ${b.flight.route.toCity}` : '—' }}</span>
+              <span class="booking-date">{{ b.flight ? dateTimeLabel(b.flight.departAt) : '—' }}</span>
+            </div>
+            <div class="booking-right">
+              <span class="booking-pax">{{ b.pax }} чел.</span>
+              <span class="booking-total">{{ money(b.total) }}</span>
+              <StatusChip kind="booking" :status="b.status" />
+            </div>
+          </div>
+        </div>
+      </template>
+    </AppModal>
   </div>
 </template>
 
@@ -189,5 +253,119 @@ const {
 .page-buttons button:disabled {
   opacity: 0.4;
   cursor: default;
+}
+.clickable {
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.clickable:hover {
+  background: #f8faf6;
+}
+.modal-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 0;
+  color: var(--eg-muted);
+}
+.modal-state.error {
+  color: #d63c3c;
+  font: 500 13px var(--eg-font);
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { display: inline-block; animation: spin 0.9s linear infinite; font-size: 28px; }
+.client-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 22px;
+}
+.stat-card {
+  background: #f8faf6;
+  border: 1px solid var(--eg-line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.stat-label {
+  font: 500 11px var(--eg-font);
+  color: var(--eg-hint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.stat-value {
+  font: 800 15px var(--eg-font);
+  color: var(--eg-ink);
+}
+.wa-val .material-symbols-outlined {
+  font-size: 18px;
+  color: #1fae54;
+}
+.wa-val.off .material-symbols-outlined {
+  color: #c4c8c0;
+}
+.section-title {
+  font: 700 11px var(--eg-font);
+  color: var(--eg-hint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 10px;
+}
+.no-bookings {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 500 13px var(--eg-font);
+  color: var(--eg-muted);
+  padding: 16px 0;
+}
+.no-bookings .material-symbols-outlined { font-size: 20px; }
+.booking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--eg-line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.booking-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f4f5f2;
+  gap: 12px;
+}
+.booking-row:last-child { border-bottom: none; }
+.booking-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.booking-code {
+  font: 700 13px var(--eg-font);
+  color: var(--eg-brand);
+}
+.booking-route {
+  font: 600 13px var(--eg-font);
+}
+.booking-date {
+  font: 500 12px var(--eg-font);
+  color: var(--eg-muted);
+}
+.booking-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+}
+.booking-pax {
+  font: 500 12px var(--eg-font);
+  color: var(--eg-muted);
+}
+.booking-total {
+  font: 800 13px var(--eg-font);
 }
 </style>

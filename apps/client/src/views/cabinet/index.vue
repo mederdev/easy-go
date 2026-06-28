@@ -12,32 +12,161 @@ const {
   error,
   initials,
   statusStyle,
+  flightStatusStyle,
   shown,
   routeTitle,
   dateLabel,
   timeLabel,
   logout,
   BOOKING_STATUS_LABEL,
+  FLIGHT_STATUS_LABEL,
   formatMoney,
+  driverFlightTab,
+  driverShown,
+  statusChanging,
+  statusChangeError,
+  selectedFlight,
+  openFlight,
+  closeFlight,
+  changeFlightStatus,
+  driverFlightRoute,
+  driverFlightDate,
+  driverFlightTime,
+  nextStatus,
+  nextStatusLabel,
+  menuOpen,
+  toggleMenu,
+  closeMenu,
 } = useCabinetModel();
 </script>
 
 <template>
   <IonPage>
     <IonContent :fullscreen="true">
+      <div class="pg">
+
       <!-- GUEST -->
       <div v-if="!auth.isAuthenticated" class="guest">
         <div class="guest-icon"><span class="ms">account_circle</span></div>
         <h1 class="guest-title">Войдите в кабинет</h1>
         <p class="guest-text">Авторизуйтесь по номеру телефона, чтобы видеть свои поездки, статусы броней и оформлять заявки в один тап.</p>
-        <button class="primary" @click="router.push('/login')"><span class="ms">login</span>Войти по номеру</button>
+        <button class="primary" @click="router.push('/login')"><span class="ms">login</span>Войти</button>
         <div class="perks">
           <div class="perk"><span class="ms perk-ic">history</span>История и статусы всех поездок</div>
           <div class="perk"><span class="ms perk-ic">bolt</span>Бронь без повторного ввода данных</div>
         </div>
       </div>
 
-      <!-- LOGGED IN -->
+      <!-- ── DRIVER CABINET ── -->
+      <template v-else-if="auth.isDriver">
+        <div class="profile">
+          <div class="avatar driver-avatar"><span class="ms" style="font-size: 22px">directions_car</span></div>
+          <div class="profile-main">
+            <div class="profile-name">{{ auth.driver?.name }}</div>
+            <div class="profile-phone">{{ auth.driver?.phone }}</div>
+          </div>
+          <button class="logout" @click="logout"><span class="ms" style="font-size: 16px">logout</span>Выйти</button>
+        </div>
+
+        <div class="tabs">
+          <button :class="['seg', driverFlightTab === 'upcoming' && 'seg--on']" @click="driverFlightTab = 'upcoming'">Предстоящие</button>
+          <button :class="['seg', driverFlightTab === 'history' && 'seg--on']" @click="driverFlightTab = 'history'">История</button>
+        </div>
+
+        <LoadingSpinner v-if="loading" label="Загружаем рейсы…" />
+        <ErrorBanner v-else-if="error" :message="error" style="margin: 0 16px" />
+
+        <div v-else class="list">
+          <button
+            v-for="f in driverShown"
+            :key="f.id"
+            class="card"
+            :style="driverFlightTab === 'history' ? 'opacity:.92' : ''"
+            @click="openFlight(f)"
+          >
+            <div class="card-head">
+              <div class="card-route">{{ driverFlightRoute(f) }}</div>
+              <span class="chip" :style="{ background: flightStatusStyle(f.status).bg, color: flightStatusStyle(f.status).color }">
+                {{ FLIGHT_STATUS_LABEL[f.status] }}
+              </span>
+            </div>
+            <div class="card-meta">
+              <span class="mi"><span class="ms gi">calendar_today</span>{{ driverFlightDate(f) }}</span>
+              <span class="mi"><span class="ms gi">schedule</span>{{ driverFlightTime(f) }}</span>
+              <span class="mi"><span class="ms gi">group</span>{{ f.seatsTaken }}/{{ f.seatsTotal }}</span>
+            </div>
+            <div v-if="f.car" class="card-car">
+              <span class="ms gi" style="font-size:16px">directions_car</span>
+              {{ f.car.model }} · {{ f.car.plate }}
+            </div>
+          </button>
+
+          <div v-if="driverShown.length === 0" class="empty">
+            <span class="ms empty-ic">event_seat</span>
+            <div class="empty-text">{{ driverFlightTab === 'upcoming' ? 'Предстоящих рейсов нет' : 'История рейсов пуста' }}</div>
+          </div>
+        </div>
+
+        <!-- Flight detail overlay -->
+        <Teleport to="body">
+          <Transition name="slide-up">
+            <div v-if="selectedFlight" class="flight-sheet" @click.self="closeFlight">
+              <div class="sheet-card">
+                <div class="sheet-head">
+                  <div class="sheet-title">{{ driverFlightRoute(selectedFlight) }}</div>
+                  <button class="sheet-close" @click="closeFlight"><span class="ms">close</span></button>
+                </div>
+                <div class="sheet-meta">
+                  <span class="mi"><span class="ms gi">calendar_today</span>{{ driverFlightDate(selectedFlight) }}</span>
+                  <span class="mi"><span class="ms gi">schedule</span>{{ driverFlightTime(selectedFlight) }}</span>
+                </div>
+                <div class="sheet-row">
+                  <span class="label">Статус</span>
+                  <span class="chip" :style="{ background: flightStatusStyle(selectedFlight.status).bg, color: flightStatusStyle(selectedFlight.status).color }">
+                    {{ FLIGHT_STATUS_LABEL[selectedFlight.status] }}
+                  </span>
+                </div>
+                <div v-if="selectedFlight.car" class="sheet-row">
+                  <span class="label">Авто</span>
+                  <span>{{ selectedFlight.car.model }} · {{ selectedFlight.car.plate }}</span>
+                </div>
+                <div v-if="selectedFlight.pickupAddress" class="sheet-row">
+                  <span class="label">Адрес</span>
+                  <span>{{ selectedFlight.pickupAddress }}</span>
+                </div>
+
+                <!-- Passengers -->
+                <div class="pass-title">
+                  Пассажиры
+                  <span class="pass-count">{{ selectedFlight.passengers.length }} чел. / {{ selectedFlight.seatsTaken }} мест</span>
+                </div>
+                <div v-if="selectedFlight.passengers.length === 0" class="pass-empty">Бронирований нет</div>
+                <div v-else class="pass-list">
+                  <div v-for="(p, i) in selectedFlight.passengers" :key="i" class="pass-row">
+                    <span class="pass-avatar">{{ (p.name[0] ?? '?').toUpperCase() }}</span>
+                    <span class="pass-name">{{ p.name }}</span>
+                    <span class="pass-pax">{{ p.pax }} мест</span>
+                  </div>
+                </div>
+
+                <!-- Status action -->
+                <ErrorBanner v-if="statusChangeError" :message="statusChangeError" style="margin-top: 12px" />
+                <button
+                  v-if="nextStatus(selectedFlight)"
+                  class="status-btn"
+                  :disabled="statusChanging === selectedFlight.id"
+                  @click="changeFlightStatus(selectedFlight.id, nextStatus(selectedFlight)!)"
+                >
+                  <span class="ms">{{ nextStatus(selectedFlight) === 'DEPARTED' ? 'departure_board' : 'check_circle' }}</span>
+                  {{ statusChanging === selectedFlight.id ? 'Обновляем…' : nextStatusLabel[nextStatus(selectedFlight)!] }}
+                </button>
+              </div>
+            </div>
+          </Transition>
+        </Teleport>
+      </template>
+
+      <!-- ── CLIENT CABINET ── -->
       <template v-else>
         <div class="profile">
           <div class="avatar">{{ initials(auth.client?.name ?? '') }}</div>
@@ -45,7 +174,26 @@ const {
             <div class="profile-name">{{ auth.client?.name }}</div>
             <div class="profile-phone">{{ auth.client?.phone }}</div>
           </div>
-          <button class="logout" @click="logout"><span class="ms" style="font-size: 16px">logout</span>Выйти</button>
+
+          <!-- Menu button + dropdown -->
+          <div class="menu-wrap">
+            <button class="menu-btn" @click.stop="toggleMenu">
+              <span class="ms">more_vert</span>
+            </button>
+            <Transition name="drop">
+              <div v-if="menuOpen" class="dropdown" v-click-outside="closeMenu">
+                <button class="dd-item" @click="closeMenu(); router.push('/profile')">
+                  <span class="ms dd-ic">manage_accounts</span>
+                  Изменить профиль
+                </button>
+                <div class="dd-divider" />
+                <button class="dd-item dd-item--red" @click="closeMenu(); logout()">
+                  <span class="ms dd-ic">logout</span>
+                  Выйти
+                </button>
+              </div>
+            </Transition>
+          </div>
         </div>
 
         <div class="tabs">
@@ -88,12 +236,25 @@ const {
         </div>
       </template>
 
-      <div style="height: 96px"></div>
+      <div style="height: 40px"></div>
+      </div>
+
+      <!-- Close menu on backdrop tap -->
+      <div v-if="menuOpen" class="menu-backdrop" @click="closeMenu" />
     </IonContent>
   </IonPage>
 </template>
 
 <style scoped>
+@media (min-width: 768px) {
+  .profile { padding: 20px 0 0; }
+  .tabs { padding: 18px 0 12px; }
+  .list { padding: 0; }
+  .guest { padding: 60px 0; }
+  .perks { max-width: 400px; margin-left: auto; margin-right: auto; }
+  .primary { max-width: 320px; align-self: center; }
+}
+
 /* Guest */
 .guest { padding: 44px 22px; display: flex; flex-direction: column; align-items: center; text-align: center; }
 .guest-icon {
@@ -116,12 +277,45 @@ const {
   width: 52px; height: 52px; border-radius: 50%; background: var(--eg-ink); color: var(--eg-green-bright);
   display: flex; align-items: center; justify-content: center; font: 800 20px 'Manrope', sans-serif; flex-shrink: 0;
 }
-.profile-main { flex: 1; }
-.profile-name { font: 800 19px 'Manrope', sans-serif; }
+.driver-avatar { background: #EEF0FF; color: #5060C8; }
+.profile-main { flex: 1; min-width: 0; }
+.profile-name { font: 800 19px 'Manrope', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .profile-phone { font: 600 12px 'Manrope', sans-serif; color: var(--eg-muted-light); margin-top: 2px; }
 .logout {
   height: 34px; padding: 0 13px; border: 1px solid #e2e5df; background: #fff; border-radius: 10px;
   font: 700 12px 'Manrope', sans-serif; color: var(--eg-muted); cursor: pointer; display: flex; align-items: center; gap: 5px;
+}
+
+/* Menu */
+.menu-wrap { position: relative; flex-shrink: 0; }
+.menu-btn {
+  width: 38px; height: 38px; border-radius: 11px; border: 1px solid #e2e5df;
+  background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 22px;
+  color: var(--eg-ink);
+}
+.menu-backdrop {
+  position: fixed; inset: 0; z-index: 49;
+}
+.dropdown {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 50;
+  background: #fff; border: 1px solid #e2e5df; border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12); min-width: 190px; overflow: hidden;
+}
+.dd-item {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 13px 16px; background: none; border: none; cursor: pointer;
+  font: 600 14px 'Manrope', sans-serif; color: var(--eg-ink); text-align: left;
+}
+.dd-item:hover { background: #f8f9f6; }
+.dd-ic { font-size: 20px; color: var(--eg-muted); }
+.dd-item--red { color: #C0492E; }
+.dd-item--red .dd-ic { color: #C0492E; }
+.dd-divider { height: 1px; background: #f0f1ee; margin: 0; }
+.drop-enter-active { animation: dropIn .15s ease-out; }
+.drop-leave-active { animation: dropIn .12s ease-in reverse; }
+@keyframes dropIn {
+  from { opacity: 0; transform: translateY(-6px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* Tabs */
@@ -142,6 +336,7 @@ const {
 .card-route { font: 800 15px 'Manrope', sans-serif; }
 .chip { padding: 4px 10px; border-radius: 999px; font: 700 11px 'Manrope', sans-serif; }
 .card-meta { display: flex; gap: 16px; margin-top: 10px; font: 600 13px 'Manrope', sans-serif; color: var(--eg-muted); }
+.card-car { display: flex; align-items: center; gap: 5px; margin-top: 8px; font: 600 12px 'Manrope', sans-serif; color: var(--eg-muted); }
 .mi { display: flex; align-items: center; gap: 5px; }
 .gi { color: var(--eg-green); font-size: 17px; }
 .card-foot {
@@ -161,5 +356,53 @@ const {
   width: 100%; margin-top: 24px; height: 54px; border: none; border-radius: 15px;
   background: var(--eg-green); color: #fff; font: 700 16px 'Manrope', sans-serif; cursor: pointer;
   display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+
+/* Driver flight detail sheet */
+.flight-sheet {
+  position: fixed; inset: 0; background: rgba(16, 18, 20, 0.45); z-index: 200;
+  display: flex; align-items: flex-end;
+}
+.sheet-card {
+  width: 100%; max-height: 92vh; background: #fff; border-radius: 22px 22px 0 0;
+  padding: 20px 20px 36px; overflow-y: auto;
+}
+.sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.sheet-title { font: 800 19px 'Manrope', sans-serif; }
+.sheet-close {
+  width: 36px; height: 36px; border-radius: 10px; border: 1px solid #e2e5df;
+  background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px;
+}
+.sheet-meta { display: flex; gap: 16px; font: 600 13px 'Manrope', sans-serif; color: var(--eg-muted); margin-bottom: 16px; }
+.sheet-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font: 500 14px 'Manrope', sans-serif; }
+.label { width: 80px; flex: none; color: var(--eg-muted-light); font: 600 12px 'Manrope', sans-serif; }
+.pass-title {
+  display: flex; align-items: center; justify-content: space-between;
+  font: 700 13px 'Manrope', sans-serif; color: #9fa59a; text-transform: uppercase; letter-spacing: .06em;
+  margin: 16px 0 10px;
+}
+.pass-count { font: 600 12px 'Manrope', sans-serif; color: var(--eg-muted-light); text-transform: none; letter-spacing: 0; }
+.pass-empty { font: 500 13px 'Manrope', sans-serif; color: var(--eg-muted-light); padding: 8px 0; }
+.pass-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.pass-row { display: flex; align-items: center; gap: 10px; }
+.pass-avatar {
+  width: 34px; height: 34px; border-radius: 50%; background: var(--eg-ink); color: var(--eg-green-bright);
+  display: flex; align-items: center; justify-content: center; font: 800 13px 'Manrope', sans-serif; flex: none;
+}
+.pass-name { flex: 1; font: 600 14px 'Manrope', sans-serif; }
+.pass-pax { font: 600 12px 'Manrope', sans-serif; color: var(--eg-muted-light); }
+.status-btn {
+  width: 100%; height: 54px; border: none; border-radius: 15px;
+  background: var(--eg-green); color: #fff; font: 700 16px 'Manrope', sans-serif; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px;
+}
+.status-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Slide-up transition */
+.slide-up-enter-active { animation: slideUp .25s ease-out; }
+.slide-up-leave-active { animation: slideUp .2s ease-in reverse; }
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 </style>

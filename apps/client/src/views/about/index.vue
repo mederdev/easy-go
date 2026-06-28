@@ -6,7 +6,8 @@ import BackButton from '@/components/BackButton.vue';
 <template>
   <IonPage>
     <IonContent :fullscreen="true">
-      <div style="padding: 8px 16px 0"><BackButton /></div>
+      <div class="pg">
+      <div style="padding: 8px 0 0"><BackButton /></div>
       <div class="about-header">
         <h1 class="about-header__title">О компании</h1>
       </div>
@@ -66,11 +67,22 @@ import BackButton from '@/components/BackButton.vue';
       </div>
 
       <div style="height: 32px"></div>
+      </div>
     </IonContent>
   </IonPage>
 </template>
 
 <style scoped>
+@media (min-width: 768px) {
+  .about-header { padding: 12px 0 0; }
+  .about-photo { margin: 14px 0 0; height: 220px; }
+  .about-text { padding: 16px 0 0; }
+  .about-section-title { padding: 18px 0 6px; }
+  .about-advantages { padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .about-reviews { padding: 0; }
+  .about-license { margin: 18px 0; }
+}
+
 .about-header {
   padding: 12px 18px 0;
 }

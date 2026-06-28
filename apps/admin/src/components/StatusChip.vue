@@ -34,13 +34,18 @@ const bookingColors: Record<BookingStatus, Pair> = {
   CONFIRMED: BLUE,
   COMPLETED: GREY,
   CANCELLED: RED,
+  CANCELLED_BY_CLIENT: AMBER,
+  CANCELLED_BY_COMPANY: RED,
 };
 
 const flightColors: Record<FlightStatus, Pair> = {
   SCHEDULED: GREEN,
   CLOSED: RED,
   DEPARTED: BLUE,
+  COMPLETED: GREY,
   CANCELLED: RED,
+  CANCELLED_BY_CLIENT: AMBER,
+  CANCELLED_BY_COMPANY: RED,
 };
 
 const routeColors: Record<RouteStatus, Pair> = {

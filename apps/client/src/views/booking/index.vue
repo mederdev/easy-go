@@ -23,6 +23,7 @@ const {
 <template>
   <IonPage>
     <IonContent :fullscreen="true">
+      <div class="pg">
       <!-- Header -->
       <div class="booking-header">
         <button class="back-btn" @click="router.back()">
@@ -143,11 +144,20 @@ const {
       </div>
 
       <div style="height: 32px"></div>
+      </div>
     </IonContent>
   </IonPage>
 </template>
 
 <style scoped>
+@media (min-width: 768px) {
+  .booking-header { padding: 20px 0 12px; }
+  .booking-summary { margin: 0; }
+  .booking-pax { margin: 0; }
+  .booking-fields { padding: 0; }
+  .booking-total { margin: 18px 0 0; }
+}
+
 .booking-header {
   display: flex;
   align-items: center;

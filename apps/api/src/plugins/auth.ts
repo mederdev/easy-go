@@ -13,11 +13,15 @@ declare module 'fastify' {
     authorize: (roles: UserRole[]) => preHandlerHookHandler;
     /** preHandler: requires a valid customer JWT (kind=client). */
     authenticateClient: preHandlerHookHandler;
+    /** preHandler: requires a valid driver JWT (kind=driver). */
+    authenticateDriver: preHandlerHookHandler;
   }
   interface FastifyRequest {
     auth?: JwtClaims;
     /** Set by `authenticateClient` — the authenticated customer's id. */
     clientId?: string;
+    /** Set by `authenticateDriver` — the authenticated driver's id. */
+    driverId?: string;
   }
 }
 
@@ -60,5 +64,11 @@ export default fp(async (app) => {
     const claims = await verify(request);
     if (claims.kind !== 'client') throw Errors.forbidden();
     request.clientId = claims.sub;
+  });
+
+  app.decorate('authenticateDriver', async function (request: FastifyRequest, _reply: FastifyReply) {
+    const claims = await verify(request);
+    if (claims.kind !== 'driver') throw Errors.forbidden();
+    request.driverId = claims.sub;
   });
 }, { name: 'auth' });

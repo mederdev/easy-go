@@ -4,23 +4,32 @@ import type {
   AnalyticsSeries,
   AuthResponse,
   AuthUser,
+  AvailableDatesQuery,
   Booking,
   Car,
   Client,
   CreateBookingInput,
   CreateCarInput,
+  CreateCustomRequestInput,
   CreateDriverApplicationInput,
   CreateDriverInput,
   CreatePartnerApplicationInput,
   CreateRouteInput,
+  CustomRequest,
   DashboardSummary,
   Driver,
   DriverApplication,
+  DriverAuthResponse,
+  DriverFlightView,
+  DriverLoginInput,
+  DriverProfile,
   FlightView,
   ListBookingsQuery,
   ListClientsQuery,
   LoginInput,
   ClientAuthResponse,
+  ClientLoginInput,
+  SetClientPasswordInput,
   MyBookingsQuery,
   OtpRequestInput,
   OtpRequestResponse,
@@ -31,6 +40,8 @@ import type {
   PresignUploadResponse,
   Route,
   SearchFlightsQuery,
+  SetDriverPasswordInput,
+  UpdateDriverInput,
   SystemConfig,
   UpdateBookingStatusInput,
   UpdateCarInput,
@@ -122,12 +133,14 @@ export function createApiClient(opts: ApiClientOptions) {
     clientAuth: {
       requestOtp: (input: OtpRequestInput) => request<OtpRequestResponse>('POST', '/client-auth/request-otp', input),
       verify: (input: OtpVerifyInput) => request<ClientAuthResponse>('POST', '/client-auth/verify', input),
+      login: (input: ClientLoginInput) => request<ClientAuthResponse>('POST', '/client-auth/login', input),
     },
 
     // Authenticated customer (личный кабинет), scoped to the bearer token.
     me: {
       get: () => request<Client>('GET', '/me'),
       update: (input: UpdateMyProfileInput) => request<Client>('PATCH', '/me', input),
+      setPassword: (input: SetClientPasswordInput) => request<Client>('PATCH', '/me/password', input),
       bookings: (query?: MyBookingsQuery) =>
         request<Paginated<Booking>>('GET', '/me/bookings', undefined, { query: query as unknown as Query }),
       booking: (id: string) => request<Booking>('GET', `/me/bookings/${id}`),
@@ -150,6 +163,7 @@ export function createApiClient(opts: ApiClientOptions) {
 
     flights: {
       search: (query: SearchFlightsQuery) => request<FlightView[]>('GET', '/flights/search', undefined, { query: query as unknown as Query }),
+      availableDates: (query: AvailableDatesQuery) => request<string[]>('GET', '/flights/available-dates', undefined, { query: query as unknown as Query }),
       get: (id: string) => request<FlightView>('GET', `/flights/${id}`),
       list: (query?: Query) => request<FlightView[]>('GET', '/flights', undefined, { query }),
       create: (input: unknown) => request<FlightView>('POST', '/flights', input),
@@ -174,7 +188,23 @@ export function createApiClient(opts: ApiClientOptions) {
 
     drivers: {
       list: () => request<Driver[]>('GET', '/drivers'),
+      get: (id: string) => request<Driver>('GET', `/drivers/${id}`),
       create: (input: CreateDriverInput) => request<Driver>('POST', '/drivers', input),
+      update: (id: string, input: UpdateDriverInput) => request<Driver>('PATCH', `/drivers/${id}`, input),
+      setPassword: (id: string, input: SetDriverPasswordInput) => request<null>('POST', `/drivers/${id}/set-password`, input),
+      flights: (id: string) => request<FlightView[]>('GET', `/drivers/${id}/flights`),
+    },
+
+    driverAuth: {
+      login: (input: DriverLoginInput) => request<DriverAuthResponse>('POST', '/driver-auth/login', input),
+      me: () => request<DriverProfile>('GET', '/driver-auth/me'),
+    },
+
+    driverFlights: {
+      list: () => request<DriverFlightView[]>('GET', '/driver-flights'),
+      get: (id: string) => request<DriverFlightView>('GET', `/driver-flights/${id}`),
+      setStatus: (id: string, status: 'DEPARTED' | 'COMPLETED') =>
+        request<DriverFlightView>('PATCH', `/driver-flights/${id}/status`, { status }),
     },
 
     fleet: {
@@ -202,6 +232,17 @@ export function createApiClient(opts: ApiClientOptions) {
 
     files: {
       presign: (input: PresignUploadInput) => request<PresignUploadResponse>('POST', '/files/presign', input),
+    },
+
+    cities: {
+      search: (q: string) => request<string[]>('GET', '/cities/search', undefined, { query: { q } }),
+    },
+
+    customRequests: {
+      create: (input: CreateCustomRequestInput, idempotencyKey = uuid()) =>
+        request<CustomRequest>('POST', '/custom-requests', input, { idempotencyKey }),
+      list: (query?: Query) =>
+        request<Paginated<CustomRequest>>('GET', '/custom-requests', undefined, { query }),
     },
   };
 }

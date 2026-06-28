@@ -26,6 +26,18 @@ const {
   routeLabel,
   timeLabel,
   FLIGHT_STATUS_LABEL,
+  BOOKING_STATUS_LABEL,
+  detailOpen,
+  detailFlight,
+  detailBookings,
+  detailLoading,
+  detailError,
+  openDetail,
+  closeDetail,
+  detailStatusEdit,
+  detailStatusSaving,
+  detailStatusError,
+  saveDetailStatus,
 } = useFlightsModel();
 </script>
 
@@ -40,7 +52,7 @@ const {
         description="Создайте рейс, чтобы открыть продажи."
       />
       <div v-else class="grid">
-        <div v-for="f in flights" :key="f.id" class="card">
+        <div v-for="f in flights" :key="f.id" class="card clickable" @click="openDetail(f)">
           <div class="card-head">
             <div>
               <div class="route">{{ flightRouteLabel(f) }}</div>
@@ -71,6 +83,93 @@ const {
         </div>
       </div>
     </StateBlock>
+
+    <!-- Flight detail modal -->
+    <AppModal
+      :open="detailOpen"
+      :title="detailFlight ? flightRouteLabel(detailFlight) : ''"
+      :subtitle="detailFlight ? timeLabel(detailFlight.departAt) : ''"
+      @close="closeDetail"
+    >
+      <div v-if="detailFlight" class="detail">
+        <!-- Status row with editable selector -->
+        <div class="detail-row">
+          <StatusChip kind="flight" :status="detailFlight.status" />
+          <select v-if="detailStatusEdit !== null" v-model="detailStatusEdit" class="status-select">
+            <option v-for="s in statuses" :key="s" :value="s">{{ FLIGHT_STATUS_LABEL[s] }}</option>
+          </select>
+        </div>
+        <div v-if="detailStatusError" class="form-error">{{ detailStatusError }}</div>
+
+        <!-- Car / driver -->
+        <div class="detail-section">
+          <div class="section-title">Водитель и автомобиль</div>
+          <div v-if="detailFlight.car" class="info-grid">
+            <div class="info-item">
+              <span class="info-label">Автомобиль</span>
+              <span class="info-val">{{ detailFlight.car.model }} · {{ detailFlight.car.plate }}</span>
+            </div>
+            <div v-if="detailFlight.car.driver" class="info-item">
+              <span class="info-label">Водитель</span>
+              <span class="info-val">{{ detailFlight.car.driver.name }}</span>
+            </div>
+            <div v-if="detailFlight.car.driver?.phone" class="info-item">
+              <span class="info-label">Телефон</span>
+              <span class="info-val">{{ detailFlight.car.driver.phone }}</span>
+            </div>
+          </div>
+          <div v-else class="no-car">Автомобиль не назначен</div>
+        </div>
+
+        <!-- Seats load -->
+        <div class="detail-section">
+          <div class="section-title">Загрузка</div>
+          <div class="load detail-load">
+            <div class="bar">
+              <div class="fill" :style="{ width: `${pct(detailFlight)}%`, background: barColor(detailFlight) }" />
+            </div>
+            <span class="load-text">{{ detailFlight.seatsTaken }}/{{ detailFlight.seatsTotal }}</span>
+          </div>
+        </div>
+
+        <!-- Pickup address -->
+        <div v-if="detailFlight.pickupAddress" class="detail-section">
+          <div class="section-title">Адрес подачи</div>
+          <div class="info-val">{{ detailFlight.pickupAddress }}</div>
+        </div>
+
+        <!-- Passengers -->
+        <div class="detail-section">
+          <div class="section-title">Пассажиры</div>
+          <div v-if="detailLoading" class="pax-empty">Загрузка…</div>
+          <div v-else-if="detailError" class="pax-error">{{ detailError }}</div>
+          <div v-else-if="detailBookings.length === 0" class="pax-empty">Бронирований пока нет</div>
+          <div v-else class="pax-list">
+            <div v-for="b in detailBookings" :key="b.id" class="pax-row">
+              <div class="pax-info">
+                <span class="pax-name">{{ b.client?.name ?? '—' }}</span>
+                <span class="pax-phone">{{ b.client?.phone ?? '' }}</span>
+              </div>
+              <div class="pax-right">
+                <span class="pax-count">{{ b.pax }} чел.</span>
+                <span class="pax-status" :class="`bs-${b.status.toLowerCase()}`">{{ BOOKING_STATUS_LABEL[b.status] }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <button
+          type="button"
+          class="btn primary"
+          :disabled="detailStatusSaving || detailStatusEdit === detailFlight?.status"
+          @click="saveDetailStatus"
+        >
+          {{ detailStatusSaving ? 'Сохранение…' : 'Сохранить статус' }}
+        </button>
+      </template>
+    </AppModal>
 
     <AppModal
       :open="modalOpen"
@@ -148,6 +247,14 @@ const {
   border: 1px solid var(--eg-line);
   border-radius: 16px;
   padding: 18px 20px;
+}
+.clickable {
+  cursor: pointer;
+  transition: box-shadow 0.14s, border-color 0.14s;
+}
+.clickable:hover {
+  border-color: var(--eg-brand);
+  box-shadow: 0 4px 16px -6px rgba(86, 169, 25, 0.22);
 }
 .card-head {
   display: flex;
@@ -268,4 +375,117 @@ const {
   opacity: 0.6;
   cursor: default;
 }
+
+/* ── Detail modal ─────────────────────────────────────────── */
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.detail-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.status-select {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--eg-border);
+  border-radius: 10px;
+  font: 600 13px var(--eg-font);
+  background: #fff;
+  outline: none;
+  cursor: pointer;
+}
+.status-select:focus {
+  border-color: var(--eg-brand);
+}
+.detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.section-title {
+  font: 700 11px var(--eg-font);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--eg-muted);
+}
+.info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.info-label {
+  font: 500 13px var(--eg-font);
+  color: var(--eg-hint);
+}
+.info-val {
+  font: 600 13px var(--eg-font);
+  color: var(--eg-ink);
+}
+.no-car {
+  font: 500 13px var(--eg-font);
+  color: var(--eg-muted);
+}
+.detail-load {
+  margin-top: 4px;
+}
+.pax-empty {
+  font: 500 13px var(--eg-font);
+  color: var(--eg-muted);
+}
+.pax-error {
+  font: 600 13px var(--eg-font);
+  color: #c0492e;
+}
+.pax-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pax-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: #f8f9f6;
+}
+.pax-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pax-name {
+  font: 700 13px var(--eg-font);
+}
+.pax-phone {
+  font: 500 12px var(--eg-font);
+  color: var(--eg-hint);
+}
+.pax-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+.pax-count {
+  font: 700 13px var(--eg-font);
+}
+.pax-status {
+  font: 600 11px var(--eg-font);
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+.bs-new       { background: #e8f4fd; color: #1a6fa8; }
+.bs-confirmed { background: #eef6e6; color: #3e7c12; }
+.bs-completed { background: #f0f1ee; color: #5a6355; }
+.bs-cancelled { background: #fbedea; color: #c0492e; }
 </style>

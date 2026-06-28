@@ -9,11 +9,11 @@ export const UserRole = z.enum(['operator', 'admin', 'owner']);
 export type UserRole = z.infer<typeof UserRole>;
 
 /** New → Confirmed → Completed, or Cancelled at any point. */
-export const BookingStatus = z.enum(['NEW', 'CONFIRMED', 'COMPLETED', 'CANCELLED']);
+export const BookingStatus = z.enum(['NEW', 'CONFIRMED', 'COMPLETED', 'CANCELLED', 'CANCELLED_BY_CLIENT', 'CANCELLED_BY_COMPANY']);
 export type BookingStatus = z.infer<typeof BookingStatus>;
 
 /** Stored lifecycle. "few seats left" is derived, not stored. */
-export const FlightStatus = z.enum(['SCHEDULED', 'CLOSED', 'DEPARTED', 'CANCELLED']);
+export const FlightStatus = z.enum(['SCHEDULED', 'CLOSED', 'DEPARTED', 'COMPLETED', 'CANCELLED', 'CANCELLED_BY_CLIENT', 'CANCELLED_BY_COMPANY']);
 export type FlightStatus = z.infer<typeof FlightStatus>;
 
 export const RouteStatus = z.enum(['ACTIVE', 'DRAFT', 'ARCHIVED']);

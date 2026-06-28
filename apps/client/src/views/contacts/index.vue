@@ -22,7 +22,8 @@ async function onWhatsApp() {
 <template>
   <IonPage>
     <IonContent :fullscreen="true">
-      <div style="padding: 8px 16px 0"><BackButton /></div>
+      <div class="pg">
+      <div style="padding: 8px 0 0"><BackButton /></div>
       <div class="contacts-header">
         <h1 class="contacts-header__title">Контакты</h1>
       </div>
@@ -81,11 +82,17 @@ async function onWhatsApp() {
       </div>
 
       <div style="height: 32px"></div>
+      </div>
     </IonContent>
   </IonPage>
 </template>
 
 <style scoped>
+@media (min-width: 768px) {
+  .contacts-header { padding: 12px 0 0; }
+  .contacts-list { padding: 16px 0; }
+}
+
 .contacts-header {
   padding: 12px 18px 0;
 }

@@ -16,3 +16,4 @@ export * from './schemas/application.js';
 export * from './schemas/analytics.js';
 export * from './schemas/config.js';
 export * from './schemas/file.js';
+export * from './schemas/custom-request.js';

@@ -41,6 +41,13 @@ enum RouteStatus {
   ARCHIVED
 }
 
+/// Payment state of a booking (from prepaid vs total) or a flight (aggregated).
+enum PaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+}
+
 enum CarStatus {
   AVAILABLE
   ON_TRIP
@@ -170,6 +177,7 @@ model Flight {
   seatsTotal    Int          @default(11)
   seatsTaken    Int          @default(0) // denormalized
   status        FlightStatus @default(SCHEDULED)
+  paymentStatus PaymentStatus @default(UNPAID) // aggregated from active bookings
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
@@ -189,8 +197,11 @@ model Booking {
   flightId       String
   flight         Flight        @relation(fields: [flightId], references: [id], onDelete: Restrict)
   pax            Int
-  total          Int // minor units
+  discount       Int           @default(0) // minor units, amount off
+  prepaid        Int           @default(0) // minor units, paid so far
+  total          Int // minor units = price * pax - discount
   status         BookingStatus @default(NEW)
+  paymentStatus  PaymentStatus @default(UNPAID)
   comment        String?
   idempotencyKey String?       @unique
   createdAt      DateTime      @default(now())

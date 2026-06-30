@@ -1,7 +1,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import type { AdminCreateBookingInput, Booking, BookingStatus, Client, FlightView } from '@easygo/shared';
-import { BOOKING_STATUS_LABEL, formatMoney, paxLabel, seatsLabel } from '@easygo/shared';
+import { BOOKING_STATUS_LABEL, PAYMENT_STATUS_LABEL, formatMoney, paxLabel, seatsLabel, toMajor, toMinor } from '@easygo/shared';
 import { api, errorMessage } from '@/lib/api';
 import { useConfigStore } from '@/stores/config';
 import { bookingRouteLabel, dateTimeLabel, flightRouteLabel, initials, timeLabel } from '@/lib/format';
@@ -28,6 +28,8 @@ export function useBookingsModel() {
 
   const activeFilter = ref<FilterValue>('all');
   const search = ref('');
+  const dateFrom = ref(''); // filter by flight departure day, ISO YYYY-MM-DD
+  const dateTo = ref('');
   const offset = ref(0);
 
   const loading = ref(true);
@@ -60,6 +62,8 @@ export function useBookingsModel() {
         offset: offset.value,
         status: activeFilter.value === 'all' ? undefined : activeFilter.value,
         search: search.value.trim() || undefined,
+        from: dateFrom.value || undefined,
+        to: dateTo.value || undefined,
       });
       items.value = res.items;
       total.value = res.total;
@@ -73,6 +77,30 @@ export function useBookingsModel() {
   function setFilter(value: FilterValue): void {
     if (activeFilter.value === value) return;
     activeFilter.value = value;
+    offset.value = 0;
+    void load();
+  }
+
+  function setDateFrom(date: string): void {
+    if (date === dateFrom.value) return;
+    dateFrom.value = date;
+    if (dateTo.value && dateFrom.value > dateTo.value) dateTo.value = dateFrom.value;
+    offset.value = 0;
+    void load();
+  }
+
+  function setDateTo(date: string): void {
+    if (date === dateTo.value) return;
+    dateTo.value = date;
+    if (dateFrom.value && dateTo.value && dateTo.value < dateFrom.value) dateFrom.value = dateTo.value;
+    offset.value = 0;
+    void load();
+  }
+
+  function clearDates(): void {
+    if (!dateFrom.value && !dateTo.value) return;
+    dateFrom.value = '';
+    dateTo.value = '';
     offset.value = 0;
     void load();
   }
@@ -96,9 +124,62 @@ export function useBookingsModel() {
     void load();
   }
 
+  // ── Payment (discount / prepayment / status) — admin only ──
+  const paymentForm = reactive({ discount: 0, prepaid: 0 }); // major units, edited in the drawer
+  const paymentBusy = ref(false);
+  const paymentError = ref<string | null>(null);
+
+  function syncPaymentForm(b: Booking): void {
+    paymentForm.discount = toMajor(b.discount, config.currency);
+    paymentForm.prepaid = toMajor(b.prepaid, config.currency);
+  }
+
+  function applyUpdated(updated: Booking): void {
+    // Preserve embedded relations the PATCH response may not include.
+    const merged: Booking = { ...(selected.value ?? {} as Booking), ...updated };
+    selected.value = merged;
+    const idx = items.value.findIndex((x) => x.id === merged.id);
+    if (idx !== -1) items.value.splice(idx, 1, merged);
+  }
+
+  async function savePayment(): Promise<void> {
+    if (!selected.value) return;
+    paymentBusy.value = true;
+    paymentError.value = null;
+    try {
+      const updated = await api.bookings.setPayment(selected.value.id, {
+        discount: toMinor(Number(paymentForm.discount) || 0, config.currency),
+        prepaid: toMinor(Number(paymentForm.prepaid) || 0, config.currency),
+      });
+      applyUpdated(updated);
+      syncPaymentForm(updated);
+    } catch (e) {
+      paymentError.value = errorMessage(e);
+    } finally {
+      paymentBusy.value = false;
+    }
+  }
+
+  async function setPaid(paid: boolean): Promise<void> {
+    if (!selected.value) return;
+    paymentBusy.value = true;
+    paymentError.value = null;
+    try {
+      const updated = await api.bookings.setPaymentStatus(selected.value.id, { status: paid ? 'PAID' : 'UNPAID' });
+      applyUpdated(updated);
+      syncPaymentForm(updated);
+    } catch (e) {
+      paymentError.value = errorMessage(e);
+    } finally {
+      paymentBusy.value = false;
+    }
+  }
+
   function open(b: Booking): void {
     selected.value = b;
     statusError.value = null;
+    paymentError.value = null;
+    syncPaymentForm(b);
   }
   function closeDrawer(): void {
     selected.value = null;
@@ -201,13 +282,18 @@ export function useBookingsModel() {
     whatsapp: true,
     comment: '',
     status: 'NEW' as BookingStatus,
+    discount: 0, // major units
+    prepaid: 0, // major units
   });
 
   const selectedFlight = computed(() => bookableFlights.value.find((f) => f.id === createForm.flightId) ?? null);
-  const createTotal = computed(() => {
+  const createTotalMinor = computed(() => {
     const price = selectedFlight.value?.route?.price ?? 0;
-    return money(price * (Number(createForm.pax) || 0));
+    const gross = price * (Number(createForm.pax) || 0);
+    const discount = toMinor(Number(createForm.discount) || 0, config.currency);
+    return Math.max(0, gross - Math.min(discount, gross));
   });
+  const createTotal = computed(() => money(createTotalMinor.value));
 
   async function openCreate(): Promise<void> {
     createError.value = null;
@@ -218,6 +304,8 @@ export function useBookingsModel() {
     createForm.whatsapp = true;
     createForm.comment = '';
     createForm.status = 'NEW';
+    createForm.discount = 0;
+    createForm.prepaid = 0;
     clientSearch.value = '';
     clientSuggestions.value = [];
     clientSearchOpen.value = false;
@@ -265,6 +353,8 @@ export function useBookingsModel() {
         whatsapp: createForm.whatsapp,
         comment: createForm.comment.trim() || undefined,
         status: createForm.status,
+        discount: toMinor(Number(createForm.discount) || 0, config.currency),
+        prepaid: toMinor(Number(createForm.prepaid) || 0, config.currency),
       };
       await api.bookings.adminCreate(payload);
       createOpen.value = false;
@@ -293,6 +383,11 @@ export function useBookingsModel() {
     filters,
     activeFilter,
     search,
+    dateFrom,
+    dateTo,
+    setDateFrom,
+    setDateTo,
+    clearDates,
     loading,
     error,
     items,
@@ -314,6 +409,12 @@ export function useBookingsModel() {
     closeDrawer,
     changeStatus,
     waLink,
+    // payment
+    paymentForm,
+    paymentBusy,
+    paymentError,
+    savePayment,
+    setPaid,
     // create
     createOpen,
     creating,
@@ -343,5 +444,6 @@ export function useBookingsModel() {
     initials,
     paxLabel,
     BOOKING_STATUS_LABEL,
+    PAYMENT_STATUS_LABEL,
   };
 }

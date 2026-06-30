@@ -2,6 +2,7 @@
 import StatusChip from '@/components/StatusChip.vue';
 import StateBlock from '@/components/StateBlock.vue';
 import FilterChip from '@/components/FilterChip.vue';
+import DatePicker from '@/components/DatePicker.vue';
 import AppDrawer from '@/components/AppDrawer.vue';
 import AppModal from '@/components/AppModal.vue';
 import EmptyState from '@/components/EmptyState.vue';
@@ -11,6 +12,11 @@ const {
   filters,
   activeFilter,
   search,
+  dateFrom,
+  dateTo,
+  setDateFrom,
+  setDateTo,
+  clearDates,
   loading,
   error,
   items,
@@ -31,6 +37,11 @@ const {
   closeDrawer,
   changeStatus,
   waLink,
+  paymentForm,
+  paymentBusy,
+  paymentError,
+  savePayment,
+  setPaid,
   createOpen,
   creating,
   createError,
@@ -77,6 +88,26 @@ const {
       </div>
     </div>
 
+    <div class="date-bar">
+      <span class="date-bar-label">Дата рейса</span>
+      <DatePicker
+        :model-value="dateFrom"
+        :max="dateTo || undefined"
+        placeholder="От"
+        @update:model-value="setDateFrom"
+      />
+      <span class="date-bar-dash">—</span>
+      <DatePicker
+        :model-value="dateTo"
+        :min="dateFrom || undefined"
+        placeholder="До"
+        @update:model-value="setDateTo"
+      />
+      <button v-if="dateFrom || dateTo" type="button" class="date-reset" @click="clearDates">
+        Сбросить
+      </button>
+    </div>
+
     <StateBlock :loading="loading" :error="error" @retry="load">
       <div class="table">
         <div class="row head-row">
@@ -105,7 +136,10 @@ const {
           <span class="muted">{{ dateTimeLabel(b.flight?.departAt) }}</span>
           <span class="strong">{{ b.pax }}</span>
           <span class="strong total">{{ money(b.total) }}</span>
-          <span><StatusChip kind="booking" :status="b.status" /></span>
+          <span class="status-cell">
+            <StatusChip kind="booking" :status="b.status" />
+            <StatusChip kind="payment" :status="b.paymentStatus" />
+          </span>
           <span class="chevron material-symbols-outlined">chevron_right</span>
         </div>
       </div>
@@ -124,7 +158,10 @@ const {
               <div class="m-code">{{ b.code }}</div>
               <div class="m-title">{{ bookingRouteLabel(b) }}</div>
             </div>
-            <StatusChip kind="booking" :status="b.status" />
+            <div class="m-chips">
+              <StatusChip kind="booking" :status="b.status" />
+              <StatusChip kind="payment" :status="b.paymentStatus" />
+            </div>
           </div>
           <div class="m-client">
             <span class="m-name">{{ b.client?.name ?? '—' }}</span>
@@ -174,7 +211,10 @@ const {
         </div>
 
         <div class="drawer-body" data-scroll>
-          <StatusChip kind="booking" :status="selected.status" />
+          <div class="chip-row">
+            <StatusChip kind="booking" :status="selected.status" />
+            <StatusChip kind="payment" :status="selected.paymentStatus" />
+          </div>
 
           <div class="grid">
             <div>
@@ -219,6 +259,58 @@ const {
               <div class="cap">Сумма заказов</div>
               <div class="stat">{{ money(selected.client.totalSum) }}</div>
             </div>
+          </div>
+
+          <div class="divider" />
+
+          <div class="section-title">Оплата</div>
+          <div v-if="paymentError" class="status-error">{{ paymentError }}</div>
+          <div class="pay-grid">
+            <label class="field">
+              <span class="label">Скидка</span>
+              <input v-model.number="paymentForm.discount" type="number" min="0" inputmode="numeric" />
+            </label>
+            <label class="field">
+              <span class="label">Предоплата</span>
+              <input v-model.number="paymentForm.prepaid" type="number" min="0" inputmode="numeric" />
+            </label>
+          </div>
+          <div class="pay-summary">
+            <div class="pay-line">
+              <span class="cap">Предоплата</span>
+              <span class="val">{{ money(selected.prepaid) }}</span>
+            </div>
+            <div class="pay-line">
+              <span class="cap">Остаток к оплате</span>
+              <span class="val accent">{{ money(Math.max(0, selected.total - selected.prepaid)) }}</span>
+            </div>
+                        <div class="pay-line">
+              <span class="cap">Итого</span>
+              <span class="val">{{ money(selected.total) }}</span>
+            </div>
+          </div>
+          <div class="pay-actions">
+            <button type="button" class="status-btn" :disabled="paymentBusy" @click="savePayment">
+              Сохранить
+            </button>
+            <button
+              v-if="selected.paymentStatus !== 'PAID'"
+              type="button"
+              class="status-btn"
+              :disabled="paymentBusy"
+              @click="setPaid(true)"
+            >
+              Отметить оплаченным
+            </button>
+            <button
+              v-else
+              type="button"
+              class="status-btn danger"
+              :disabled="paymentBusy"
+              @click="setPaid(false)"
+            >
+              Снять оплату
+            </button>
           </div>
 
           <div class="divider" />
@@ -326,6 +418,16 @@ const {
             </select>
           </label>
         </div>
+        <div class="two">
+          <label class="field">
+            <span class="label">Скидка <span class="opt">(необязательно)</span></span>
+            <input v-model.number="createForm.discount" type="number" min="0" inputmode="numeric" placeholder="0" />
+          </label>
+          <label class="field">
+            <span class="label">Предоплата <span class="opt">(необязательно)</span></span>
+            <input v-model.number="createForm.prepaid" type="number" min="0" inputmode="numeric" placeholder="0" />
+          </label>
+        </div>
         <label class="check">
           <input v-model="createForm.whatsapp" type="checkbox" />
           <span>Этот номер используется в WhatsApp</span>
@@ -358,6 +460,36 @@ const {
   gap: 14px;
   margin-bottom: 16px;
   flex-wrap: wrap;
+}
+.date-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.date-bar-label {
+  font: 800 13px var(--eg-font);
+  color: var(--eg-muted);
+  margin-right: 2px;
+}
+.date-bar-dash {
+  color: var(--eg-hint);
+  font-weight: 700;
+}
+.date-reset {
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--eg-border);
+  border-radius: 11px;
+  background: #fff;
+  color: var(--eg-ink);
+  font: 700 13px var(--eg-font);
+  cursor: pointer;
+}
+.date-reset:hover {
+  border-color: var(--eg-brand);
+  color: var(--eg-brand-dark);
 }
 .chips {
   display: flex;
@@ -566,6 +698,59 @@ const {
 }
 .stat {
   font: 800 18px var(--eg-font);
+}
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.status-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.m-chips {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.pay-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.pay-grid input {
+  height: 46px;
+  padding: 0 12px;
+  border: 1px solid var(--eg-border);
+  border-radius: 11px;
+  font: 600 14px var(--eg-font);
+  outline: none;
+  background: #fff;
+}
+.pay-grid input:focus {
+  border-color: var(--eg-brand);
+}
+.pay-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: var(--eg-surface-alt);
+  border-radius: 12px;
+}
+.pay-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.pay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
 }
 .status-actions {
   display: flex;

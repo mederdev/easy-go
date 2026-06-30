@@ -4,11 +4,14 @@ import type {
   BookingStatus,
   CreateBookingInput,
   ListBookingsQuery,
+  PaymentStatus,
+  UpdateBookingPaymentInput,
 } from '@easygo/shared';
 import { prisma } from '../../lib/prisma.js';
 import { Errors } from '../../lib/errors.js';
 import { normalizePhone } from '../../lib/phone.js';
 import { enqueueStatsRecompute } from '../../lib/queue.js';
+import { derivePaymentStatus, recomputeFlightPayment } from '../../lib/payment.js';
 
 const bookingInclude = {
   client: true,
@@ -25,7 +28,7 @@ function isoDay(d: Date): string {
  */
 export async function createBooking(
   input: CreateBookingInput,
-  opts: { status?: BookingStatus; idempotencyKey?: string } = {},
+  opts: { status?: BookingStatus; discount?: number; prepaid?: number; idempotencyKey?: string } = {},
 ) {
   const phone = normalizePhone(input.phone);
 
@@ -46,7 +49,10 @@ export async function createBooking(
       update: { name: input.name, whatsapp: input.whatsapp },
     });
 
-    const total = flight.route.price * input.pax;
+    // Discount/prepayment are admin-only; the public flow leaves them at 0.
+    const discount = Math.min(opts.discount ?? 0, flight.route.price * input.pax);
+    const total = Math.max(0, flight.route.price * input.pax - discount);
+    const prepaid = Math.min(opts.prepaid ?? 0, total);
 
     // Create, then stamp a human code derived from the autoincrement seq.
     const created = await tx.booking.create({
@@ -55,8 +61,11 @@ export async function createBooking(
         clientId: client.id,
         flightId: flight.id,
         pax: input.pax,
+        discount,
+        prepaid,
         total,
         status: opts.status ?? 'NEW',
+        paymentStatus: derivePaymentStatus(prepaid, total),
         comment: input.comment ?? null,
         idempotencyKey: opts.idempotencyKey ?? null,
       },
@@ -83,6 +92,9 @@ export async function createBooking(
       data: { tripsCount: { increment: 1 }, totalSum: { increment: total }, lastBookingAt: new Date() },
     });
 
+    // Keep the flight's aggregated payment status in sync.
+    await recomputeFlightPayment(tx, flight.id);
+
     return { booking: withCode, isNewClient: !existingClient, departAt: flight.departAt };
   });
 
@@ -91,7 +103,12 @@ export async function createBooking(
 }
 
 export async function adminCreateBooking(input: AdminCreateBookingInput, idempotencyKey?: string) {
-  return createBooking(input, { status: input.status, idempotencyKey });
+  return createBooking(input, {
+    status: input.status,
+    discount: input.discount,
+    prepaid: input.prepaid,
+    idempotencyKey,
+  });
 }
 
 export async function listBookings(q: ListBookingsQuery) {
@@ -99,6 +116,16 @@ export async function listBookings(q: ListBookingsQuery) {
     status: q.status,
     clientId: q.clientId,
     flightId: q.flightId,
+    ...(q.from || q.to
+      ? {
+          flight: {
+            departAt: {
+              gte: q.from ? new Date(`${q.from}T00:00:00.000Z`) : undefined,
+              lte: q.to ? new Date(`${q.to}T23:59:59.999Z`) : undefined,
+            },
+          },
+        }
+      : {}),
     ...(q.search
       ? {
           OR: [
@@ -158,6 +185,75 @@ export async function setBookingStatus(id: string, status: BookingStatus) {
       });
     }
 
-    return tx.booking.update({ where: { id }, data: { status }, include: bookingInclude });
+    const updated = await tx.booking.update({ where: { id }, data: { status }, include: bookingInclude });
+    // Cancelling/uncancelling changes which bookings count toward the flight total.
+    await recomputeFlightPayment(tx, booking.flightId);
+    return updated;
+  });
+}
+
+/**
+ * Admin-only edit of the money fields. Recomputes `total` from the flight price
+ * and the new discount, clamps prepaid, re-derives the booking payment status,
+ * keeps the denormalized client total in sync, and re-aggregates the flight.
+ */
+export async function updateBookingPayment(id: string, input: UpdateBookingPaymentInput) {
+  const result = await prisma.$transaction(async (tx) => {
+    const booking = await tx.booking.findUnique({
+      where: { id },
+      include: { flight: { include: { route: true } } },
+    });
+    if (!booking) throw Errors.notFound('Бронирование');
+
+    const gross = booking.flight.route.price * booking.pax;
+    const discount = Math.min(Math.max(0, input.discount ?? booking.discount), gross);
+    const total = Math.max(0, gross - discount);
+    const prepaid = Math.min(Math.max(0, input.prepaid ?? booking.prepaid), total);
+    const paymentStatus = derivePaymentStatus(prepaid, total);
+
+    const updated = await tx.booking.update({
+      where: { id },
+      data: { discount, prepaid, total, paymentStatus },
+      include: bookingInclude,
+    });
+
+    // Active bookings contribute to the client's denormalized lifetime total.
+    const isActive = booking.status !== 'CANCELLED'
+      && booking.status !== 'CANCELLED_BY_CLIENT'
+      && booking.status !== 'CANCELLED_BY_COMPANY';
+    const delta = total - booking.total;
+    if (isActive && delta !== 0) {
+      await tx.client.update({
+        where: { id: booking.clientId },
+        data: { totalSum: { increment: delta } },
+      });
+    }
+
+    await recomputeFlightPayment(tx, booking.flightId);
+    return { booking: updated, departAt: booking.flight.departAt };
+  });
+
+  await enqueueStatsRecompute(isoDay(result.departAt)).catch(() => undefined);
+  return result.booking;
+}
+
+/**
+ * Explicit payment-status action (shared by admin and driver). PAID marks the
+ * booking fully settled without touching amounts; anything else re-derives from
+ * the prepaid amount. Re-aggregates the parent flight afterwards.
+ */
+export async function setBookingPaymentStatus(id: string, status: PaymentStatus) {
+  return prisma.$transaction(async (tx) => {
+    const booking = await tx.booking.findUnique({ where: { id } });
+    if (!booking) throw Errors.notFound('Бронирование');
+
+    const next = status === 'PAID' ? 'PAID' : derivePaymentStatus(booking.prepaid, booking.total);
+    const updated = await tx.booking.update({
+      where: { id },
+      data: { paymentStatus: next },
+      include: bookingInclude,
+    });
+    await recomputeFlightPayment(tx, booking.flightId);
+    return updated;
   });
 }

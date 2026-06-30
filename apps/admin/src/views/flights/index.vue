@@ -2,6 +2,8 @@
 import StatusChip from '@/components/StatusChip.vue';
 import StateBlock from '@/components/StateBlock.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import FilterChip from '@/components/FilterChip.vue';
+import DatePicker from '@/components/DatePicker.vue';
 import AppModal from '@/components/AppModal.vue';
 import { useFlightsModel } from './model';
 
@@ -12,6 +14,10 @@ const {
   routes,
   cars,
   load,
+  routeFilter,
+  dateFilter,
+  setRouteFilter,
+  setDateFilter,
   modalOpen,
   saving,
   formError,
@@ -21,10 +27,12 @@ const {
   save,
   pct,
   barColor,
+  isPast,
   todayLabel,
   flightRouteLabel,
   routeLabel,
   timeLabel,
+  dateLabel,
   FLIGHT_STATUS_LABEL,
   BOOKING_STATUS_LABEL,
   detailOpen,
@@ -38,12 +46,39 @@ const {
   detailStatusSaving,
   detailStatusError,
   saveDetailStatus,
+  detailPaymentSaving,
+  detailPaymentError,
+  setFlightPaid,
 } = useFlightsModel();
 </script>
 
 <template>
   <div>
     <div class="day-label">{{ todayLabel }}</div>
+
+    <div class="filters">
+      <div class="chips">
+        <FilterChip
+          label="Все маршруты"
+          :active="routeFilter === ''"
+          @click="setRouteFilter('')"
+        />
+        <FilterChip
+          v-for="r in routes"
+          :key="r.id"
+          :label="routeLabel(r)"
+          :active="routeFilter === r.id"
+          @click="setRouteFilter(r.id)"
+        />
+      </div>
+      <DatePicker
+        class="date-picker"
+        :model-value="dateFilter"
+        placeholder="Все даты"
+        @update:model-value="setDateFilter"
+      />
+    </div>
+
     <StateBlock :loading="loading" :error="error" @retry="load">
       <EmptyState
         v-if="flights.length === 0"
@@ -52,16 +87,27 @@ const {
         description="Создайте рейс, чтобы открыть продажи."
       />
       <div v-else class="grid">
-        <div v-for="f in flights" :key="f.id" class="card clickable" @click="openDetail(f)">
+        <div
+          v-for="f in flights"
+          :key="f.id"
+          class="card clickable"
+          :class="{ past: isPast(f) }"
+          @click="openDetail(f)"
+        >
           <div class="card-head">
             <div>
-              <div class="route">{{ flightRouteLabel(f) }}</div>
+              <div class="route">
+                {{ flightRouteLabel(f) }}
+              </div>
               <div class="meta">
                 {{ f.car?.model ?? 'Без авто' }}
                 <template v-if="f.car?.driver"> · водитель {{ f.car.driver.name }}</template>
               </div>
             </div>
-            <div class="time">{{ timeLabel(f.departAt) }}</div>
+            <div class="when">
+              <div class="time">{{ timeLabel(f.departAt) }}</div>
+              <div class="date">{{ dateLabel(f.departAt) }}</div>
+            </div>
           </div>
 
           <div class="load">
@@ -78,6 +124,7 @@ const {
               :status="f.status"
             />
             <span v-else class="few-chip">Мало мест</span>
+            <StatusChip kind="payment" :status="f.paymentStatus" />
             <span class="status-note">{{ FLIGHT_STATUS_LABEL[f.status] }}</span>
           </div>
         </div>
@@ -95,6 +142,7 @@ const {
         <!-- Status row with editable selector -->
         <div class="detail-row">
           <StatusChip kind="flight" :status="detailFlight.status" />
+          <StatusChip kind="payment" :status="detailFlight.paymentStatus" />
           <select v-if="detailStatusEdit !== null" v-model="detailStatusEdit" class="status-select">
             <option v-for="s in statuses" :key="s" :value="s">{{ FLIGHT_STATUS_LABEL[s] }}</option>
           </select>
@@ -153,8 +201,35 @@ const {
               <div class="pax-right">
                 <span class="pax-count">{{ b.pax }} чел.</span>
                 <span class="pax-status" :class="`bs-${b.status.toLowerCase()}`">{{ BOOKING_STATUS_LABEL[b.status] }}</span>
+                <StatusChip kind="payment" :status="b.paymentStatus" />
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Payment (bulk mark paid / clear) -->
+        <div class="detail-section">
+          <div class="section-title">Оплата рейса</div>
+          <div v-if="detailPaymentError" class="form-error">{{ detailPaymentError }}</div>
+          <div class="pay-actions">
+            <button
+              v-if="detailFlight.paymentStatus !== 'PAID'"
+              type="button"
+              class="btn primary"
+              :disabled="detailPaymentSaving"
+              @click="setFlightPaid(true)"
+            >
+              {{ detailPaymentSaving ? 'Сохранение…' : 'Отметить рейс оплаченным' }}
+            </button>
+            <button
+              v-else
+              type="button"
+              class="btn ghost"
+              :disabled="detailPaymentSaving"
+              @click="setFlightPaid(false)"
+            >
+              {{ detailPaymentSaving ? 'Сохранение…' : 'Снять оплату со всех' }}
+            </button>
           </div>
         </div>
       </div>
@@ -237,6 +312,21 @@ const {
   color: var(--eg-muted);
   margin-bottom: 12px;
 }
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.date-picker {
+  margin-left: auto;
+}
 .grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -263,14 +353,45 @@ const {
 }
 .route {
   font: 800 17px var(--eg-font);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.past-chip {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: var(--eg-radius-pill);
+  font: 700 10px var(--eg-font);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #ececec;
+  color: #71776e;
 }
 .meta {
   font: 600 12px var(--eg-font);
   color: var(--eg-hint);
   margin-top: 2px;
 }
+.when {
+  text-align: right;
+  flex: none;
+}
 .time {
   font: 800 22px var(--eg-font);
+  line-height: 1.1;
+}
+.date {
+  font: 600 12px var(--eg-font);
+  color: var(--eg-hint);
+  margin-top: 2px;
+}
+/* Past flights are dimmed so upcoming ones stand out. */
+.card.past {
+  background: #fafafa;
+}
+.card.past .route,
+.card.past .time {
+  color: #8a9086;
 }
 .load {
   display: flex;
@@ -474,7 +595,12 @@ const {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 3px;
+  gap: 4px;
+}
+.pay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 .pax-count {
   font: 700 13px var(--eg-font);
@@ -495,6 +621,9 @@ const {
   }
   .two {
     grid-template-columns: 1fr;
+  }
+  .date-picker {
+    margin-left: 0;
   }
 }
 </style>

@@ -2,12 +2,18 @@
 import DataCard from '@/components/DataCard.vue';
 import StateBlock from '@/components/StateBlock.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import DatePicker from '@/components/DatePicker.vue';
 import { useAnalyticsModel } from './model';
 
 const {
   loading,
   error,
   series,
+  from,
+  to,
+  setFrom,
+  setTo,
+  maxToday,
   load,
   money,
   points,
@@ -21,6 +27,24 @@ const {
 </script>
 
 <template>
+  <div class="range-bar">
+    <span class="range-label">Период</span>
+    <DatePicker
+      :model-value="from"
+      :max="to"
+      placeholder="От"
+      @update:model-value="setFrom"
+    />
+    <span class="range-dash">—</span>
+    <DatePicker
+      :model-value="to"
+      :min="from"
+      :max="maxToday"
+      placeholder="До"
+      @update:model-value="setTo"
+    />
+  </div>
+
   <StateBlock :loading="loading" :error="error" @retry="load">
     <div v-if="series">
       <div class="cards">
@@ -111,6 +135,22 @@ const {
 </template>
 
 <style scoped>
+.range-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.range-label {
+  font: 800 13px var(--eg-font);
+  color: var(--eg-muted);
+  margin-right: 2px;
+}
+.range-dash {
+  color: var(--eg-hint);
+  font-weight: 700;
+}
 .cards {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

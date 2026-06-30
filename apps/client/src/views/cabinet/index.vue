@@ -13,6 +13,7 @@ const {
   initials,
   statusStyle,
   flightStatusStyle,
+  paymentStatusStyle,
   shown,
   routeTitle,
   dateLabel,
@@ -20,6 +21,7 @@ const {
   logout,
   BOOKING_STATUS_LABEL,
   FLIGHT_STATUS_LABEL,
+  PAYMENT_STATUS_LABEL,
   formatMoney,
   driverFlightTab,
   driverShown,
@@ -34,6 +36,10 @@ const {
   driverFlightTime,
   nextStatus,
   nextStatusLabel,
+  paymentBusy,
+  paymentError,
+  markBookingPaid,
+  markFlightPaid,
   menuOpen,
   toggleMenu,
   closeMenu,
@@ -86,9 +92,14 @@ const {
           >
             <div class="card-head">
               <div class="card-route">{{ driverFlightRoute(f) }}</div>
-              <span class="chip" :style="{ background: flightStatusStyle(f.status).bg, color: flightStatusStyle(f.status).color }">
-                {{ FLIGHT_STATUS_LABEL[f.status] }}
-              </span>
+              <div class="chip-stack">
+                <span class="chip" :style="{ background: flightStatusStyle(f.status).bg, color: flightStatusStyle(f.status).color }">
+                  {{ FLIGHT_STATUS_LABEL[f.status] }}
+                </span>
+                <span class="chip" :style="{ background: paymentStatusStyle(f.paymentStatus).bg, color: paymentStatusStyle(f.paymentStatus).color }">
+                  {{ PAYMENT_STATUS_LABEL[f.paymentStatus] }}
+                </span>
+              </div>
             </div>
             <div class="card-meta">
               <span class="mi"><span class="ms gi">calendar_today</span>{{ driverFlightDate(f) }}</span>
@@ -126,6 +137,12 @@ const {
                     {{ FLIGHT_STATUS_LABEL[selectedFlight.status] }}
                   </span>
                 </div>
+                <div class="sheet-row">
+                  <span class="label">Оплата</span>
+                  <span class="chip" :style="{ background: paymentStatusStyle(selectedFlight.paymentStatus).bg, color: paymentStatusStyle(selectedFlight.paymentStatus).color }">
+                    {{ PAYMENT_STATUS_LABEL[selectedFlight.paymentStatus] }}
+                  </span>
+                </div>
                 <div v-if="selectedFlight.car" class="sheet-row">
                   <span class="label">Авто</span>
                   <span>{{ selectedFlight.car.model }} · {{ selectedFlight.car.plate }}</span>
@@ -142,12 +159,51 @@ const {
                 </div>
                 <div v-if="selectedFlight.passengers.length === 0" class="pass-empty">Бронирований нет</div>
                 <div v-else class="pass-list">
-                  <div v-for="(p, i) in selectedFlight.passengers" :key="i" class="pass-row">
-                    <span class="pass-avatar">{{ (p.name[0] ?? '?').toUpperCase() }}</span>
-                    <span class="pass-name">{{ p.name }}</span>
-                    <span class="pass-pax">{{ p.pax }} мест</span>
+                  <div v-for="p in selectedFlight.passengers" :key="p.bookingId" class="pass-block">
+                    <div class="pass-row">
+                      <span class="pass-avatar">{{ (p.name[0] ?? '?').toUpperCase() }}</span>
+                      <span class="pass-name">{{ p.name }}</span>
+                      <span class="chip" :style="{ background: paymentStatusStyle(p.paymentStatus).bg, color: paymentStatusStyle(p.paymentStatus).color }">
+                        {{ PAYMENT_STATUS_LABEL[p.paymentStatus] }}
+                      </span>
+                    </div>
+                    <div class="pass-pay">
+                      <span class="pass-sum">
+                        {{ formatMoney(p.prepaid) }} / {{ formatMoney(p.total) }}
+                        <span class="pass-pax">· {{ p.pax }} мест</span>
+                      </span>
+                      <button
+                        v-if="p.paymentStatus !== 'PAID'"
+                        class="pay-mini"
+                        :disabled="paymentBusy === p.bookingId"
+                        @click="markBookingPaid(selectedFlight.id, p.bookingId, 'PAID')"
+                      >
+                        {{ paymentBusy === p.bookingId ? '…' : 'Оплачено' }}
+                      </button>
+                      <button
+                        v-else
+                        class="pay-mini pay-mini--off"
+                        :disabled="paymentBusy === p.bookingId"
+                        @click="markBookingPaid(selectedFlight.id, p.bookingId, 'UNPAID')"
+                      >
+                        {{ paymentBusy === p.bookingId ? '…' : 'Снять' }}
+                      </button>
+                    </div>
                   </div>
                 </div>
+
+                <ErrorBanner v-if="paymentError" :message="paymentError" style="margin-top: 12px" />
+
+                <!-- Mark the whole flight paid -->
+                <button
+                  v-if="selectedFlight.passengers.length && selectedFlight.paymentStatus !== 'PAID'"
+                  class="status-btn pay-all"
+                  :disabled="paymentBusy === selectedFlight.id"
+                  @click="markFlightPaid(selectedFlight.id, 'PAID')"
+                >
+                  <span class="ms">payments</span>
+                  {{ paymentBusy === selectedFlight.id ? 'Обновляем…' : 'Весь рейс оплачен' }}
+                </button>
 
                 <!-- Status action -->
                 <ErrorBanner v-if="statusChangeError" :message="statusChangeError" style="margin-top: 12px" />
@@ -224,7 +280,12 @@ const {
               <span class="mi"><span class="ms gi">group</span>{{ b.pax }}</span>
             </div>
             <div class="card-foot">
-              <span class="total">{{ formatMoney(b.total) }}</span>
+              <span class="foot-left">
+                <span class="total">{{ formatMoney(b.total) }}</span>
+                <span class="chip" :style="{ background: paymentStatusStyle(b.paymentStatus).bg, color: paymentStatusStyle(b.paymentStatus).color }">
+                  {{ PAYMENT_STATUS_LABEL[b.paymentStatus] }}
+                </span>
+              </span>
               <span class="more">Подробнее<span class="ms" style="font-size: 16px">chevron_right</span></span>
             </div>
           </button>
@@ -344,6 +405,8 @@ const {
   margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f1ee;
 }
 .total { font: 800 16px 'Manrope', sans-serif; }
+.foot-left { display: flex; align-items: center; gap: 8px; }
+.chip-stack { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .more { font: 700 12px 'Manrope', sans-serif; color: var(--eg-green); display: flex; align-items: center; gap: 3px; }
 
 /* Empty */
@@ -383,7 +446,9 @@ const {
 }
 .pass-count { font: 600 12px 'Manrope', sans-serif; color: var(--eg-muted-light); text-transform: none; letter-spacing: 0; }
 .pass-empty { font: 500 13px 'Manrope', sans-serif; color: var(--eg-muted-light); padding: 8px 0; }
-.pass-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.pass-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.pass-block { display: flex; flex-direction: column; gap: 6px; padding-bottom: 12px; border-bottom: 1px solid #f0f1ee; }
+.pass-block:last-child { border-bottom: none; padding-bottom: 0; }
 .pass-row { display: flex; align-items: center; gap: 10px; }
 .pass-avatar {
   width: 34px; height: 34px; border-radius: 50%; background: var(--eg-ink); color: var(--eg-green-bright);
@@ -391,6 +456,15 @@ const {
 }
 .pass-name { flex: 1; font: 600 14px 'Manrope', sans-serif; }
 .pass-pax { font: 600 12px 'Manrope', sans-serif; color: var(--eg-muted-light); }
+.pass-pay { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-left: 44px; }
+.pass-sum { font: 600 13px 'Manrope', sans-serif; color: var(--eg-muted); }
+.pay-mini {
+  height: 32px; padding: 0 14px; border: none; border-radius: 9px;
+  background: var(--eg-green); color: #fff; font: 700 12px 'Manrope', sans-serif; cursor: pointer; flex: none;
+}
+.pay-mini--off { background: #fff; border: 1px solid #e2e5df; color: var(--eg-muted); }
+.pay-mini:disabled { opacity: 0.5; cursor: not-allowed; }
+.pay-all { background: #3E7C12; }
 .status-btn {
   width: 100%; height: 54px; border: none; border-radius: 15px;
   background: var(--eg-green); color: #fff; font: 700 16px 'Manrope', sans-serif; cursor: pointer;

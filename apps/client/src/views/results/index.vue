@@ -234,7 +234,7 @@ const calendarOpen = ref(false);
 
 .date-strip-wrap {
   position: relative;
-  padding: 2px 0 12px;
+  padding: 2px 0 12px 16px;
   display: flex;
   align-items: center;
 }

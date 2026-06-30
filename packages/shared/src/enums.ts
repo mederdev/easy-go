@@ -16,6 +16,14 @@ export type BookingStatus = z.infer<typeof BookingStatus>;
 export const FlightStatus = z.enum(['SCHEDULED', 'CLOSED', 'DEPARTED', 'COMPLETED', 'CANCELLED', 'CANCELLED_BY_CLIENT', 'CANCELLED_BY_COMPANY']);
 export type FlightStatus = z.infer<typeof FlightStatus>;
 
+/**
+ * Payment state of a booking or a flight.
+ * Booking: derived from `prepaid` vs `total` (UNPAID/PARTIAL/PAID), plus an
+ * explicit "mark paid" action. Flight: aggregated from its active bookings.
+ */
+export const PaymentStatus = z.enum(['UNPAID', 'PARTIAL', 'PAID']);
+export type PaymentStatus = z.infer<typeof PaymentStatus>;
+
 export const RouteStatus = z.enum(['ACTIVE', 'DRAFT', 'ARCHIVED']);
 export type RouteStatus = z.infer<typeof RouteStatus>;
 

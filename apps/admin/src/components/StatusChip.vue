@@ -6,19 +6,21 @@ import {
   ROUTE_STATUS_LABEL,
   CAR_STATUS_LABEL,
   APPLICATION_STATUS_LABEL,
+  PAYMENT_STATUS_LABEL,
   type BookingStatus,
   type FlightStatus,
   type RouteStatus,
   type CarStatus,
   type ApplicationStatus,
+  type PaymentStatus,
 } from '@easygo/shared';
 import { colors } from '@easygo/ui-tokens';
 
-type Kind = 'booking' | 'flight' | 'route' | 'car' | 'application';
+type Kind = 'booking' | 'flight' | 'route' | 'car' | 'application' | 'payment';
 
 const props = defineProps<{
   kind: Kind;
-  status: BookingStatus | FlightStatus | RouteStatus | CarStatus | ApplicationStatus | string;
+  status: BookingStatus | FlightStatus | RouteStatus | CarStatus | ApplicationStatus | PaymentStatus | string;
 }>();
 
 const GREEN = colors.statusGreen;
@@ -67,6 +69,12 @@ const applicationColors: Record<ApplicationStatus, Pair> = {
   REJECTED: RED,
 };
 
+const paymentColors: Record<PaymentStatus, Pair> = {
+  UNPAID: RED,
+  PARTIAL: AMBER,
+  PAID: GREEN,
+};
+
 const label = computed<string>(() => {
   switch (props.kind) {
     case 'booking':
@@ -79,6 +87,8 @@ const label = computed<string>(() => {
       return CAR_STATUS_LABEL[props.status as CarStatus] ?? String(props.status);
     case 'application':
       return APPLICATION_STATUS_LABEL[props.status as ApplicationStatus] ?? String(props.status);
+    case 'payment':
+      return PAYMENT_STATUS_LABEL[props.status as PaymentStatus] ?? String(props.status);
     default:
       return String(props.status);
   }
@@ -96,6 +106,8 @@ const pair = computed<Pair>(() => {
       return carColors[props.status as CarStatus] ?? GREY;
     case 'application':
       return applicationColors[props.status as ApplicationStatus] ?? GREY;
+    case 'payment':
+      return paymentColors[props.status as PaymentStatus] ?? GREY;
     default:
       return GREY;
   }

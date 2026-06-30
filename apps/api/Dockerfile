@@ -1,7 +1,10 @@
 # Build from the repo root: docker build -f apps/api/Dockerfile .
 FROM node:20-alpine AS base
-# Enable + cache pnpm in the image so the runtime never needs to fetch it.
-RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
+# openssl: required by Prisma's engines on Alpine/musl (installed BEFORE the
+# deps stage so the correct engine binary is fetched at install + generate).
+# corepack: enable + cache pnpm so the runtime never needs to fetch it.
+RUN apk add --no-cache openssl \
+ && corepack enable && corepack prepare pnpm@9.12.0 --activate
 WORKDIR /repo
 
 # --- deps: install the whole workspace (api needs @easygo/shared) ---

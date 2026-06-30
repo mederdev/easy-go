@@ -110,6 +110,43 @@ const {
         </div>
       </div>
 
+      <!-- Mobile cards (hidden on desktop) -->
+      <div class="m-cards">
+        <EmptyState
+          v-if="items.length === 0"
+          icon="receipt_long"
+          title="Заявок не найдено"
+          description="Измените фильтр или поисковый запрос."
+        />
+        <div v-for="b in items" :key="b.id" class="m-card" @click="open(b)">
+          <div class="m-card-top">
+            <div class="m-head-left">
+              <div class="m-code">{{ b.code }}</div>
+              <div class="m-title">{{ bookingRouteLabel(b) }}</div>
+            </div>
+            <StatusChip kind="booking" :status="b.status" />
+          </div>
+          <div class="m-client">
+            <span class="m-name">{{ b.client?.name ?? '—' }}</span>
+            <span class="m-phone">{{ b.client?.phone ?? '' }}</span>
+          </div>
+          <div class="m-meta">
+            <div class="m-meta-item">
+              <span class="m-cap">Дата · время</span>
+              <span class="m-val">{{ dateTimeLabel(b.flight?.departAt) }}</span>
+            </div>
+            <div class="m-meta-item">
+              <span class="m-cap">Пасс.</span>
+              <span class="m-val">{{ b.pax }}</span>
+            </div>
+            <div class="m-meta-item">
+              <span class="m-cap">Сумма</span>
+              <span class="m-val accent">{{ money(b.total) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div v-if="items.length" class="pager">
         <span class="page-info">{{ pageStart }}–{{ pageEnd }} из {{ total }}</span>
         <div class="page-buttons">
@@ -813,5 +850,98 @@ const {
 .btn:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+/* Mobile card list — hidden on desktop, shown instead of the table on phones. */
+.m-cards {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+}
+.m-card {
+  background: #fff;
+  border: 1px solid var(--eg-line);
+  border-radius: 16px;
+  padding: 16px;
+  cursor: pointer;
+}
+.m-card:active {
+  background: #fafbf9;
+}
+.m-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.m-head-left {
+  min-width: 0;
+}
+.m-code {
+  font: 700 11px var(--eg-font);
+  color: var(--eg-hint);
+}
+.m-title {
+  font: 800 16px var(--eg-font);
+  margin-top: 2px;
+}
+.m-client {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 8px;
+}
+.m-name {
+  font: 700 14px var(--eg-font);
+}
+.m-phone {
+  font: 500 13px var(--eg-font);
+  color: var(--eg-hint);
+}
+.m-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 22px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #f0f1ee;
+}
+.m-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.m-cap {
+  font: 600 11px var(--eg-font);
+  color: var(--eg-hint);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.m-val {
+  font: 700 14px var(--eg-font);
+}
+.m-val.accent {
+  color: var(--eg-brand);
+  font-weight: 800;
+}
+
+@media (max-width: 720px) {
+  .toolbar {
+    align-items: stretch;
+  }
+  .search {
+    margin-left: 0;
+    min-width: 0;
+    width: 100%;
+  }
+  .two {
+    grid-template-columns: 1fr;
+  }
+  .table {
+    display: none;
+  }
+  .m-cards {
+    display: flex;
+  }
 }
 </style>

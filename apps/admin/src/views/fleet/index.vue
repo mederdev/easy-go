@@ -256,4 +256,13 @@ select:focus {
   opacity: 0.6;
   cursor: default;
 }
+
+@media (max-width: 720px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .two {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

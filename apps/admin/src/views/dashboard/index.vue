@@ -84,6 +84,36 @@ const {
           <span class="strong">{{ money(b.total) }}</span>
           <span><StatusChip kind="booking" :status="b.status" /></span>
         </div>
+
+        <!-- Mobile cards (hidden on desktop) -->
+        <div class="m-cards">
+          <div v-for="b in recent" :key="b.id" class="m-card">
+            <div class="m-card-top">
+              <div class="m-head-left">
+                <div class="m-code">{{ b.code }}</div>
+                <div class="m-title">{{ bookingRouteLabel(b) }}</div>
+              </div>
+              <StatusChip kind="booking" :status="b.status" />
+            </div>
+            <div class="m-client">
+              <span class="m-name">{{ b.client?.name ?? '—' }}</span>
+            </div>
+            <div class="m-meta">
+              <div class="m-meta-item">
+                <span class="m-cap">Дата · время</span>
+                <span class="m-val">{{ dateTimeLabel(b.flight?.departAt) }}</span>
+              </div>
+              <div class="m-meta-item">
+                <span class="m-cap">Пасс.</span>
+                <span class="m-val">{{ paxLabel(b.pax) }}</span>
+              </div>
+              <div class="m-meta-item">
+                <span class="m-cap">Сумма</span>
+                <span class="m-val accent">{{ money(b.total) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </template>
     </div>
   </StateBlock>
@@ -139,5 +169,86 @@ const {
 }
 .strong {
   font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+/* Mobile card list — hidden on desktop, shown instead of the table on phones. */
+.m-cards {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+}
+.m-card {
+  border: 1px solid var(--eg-line);
+  border-radius: 14px;
+  padding: 14px;
+}
+.m-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.m-head-left {
+  min-width: 0;
+}
+.m-code {
+  font: 700 11px var(--eg-font);
+  color: var(--eg-hint);
+}
+.m-title {
+  font: 800 15px var(--eg-font);
+  margin-top: 2px;
+}
+.m-client {
+  margin-top: 6px;
+}
+.m-name {
+  font: 700 14px var(--eg-font);
+}
+.m-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f0f1ee;
+}
+.m-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.m-cap {
+  font: 600 11px var(--eg-font);
+  color: var(--eg-hint);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.m-val {
+  font: 700 14px var(--eg-font);
+}
+.m-val.accent {
+  color: var(--eg-brand);
+  font-weight: 800;
+}
+
+@media (max-width: 720px) {
+  .head-row,
+  .row {
+    display: none;
+  }
+  .m-cards {
+    display: flex;
+  }
+}
+@media (max-width: 520px) {
+  .cards {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

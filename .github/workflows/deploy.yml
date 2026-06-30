@@ -1,0 +1,116 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Never let two deploys race on the same server.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  # Build-time API origin baked into the SPAs (NOT a secret — it ends up in the
+  # public JS bundle). Origin root, no /api suffix, no trailing slash.
+  VITE_API_URL: https://api.easygo-transfer.com
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute lowercase image owner
+        id: vars
+        run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ steps.vars.outputs.owner }}/easygo-api:${{ github.sha }}
+            ghcr.io/${{ steps.vars.outputs.owner }}/easygo-api:latest
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build & push Admin
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/admin/Dockerfile
+          push: true
+          build-args: |
+            VITE_API_URL=${{ env.VITE_API_URL }}
+          tags: |
+            ghcr.io/${{ steps.vars.outputs.owner }}/easygo-admin:${{ github.sha }}
+            ghcr.io/${{ steps.vars.outputs.owner }}/easygo-admin:latest
+          cache-from: type=gha,scope=admin
+          cache-to: type=gha,mode=max,scope=admin
+
+      - name: Build & push Client
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/client/Dockerfile
+          push: true
+          build-args: |
+            VITE_API_URL=${{ env.VITE_API_URL }}
+            VITE_2GIS_KEY=${{ secrets.VITE_2GIS_KEY }}
+          tags: |
+            ghcr.io/${{ steps.vars.outputs.owner }}/easygo-client:${{ github.sha }}
+            ghcr.io/${{ steps.vars.outputs.owner }}/easygo-client:latest
+          cache-from: type=gha,scope=client
+          cache-to: type=gha,mode=max,scope=client
+
+  deploy:
+    needs: build-push
+    runs-on: ubuntu-latest
+    # Safety switch: the SSH deploy only runs once you set the repository
+    # variable ENABLE_DEPLOY=true (Settings → Secrets and variables → Actions →
+    # Variables). Until then, pushes just build & push images to GHCR (the
+    # deploy job shows as "skipped"), so you can seed images and bring TLS up
+    # manually first. Flip it on once the server is ready for auto-deploy.
+    if: ${{ vars.ENABLE_DEPLOY == 'true' }}
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          TAG: ${{ github.sha }}
+          GHCR_USER: ${{ secrets.GHCR_USER }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: TAG,GHCR_USER,GHCR_TOKEN
+          script: |
+            set -euo pipefail
+            cd /opt/easygo
+            export TAG
+            COMPOSE="docker compose --env-file .env.prod -f docker-compose.prod.yml"
+
+            # Authenticate to GHCR so private images can be pulled.
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+
+            $COMPOSE pull
+            # Apply DB migrations FIRST; a failure aborts the deploy (set -e)
+            # and the running API is left untouched. migrate is idempotent.
+            $COMPOSE run --rm migrate
+            $COMPOSE up -d
+            docker image prune -f

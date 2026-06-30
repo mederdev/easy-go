@@ -17,6 +17,7 @@ const EnvSchema = z.object({
 
   CORS_ORIGINS: z.string().default('http://localhost:5173,http://localhost:5174,http://localhost:8100'),
 
+  // Internal endpoint — how the API itself reaches MinIO (e.g. minio:9000).
   MINIO_ENDPOINT: z.string().default('localhost'),
   MINIO_PORT: z.coerce.number().int().default(9000),
   MINIO_USE_SSL: z
@@ -26,6 +27,17 @@ const EnvSchema = z.object({
   MINIO_ROOT_USER: z.string().default('easygo'),
   MINIO_ROOT_PASSWORD: z.string().default('easygo-secret'),
   MINIO_BUCKET: z.string().default('easygo'),
+  MINIO_REGION: z.string().default('us-east-1'),
+
+  // Public endpoint — the browser-reachable host used ONLY to sign presigned
+  // URLs (e.g. storage.easygo-transfer.com:443). Falls back to the internal
+  // endpoint when unset, so dev (single MinIO on localhost) is unchanged.
+  MINIO_PUBLIC_ENDPOINT: z.string().optional(),
+  MINIO_PUBLIC_PORT: z.coerce.number().int().optional(),
+  MINIO_PUBLIC_USE_SSL: z
+    .union([z.literal('true'), z.literal('false')])
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === 'true')),
 });
 
 const parsed = EnvSchema.safeParse(process.env);
@@ -35,6 +47,14 @@ if (!parsed.success) {
   process.exit(1);
 }
 
-export const env = parsed.data;
+const data = parsed.data;
+
+export const env = {
+  ...data,
+  // Public presign endpoint defaults to the internal one when not configured.
+  MINIO_PUBLIC_ENDPOINT: data.MINIO_PUBLIC_ENDPOINT ?? data.MINIO_ENDPOINT,
+  MINIO_PUBLIC_PORT: data.MINIO_PUBLIC_PORT ?? data.MINIO_PORT,
+  MINIO_PUBLIC_USE_SSL: data.MINIO_PUBLIC_USE_SSL ?? data.MINIO_USE_SSL,
+};
 export const corsOrigins = env.CORS_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean);
 export const isProd = env.NODE_ENV === 'production';

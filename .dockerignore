@@ -1,0 +1,29 @@
+# Keep build contexts small and stop host artifacts/secrets leaking into images.
+**/node_modules
+**/dist
+.git
+.gitignore
+.github
+
+# Local env / secrets — images get config at runtime, never baked in.
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Capacitor native projects (not part of the web build)
+apps/client/ios
+apps/client/android
+
+# Design mocks, docs, editor/OS cruft
+EasyGo website design
+*.pages
+docs
+docs-todo
+**/*.log
+**/.DS_Store
+.vscode
+.idea
+
+# Stray npm lockfile in a pnpm repo
+package-lock.json

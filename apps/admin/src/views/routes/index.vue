@@ -67,6 +67,45 @@ const {
           </span>
         </div>
       </div>
+
+      <!-- Mobile cards (hidden on desktop) -->
+      <div class="m-cards">
+        <EmptyState
+          v-if="routes.length === 0"
+          icon="route"
+          title="Маршрутов пока нет"
+          description="Добавьте первое направление."
+        />
+        <div v-for="r in routes" :key="r.id" class="m-card">
+          <div class="m-card-top">
+            <div class="m-title">{{ routeLabel(r) }}</div>
+            <StatusChip kind="route" :status="r.status" />
+          </div>
+          <div class="m-meta">
+            <div class="m-meta-item">
+              <span class="m-cap">В пути</span>
+              <span class="m-val">{{ r.durationLabel }}</span>
+            </div>
+            <div class="m-meta-item">
+              <span class="m-cap">Цена / место</span>
+              <span class="m-val">{{ money(r.price) }}</span>
+            </div>
+            <div class="m-meta-item">
+              <span class="m-cap">Рейсов в день</span>
+              <span class="m-val">{{ r.dailyTrips }}</span>
+            </div>
+          </div>
+          <div class="m-actions">
+            <button type="button" class="icon-btn edit" @click="openEdit(r)">
+              <span class="material-symbols-outlined">edit</span>
+              Изменить
+            </button>
+            <button type="button" class="icon-btn danger" title="Удалить" @click="remove(r)">
+              <span class="material-symbols-outlined">delete</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </StateBlock>
 
     <AppModal
@@ -248,5 +287,79 @@ select:focus {
 .btn:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+/* Mobile card list — hidden on desktop, shown instead of the table on phones. */
+.m-cards {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+}
+.m-card {
+  background: #fff;
+  border: 1px solid var(--eg-line);
+  border-radius: 16px;
+  padding: 16px;
+}
+.m-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.m-title {
+  font: 800 16px var(--eg-font);
+  min-width: 0;
+}
+.m-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 22px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #f0f1ee;
+}
+.m-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.m-cap {
+  font: 600 11px var(--eg-font);
+  color: var(--eg-hint);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.m-val {
+  font: 700 14px var(--eg-font);
+}
+.m-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+.m-actions .icon-btn {
+  height: 42px;
+  gap: 6px;
+  font: 700 13px var(--eg-font);
+  color: var(--eg-ink);
+}
+.m-actions .icon-btn.edit {
+  flex: 1;
+}
+.m-actions .icon-btn.danger {
+  width: 48px;
+}
+
+@media (max-width: 720px) {
+  .two {
+    grid-template-columns: 1fr;
+  }
+  .table {
+    display: none;
+  }
+  .m-cards {
+    display: flex;
+  }
 }
 </style>

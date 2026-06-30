@@ -351,17 +351,16 @@ const calendarOpen = ref(false);
   border: none;
   cursor: pointer;
   text-align: left;
-  width: 90%;
+  width: auto;
 }
 
 /* Inline variant inside the empty state */
 .custom-cta--inline {
-  margin: 16px 0;
+  margin: 16px 16px 0;
   padding: 16px;
   background: var(--eg-green);
   border-radius: 16px;
   color: #fff;
-  justify-self: center;
 }
 
 .custom-cta--inline .custom-cta__icon {

@@ -74,6 +74,50 @@ const {
         </div>
       </div>
 
+      <!-- Mobile cards (hidden on desktop) -->
+      <div class="m-cards">
+        <EmptyState
+          v-if="items.length === 0"
+          icon="groups"
+          title="Клиентов не найдено"
+          description="Измените поисковый запрос."
+        />
+        <div
+          v-for="c in items"
+          :key="c.id"
+          class="m-card"
+          @click="selectClient(c.id)"
+        >
+          <div class="m-card-top">
+            <div class="m-person">
+              <span class="avatar">{{ initials(c.name) }}</span>
+              <div class="m-person-meta">
+                <div class="m-name">{{ c.name }}</div>
+                <div class="m-phone">{{ c.phone }}</div>
+              </div>
+            </div>
+            <span
+              class="material-symbols-outlined wa"
+              :class="{ off: !c.whatsapp }"
+            >{{ c.whatsapp ? 'check_circle' : 'cancel' }}</span>
+          </div>
+          <div class="m-meta">
+            <div class="m-meta-item">
+              <span class="m-cap">Поездок</span>
+              <span class="m-val">{{ c.tripsCount }}</span>
+            </div>
+            <div class="m-meta-item">
+              <span class="m-cap">Сумма заказов</span>
+              <span class="m-val">{{ money(c.totalSum) }}</span>
+            </div>
+            <div class="m-meta-item">
+              <span class="m-cap">Последняя</span>
+              <span class="m-val">{{ dateLabel(c.lastBookingAt) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div v-if="items.length" class="pager">
         <span class="page-info">{{ pageStart }}–{{ pageEnd }} из {{ total }}</span>
         <div class="page-buttons">
@@ -367,5 +411,98 @@ const {
 }
 .booking-total {
   font: 800 13px var(--eg-font);
+}
+
+/* Mobile card list — hidden on desktop, shown instead of the table on phones. */
+.m-cards {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+}
+.m-card {
+  background: #fff;
+  border: 1px solid var(--eg-line);
+  border-radius: 16px;
+  padding: 16px;
+  cursor: pointer;
+}
+.m-card:active {
+  background: #fafbf9;
+}
+.m-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.m-person {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+.m-person-meta {
+  min-width: 0;
+}
+.m-name {
+  font: 800 15px var(--eg-font);
+}
+.m-phone {
+  font: 600 13px var(--eg-font);
+  color: var(--eg-hint);
+}
+.m-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 22px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #f0f1ee;
+}
+.m-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.m-cap {
+  font: 600 11px var(--eg-font);
+  color: var(--eg-hint);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.m-val {
+  font: 700 14px var(--eg-font);
+}
+
+@media (max-width: 720px) {
+  .toolbar {
+    align-items: stretch;
+  }
+  .search {
+    margin-left: 0;
+    min-width: 0;
+    width: 100%;
+  }
+  .table {
+    display: none;
+  }
+  .m-cards {
+    display: flex;
+  }
+  /* Booking history in the client modal stacks into list items. */
+  .booking-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .booking-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+@media (max-width: 480px) {
+  .client-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 </style>

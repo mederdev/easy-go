@@ -72,6 +72,51 @@ const {
           </span>
         </div>
       </div>
+
+      <!-- Mobile cards (hidden on desktop) -->
+      <div class="m-cards">
+        <div
+          v-for="d in drivers"
+          :key="d.id"
+          class="m-card"
+          @click="openDriver(d)"
+        >
+          <div class="m-card-top">
+            <div class="m-person">
+              <span class="avatar">{{ initials(d.name) }}</span>
+              <div class="m-person-meta">
+                <div class="m-name">{{ d.name }}</div>
+                <div class="m-phone">{{ d.phone }}</div>
+              </div>
+            </div>
+            <span
+              class="status-chip"
+              :class="(d as any).isActive ? 'status--active' : 'status--inactive'"
+            >
+              {{ (d as any).isActive ? 'Активен' : 'Не активен' }}
+            </span>
+          </div>
+          <div class="m-meta">
+            <div class="m-meta-item">
+              <span class="m-cap">Стаж</span>
+              <span class="m-val">{{ d.experience ?? '—' }}</span>
+            </div>
+            <div class="m-meta-item">
+              <span class="m-cap">Автомобиль</span>
+              <span class="m-val">{{ carLabel(d) }}</span>
+            </div>
+            <div class="m-meta-item">
+              <span class="m-cap">Доступ</span>
+              <span
+                class="access-chip"
+                :class="(d as any).passwordHash ? 'access--on' : 'access--off'"
+              >
+                {{ (d as any).passwordHash ? 'Пароль задан' : 'Нет пароля' }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
     </StateBlock>
 
     <!-- Driver detail modal -->
@@ -166,6 +211,23 @@ const {
               <StatusChip kind="flight" :status="f.status" />
             </div>
           </div>
+
+          <!-- Mobile cards (hidden on desktop) -->
+          <div v-if="driverFlights.length" class="m-flights">
+            <div v-for="f in driverFlights" :key="f.id" class="m-flight">
+              <div class="m-flight-top">
+                <span class="m-flight-route">{{ flightRoute(f) }}</span>
+                <StatusChip kind="flight" :status="f.status" />
+              </div>
+              <div class="m-flight-meta">
+                <span>{{ flightDate(f) }}</span>
+                <span class="dot">·</span>
+                <span>{{ flightCar(f) }}</span>
+                <span class="dot">·</span>
+                <span>{{ f.seatsTaken }}/{{ f.seatsTotal }} мест</span>
+              </div>
+            </div>
+          </div>
         </div>
       </template>
     </AppModal>
@@ -249,4 +311,126 @@ const {
 }
 .flight-head { font: 700 11px var(--eg-font); color: #9fa59a; text-transform: uppercase; letter-spacing: .06em; }
 .flight-row:last-child { border-bottom: none; }
+
+/* Flight history as cards (mobile only) */
+.m-flights {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+}
+.m-flight {
+  border: 1px solid var(--eg-line);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.m-flight-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.m-flight-route {
+  font: 700 14px var(--eg-font);
+  min-width: 0;
+}
+.m-flight-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font: 500 13px var(--eg-font);
+  color: var(--eg-muted);
+}
+.m-flight-meta .dot {
+  color: #c4c8c0;
+}
+
+/* Mobile card list — hidden on desktop, shown instead of the table on phones. */
+.m-cards {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+}
+.m-card {
+  background: #fff;
+  border: 1px solid var(--eg-line);
+  border-radius: 16px;
+  padding: 16px;
+  cursor: pointer;
+}
+.m-card:active {
+  background: #fafbf9;
+}
+.m-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.m-person {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+.m-person-meta {
+  min-width: 0;
+}
+.m-name {
+  font: 800 15px var(--eg-font);
+}
+.m-phone {
+  font: 600 13px var(--eg-font);
+  color: var(--eg-hint);
+}
+.m-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 22px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #f0f1ee;
+}
+.m-meta-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.m-cap {
+  font: 600 11px var(--eg-font);
+  color: var(--eg-hint);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.m-val {
+  font: 700 14px var(--eg-font);
+}
+
+@media (max-width: 720px) {
+  .table {
+    display: none;
+  }
+  .m-cards {
+    display: flex;
+  }
+  /* Driver-detail flight history switches to cards too. */
+  .flight-table {
+    display: none;
+  }
+  .m-flights {
+    display: flex;
+  }
+  /* Let detail rows wrap so the status toggle can't force sideways scroll. */
+  .meta-row {
+    flex-wrap: wrap;
+  }
+  .meta-label {
+    width: 130px;
+  }
+  .status-toggle-row {
+    flex-wrap: wrap;
+  }
+}
 </style>

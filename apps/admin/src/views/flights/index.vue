@@ -488,4 +488,13 @@ const {
 .bs-confirmed { background: #eef6e6; color: #3e7c12; }
 .bs-completed { background: #f0f1ee; color: #5a6355; }
 .bs-cancelled { background: #fbedea; color: #c0492e; }
+
+@media (max-width: 720px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .two {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

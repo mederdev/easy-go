@@ -29,10 +29,10 @@ async function onWhatsApp() {
       </div>
 
       <!-- Office map: live 2GIS when VITE_2GIS_KEY is set, placeholder otherwise -->
-      <MapView :lat="OFFICE.lat" :lng="OFFICE.lng" :zoom="16">
+      <!-- <MapView :lat="OFFICE.lat" :lng="OFFICE.lng" :zoom="16">
         <span class="ms" style="font-size: 40px; color: var(--eg-green)">location_on</span>
         <span class="contacts-map__label">[ КАРТА ОФИСА ]</span>
-      </MapView>
+      </MapView> -->
 
       <!-- Contact items -->
       <div class="contacts-list">

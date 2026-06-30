@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { USER_ROLE_LABEL } from '@easygo/shared';
@@ -40,6 +40,16 @@ const userRole = computed(() =>
 );
 
 const menuOpen = ref(false);
+/** Mobile off-canvas navigation drawer state (desktop ignores this). */
+const navOpen = ref(false);
+
+// Close the mobile nav whenever the route changes.
+watch(
+  () => route.path,
+  () => {
+    navOpen.value = false;
+  },
+);
 
 function isActive(to: string): boolean {
   if (to === '/') return route.path === '/';
@@ -73,9 +83,16 @@ function onCta(): void {
 
 <template>
   <div class="shell">
+    <!-- Backdrop for the mobile nav drawer -->
+    <div
+      v-if="navOpen"
+      class="nav-backdrop"
+      @click="navOpen = false"
+    />
+
     <!-- Sidebar -->
-    <aside class="sidebar">
-      <div class="logo">EASY<span>GO</span></div>
+    <aside class="sidebar" :class="{ open: navOpen }">
+      <div class="logo"><img src="/assets/logo-t.png" alt="EasyGo" /></div>
       <div class="section-label">Панель управления</div>
       <nav class="nav" data-scroll>
         <RouterLink
@@ -113,6 +130,9 @@ function onCta(): void {
     <!-- Main column -->
     <div class="main">
       <header class="topbar">
+        <button class="hamburger" type="button" @click="navOpen = true">
+          <span class="material-symbols-outlined">menu</span>
+        </button>
         <div class="titles">
           <div class="title">{{ title }}</div>
           <div class="subtitle">{{ subtitle }}</div>
@@ -124,7 +144,7 @@ function onCta(): void {
           @click="onCta"
         >
           <span class="material-symbols-outlined">add</span>
-          {{ ctaLabel }}
+          <span class="cta-label">{{ ctaLabel }}</span>
         </button>
         <div class="user-menu">
           <button class="bell" type="button" @click="menuOpen = !menuOpen">
@@ -171,13 +191,12 @@ function onCta(): void {
   padding: 20px 16px;
 }
 .logo {
-  font: 800 22px var(--eg-font);
-  letter-spacing: -0.02em;
   padding: 4px 8px 4px;
-  color: var(--eg-ink);
 }
-.logo span {
-  color: var(--eg-brand);
+.logo img {
+  height: 32px;
+  width: auto;
+  display: block;
 }
 .section-label {
   font: 700 11px var(--eg-font);
@@ -282,8 +301,34 @@ function onCta(): void {
   gap: 16px;
   padding: 0 28px;
 }
+.hamburger {
+  display: none;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border-radius: 12px;
+  border: 1px solid #e7e9e5;
+  background: #fff;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+}
+.hamburger .material-symbols-outlined {
+  font-size: 24px;
+  color: #5a6066;
+}
+.nav-backdrop {
+  display: none;
+}
 .titles {
   flex: 1;
+  min-width: 0;
+}
+.title,
+.subtitle {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .title {
   font: 800 20px var(--eg-font);
@@ -394,5 +439,57 @@ function onCta(): void {
   flex: 1;
   overflow: auto;
   padding: 24px 28px;
+}
+
+/* ── Mobile / tablet: sidebar becomes an off-canvas drawer ── */
+@media (max-width: 900px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 60;
+    width: 264px;
+    transform: translateX(-100%);
+    transition: transform 0.24s ease;
+    box-shadow: 12px 0 40px -16px rgba(20, 30, 10, 0.35);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(16, 18, 20, 0.4);
+    z-index: 55;
+  }
+  .hamburger {
+    display: flex;
+  }
+  .topbar {
+    height: 60px;
+    padding: 0 16px;
+    gap: 12px;
+  }
+  .title {
+    font-size: 17px;
+  }
+  .subtitle {
+    display: none;
+  }
+  .content {
+    padding: 16px;
+  }
+}
+
+/* On small phones, collapse the CTA label to just its icon. */
+@media (max-width: 560px) {
+  .cta {
+    padding: 0 14px;
+  }
+  .cta-label {
+    display: none;
+  }
 }
 </style>

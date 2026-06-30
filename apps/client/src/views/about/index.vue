@@ -12,9 +12,17 @@ import BackButton from '@/components/BackButton.vue';
         <h1 class="about-header__title">О компании</h1>
       </div>
 
-      <!-- Photo placeholder -->
+      <!-- Photo -->
       <div class="about-photo">
-        <span class="about-photo__label">[ ФОТО АВТОПАРКА ]</span>
+        <img
+          src="/assets/easygo.webp"
+          alt="Автопарк EasyGo"
+          class="about-photo__img"
+          loading="lazy"
+          decoding="async"
+          width="1200"
+          height="1502"
+        />
       </div>
 
       <!-- Description -->
@@ -30,7 +38,7 @@ import BackButton from '@/components/BackButton.vue';
       <div class="about-advantages">
         <div class="adv-item">
           <span class="ms adv-item__icon">check_circle</span>
-          <span class="adv-item__text">Свой автопарк KIA Carnival</span>
+          <span class="adv-item__text">Свой автопарк</span>
         </div>
         <div class="adv-item">
           <span class="ms adv-item__icon">check_circle</span>
@@ -98,22 +106,15 @@ import BackButton from '@/components/BackButton.vue';
   margin: 14px 16px 0;
   height: 150px;
   border-radius: 16px;
-  background: repeating-linear-gradient(
-    135deg,
-    #F1F3EF,
-    #F1F3EF 11px,
-    #E9ECE6 11px,
-    #E9ECE6 22px
-  );
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow: hidden;
+  background: #F1F3EF;
 }
 
-.about-photo__label {
-  font: 600 12px 'Courier New', monospace;
-  color: #A7ACA2;
-  letter-spacing: 0.05em;
+.about-photo__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .about-text {

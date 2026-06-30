@@ -21,7 +21,7 @@ const {
       <div class="pg">
         <!-- Header -->
         <div class="home-header">
-          <img src="/assets/logo.svg" alt="EasyGo" class="home-header__logo" />
+          <img src="/assets/logo-t.png" alt="EasyGo" class="home-header__logo" />
           <a
             href="#"
             class="home-header__chat-btn"
@@ -87,7 +87,7 @@ const {
           <WhyUsCard
             icon="verified"
             title="Собственный автопарк"
-            text="KIA Carnival и комфортные минивэны. Видны свободные места онлайн."
+            text="Комфортные автомобили. Видны свободные места онлайн."
           />
           <WhyUsCard
             icon="schedule"

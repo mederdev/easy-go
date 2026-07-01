@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { CreateCustomRequestInput, ListCustomRequestsQuery } from '@easygo/shared';
+import { ApplicationStatus, CreateCustomRequestInput, ListCustomRequestsQuery } from '@easygo/shared';
 import { prisma } from '../../lib/prisma.js';
 import { Errors } from '../../lib/errors.js';
 import { normalizePhone } from '../../lib/phone.js';
@@ -23,13 +23,20 @@ const routes: FastifyPluginAsync = async (app) => {
       prisma.customRequest.findMany({ where, orderBy: { createdAt: 'desc' }, take: q.limit, skip: q.offset }),
       prisma.customRequest.count({ where }),
     ]);
-    return { items, total, limit: q.limit, offset: q.offset };
+    // Resolve registered client names by matching phone (Client.phone is unique).
+    const phones = [...new Set(items.map((r) => r.phone))];
+    const clients = phones.length
+      ? await prisma.client.findMany({ where: { phone: { in: phones } }, select: { phone: true, name: true } })
+      : [];
+    const nameByPhone = new Map(clients.map((c) => [c.phone, c.name]));
+    const enriched = items.map((r) => ({ ...r, clientName: nameByPhone.get(r.phone) ?? null }));
+    return { items: enriched, total, limit: q.limit, offset: q.offset };
   });
 
   // Admin: update status
   app.patch('/:id/status', { preHandler: [app.authorize(['operator', 'admin', 'owner'])] }, async (request) => {
     const { id } = request.params as { id: string };
-    const { status } = request.body as { status: string };
+    const status = parse(ApplicationStatus, (request.body as { status: unknown }).status);
     const found = await prisma.customRequest.findUnique({ where: { id } });
     if (!found) throw Errors.notFound('Заявка');
     return prisma.customRequest.update({ where: { id }, data: { status } });

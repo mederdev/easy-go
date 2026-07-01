@@ -58,11 +58,11 @@ async function main() {
   const talant = await prisma.driver.create({ data: { name: 'Талант М.', phone: '+996700111003', experience: '4 года' } });
 
   const [car1, car2, car3] = await Promise.all([
-    prisma.car.create({ data: { model: 'KIA Carnival', plate: '01 KG 777 ABC', driverId: bakyt.id, seats: 11, status: 'AVAILABLE', locationCity: 'Бишкек' } }),
-    prisma.car.create({ data: { model: 'KIA Carnival', plate: '01 KG 555 DEF', driverId: erlan.id, seats: 11, status: 'AVAILABLE', locationCity: 'Алматы' } }),
-    prisma.car.create({ data: { model: 'KIA Carnival', plate: '01 KG 333 GHI', driverId: talant.id, seats: 11, status: 'ON_TRIP', locationCity: 'Бишкек' } }),
+    prisma.car.create({ data: { model: 'KIA Carnival', plate: '01 KG 777 ABC', type: 'MINIVAN', driverId: bakyt.id, seats: 7, status: 'AVAILABLE', locationCity: 'Бишкек' } }),
+    prisma.car.create({ data: { model: 'KIA Carnival', plate: '01 KG 555 DEF', type: 'MINIVAN', driverId: erlan.id, seats: 6, status: 'AVAILABLE', locationCity: 'Алматы' } }),
+    prisma.car.create({ data: { model: 'Toyota Camry', plate: '01 KG 333 GHI', type: 'SEDAN', driverId: talant.id, seats: 4, status: 'ON_TRIP', locationCity: 'Бишкек' } }),
   ]);
-  await prisma.car.create({ data: { model: 'KIA Carnival', plate: '01 KG 111 JKL', seats: 11, status: 'MAINTENANCE', locationCity: 'Бишкек' } });
+  await prisma.car.create({ data: { model: 'Yutong Bus', plate: '01 KG 111 JKL', type: 'BUS', seats: 20, status: 'MAINTENANCE', locationCity: 'Бишкек' } });
 
   // Routes (price in minor units — сом × 100).
   const rBA = await prisma.route.create({ data: { fromCity: 'Бишкек', toCity: 'Алматы', durationLabel: '~4 ч', price: 350000, dailyTrips: 3, status: 'ACTIVE' } });

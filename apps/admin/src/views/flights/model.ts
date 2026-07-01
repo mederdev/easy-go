@@ -212,15 +212,25 @@ export function useFlightsModel() {
     return '#56A919';
   }
 
-  /** A flight whose departure time is already in the past. */
+  /** A flight whose departure day is before today (time-of-day ignored, so a
+   *  flight leaving earlier today still counts as current/active). */
   function isPast(f: FlightView): boolean {
     const d = new Date(f.departAt);
-    return !Number.isNaN(d.getTime()) && d.getTime() < Date.now();
+    if (Number.isNaN(d.getTime())) return false;
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    return d.getTime() < startOfToday.getTime();
   }
 
-  /** An active flight: still open for sales and not yet departed. */
+  // Terminal states: the flight is finished or called off — never "active".
+  const TERMINAL_STATUSES: FlightStatus[] = [
+    'COMPLETED', 'CANCELLED', 'CANCELLED_BY_CLIENT', 'CANCELLED_BY_COMPANY',
+  ];
+
+  /** An active flight: a live (non-terminal) flight whose departure day is
+   *  today or later — so any of today's flights count as active. */
   function isActive(f: FlightView): boolean {
-    return f.status === 'SCHEDULED' && !isPast(f);
+    return !TERMINAL_STATUSES.includes(f.status) && !isPast(f);
   }
 
   const MONTHS_GEN = [

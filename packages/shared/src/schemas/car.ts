@@ -1,12 +1,13 @@
 import { z } from 'zod';
 import { Id } from './common.js';
-import { CarStatus } from '../enums.js';
+import { CarStatus, CarType } from '../enums.js';
 import { Driver } from './driver.js';
 
 export const Car = z.object({
   id: Id,
   model: z.string().min(1), // "KIA Carnival"
   plate: z.string().min(1),
+  type: CarType,
   driverId: Id.nullable(),
   driver: Driver.nullable().optional(),
   seats: z.number().int().positive(),
@@ -23,6 +24,7 @@ export type Car = z.infer<typeof Car>;
 export const CreateCarInput = z.object({
   model: z.string().min(1),
   plate: z.string().min(1),
+  type: CarType.default('MINIVAN'),
   driverId: Id.nullish(),
   seats: z.number().int().positive().default(11),
   status: CarStatus.default('AVAILABLE'),

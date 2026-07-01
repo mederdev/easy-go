@@ -61,17 +61,64 @@ const {
   pickClientSuggestion,
   clearSelectedClient,
   blurClientSearch,
+  tab,
+  setTab,
+  customItems,
+  customTotal,
+  customLoading,
+  customError,
+  customPageStart,
+  customPageEnd,
+  customCanPrev,
+  customCanNext,
+  loadCustom,
+  customPrev,
+  customNext,
+  customRouteLabel,
+  customSelected,
+  openCustom,
+  closeCustom,
+  customWaLink,
+  customNextStatuses,
+  customStatusBusy,
+  customStatusError,
+  changeCustomStatus,
+  approveOpen,
+  approving,
+  approveError,
+  approveRoutes,
+  approveCars,
+  approveForm,
+  approveTotal,
+  openApprove,
+  closeApprove,
+  submitApprove,
+  flightRouteOptionLabel,
   money,
   bookingRouteLabel,
+  dateLabel,
   dateTimeLabel,
   initials,
   paxLabel,
   BOOKING_STATUS_LABEL,
+  CAR_TYPE_LABEL,
+  APPLICATION_STATUS_LABEL,
 } = useBookingsModel();
 </script>
 
 <template>
   <div>
+    <div class="tabs">
+      <button type="button" class="tab" :class="{ active: tab === 'bookings' }" @click="setTab('bookings')">
+        Бронирования
+      </button>
+      <button type="button" class="tab" :class="{ active: tab === 'custom' }" @click="setTab('custom')">
+        Заявки клиентов
+        <span v-if="customTotal" class="tab-count">{{ customTotal }}</span>
+      </button>
+    </div>
+
+    <template v-if="tab === 'bookings'">
     <div class="toolbar">
       <div class="chips">
         <FilterChip
@@ -450,10 +497,317 @@ const {
         </button>
       </template>
     </AppModal>
+    </template>
+
+    <!-- Custom requests tab -->
+    <template v-else>
+      <StateBlock :loading="customLoading" :error="customError" @retry="loadCustom">
+        <div class="table">
+          <div class="row c-row head-row">
+            <span>Клиент</span>
+            <span>Маршрут</span>
+            <span>Дата</span>
+            <span>Пасс.</span>
+            <span>Класс</span>
+            <span>Статус</span>
+            <span></span>
+          </div>
+          <EmptyState
+            v-if="customItems.length === 0"
+            icon="drafts"
+            title="Заявок пока нет"
+            description="Здесь появятся заявки, оставленные клиентами, когда подходящего рейса не нашлось."
+          />
+          <div v-for="r in customItems" :key="r.id" class="row c-row data-row" @click="openCustom(r)">
+            <span class="client">
+              <span class="strong block">{{ r.clientName ?? 'Гость' }}</span>
+              <span class="sub">{{ r.phone }}</span>
+            </span>
+            <span class="strong">{{ customRouteLabel(r) }}</span>
+            <span class="muted">{{ dateLabel(r.date) }}<template v-if="r.time"> · {{ r.time }}</template></span>
+            <span class="strong">{{ r.pax }}</span>
+            <span class="muted">
+              {{ r.carType ? CAR_TYPE_LABEL[r.carType] : '—' }}<template v-if="r.wholeCabin"> · салон</template>
+            </span>
+            <span><StatusChip kind="application" :status="r.status" /></span>
+            <span class="chevron material-symbols-outlined">chevron_right</span>
+          </div>
+        </div>
+
+        <!-- Mobile cards -->
+        <div class="m-cards">
+          <EmptyState
+            v-if="customItems.length === 0"
+            icon="drafts"
+            title="Заявок пока нет"
+            description="Здесь появятся заявки, оставленные клиентами, когда подходящего рейса не нашлось."
+          />
+          <div v-for="r in customItems" :key="r.id" class="m-card" @click="openCustom(r)">
+            <div class="m-card-top">
+              <div class="m-head-left">
+                <div class="m-code">{{ dateLabel(r.date) }}</div>
+                <div class="m-title">{{ customRouteLabel(r) }}</div>
+              </div>
+              <StatusChip kind="application" :status="r.status" />
+            </div>
+            <div class="m-client">
+              <span class="m-name">{{ r.clientName ?? 'Гость' }}</span>
+              <span class="m-phone">{{ r.phone }}</span>
+            </div>
+            <div class="m-meta">
+              <div class="m-meta-item">
+                <span class="m-cap">Пасс.</span>
+                <span class="m-val">{{ r.pax }}</span>
+              </div>
+              <div class="m-meta-item">
+                <span class="m-cap">Класс</span>
+                <span class="m-val">{{ r.carType ? CAR_TYPE_LABEL[r.carType] : '—' }}<template v-if="r.wholeCabin"> · салон</template></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="customItems.length" class="pager">
+          <span class="page-info">{{ customPageStart }}–{{ customPageEnd }} из {{ customTotal }}</span>
+          <div class="page-buttons">
+            <button type="button" :disabled="!customCanPrev" @click="customPrev">
+              <span class="material-symbols-outlined">chevron_left</span>
+            </button>
+            <button type="button" :disabled="!customCanNext" @click="customNext">
+              <span class="material-symbols-outlined">chevron_right</span>
+            </button>
+          </div>
+        </div>
+      </StateBlock>
+    </template>
+
+    <!-- Custom request detail drawer -->
+    <AppDrawer :open="!!customSelected" @close="closeCustom">
+      <template v-if="customSelected">
+        <div class="drawer-head">
+          <div>
+            <div class="drawer-code">Заявка клиента</div>
+            <div class="drawer-route">{{ customRouteLabel(customSelected) }}</div>
+          </div>
+          <button class="drawer-close" type="button" @click="closeCustom">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div class="drawer-body" data-scroll>
+          <div class="chip-row">
+            <StatusChip kind="application" :status="customSelected.status" />
+          </div>
+
+          <div class="grid">
+            <div>
+              <div class="cap">Дата поездки</div>
+              <div class="val">{{ dateLabel(customSelected.date) }}</div>
+            </div>
+            <div>
+              <div class="cap">Желаемое время</div>
+              <div class="val">{{ customSelected.time ?? 'Не важно' }}</div>
+            </div>
+            <div>
+              <div class="cap">Пассажиров</div>
+              <div class="val">{{ paxLabel(customSelected.pax) }}</div>
+            </div>
+            <div>
+              <div class="cap">Класс авто</div>
+              <div class="val">{{ customSelected.carType ? CAR_TYPE_LABEL[customSelected.carType] : 'Не важно' }}</div>
+            </div>
+            <div>
+              <div class="cap">Весь салон</div>
+              <div class="val">{{ customSelected.wholeCabin ? 'Да' : 'Нет' }}</div>
+            </div>
+          </div>
+
+          <div v-if="customSelected.comment" class="comment">
+            <div class="cap">Комментарий</div>
+            <div class="comment-text">{{ customSelected.comment }}</div>
+          </div>
+
+          <div class="divider" />
+
+          <div class="section-title">Контакт</div>
+          <div class="client-name">{{ customSelected.clientName ?? 'Гость' }}</div>
+          <div class="client-phone">{{ customSelected.phone }}</div>
+
+          <div class="divider" />
+
+          <div class="section-title">Сменить статус</div>
+          <div v-if="customStatusError" class="status-error">{{ customStatusError }}</div>
+          <div class="status-actions">
+            <button
+              v-for="st in customNextStatuses[customSelected.status]"
+              :key="st"
+              type="button"
+              class="status-btn"
+              :class="{ danger: st === 'REJECTED', accept: st === 'ACCEPTED' }"
+              :disabled="customStatusBusy"
+              @click="st === 'ACCEPTED' ? openApprove() : changeCustomStatus(st)"
+            >
+              {{ st === 'ACCEPTED' ? 'Принять — создать рейс' : APPLICATION_STATUS_LABEL[st] }}
+            </button>
+          </div>
+        </div>
+
+        <div class="drawer-footer">
+          <a class="wa" :href="customWaLink(customSelected)" target="_blank" rel="noopener">
+            <span class="material-symbols-outlined">chat</span>
+            WhatsApp
+          </a>
+        </div>
+      </template>
+    </AppDrawer>
+
+    <!-- Approve custom request → create flight + booking -->
+    <AppModal
+      :open="approveOpen"
+      title="Принять заявку"
+      subtitle="Создаётся новый рейс, клиент бронируется на него"
+      @close="closeApprove"
+    >
+      <form class="form" @submit.prevent="submitApprove">
+        <label class="field">
+          <span class="label">Маршрут <span class="opt">(в нём задана цена)</span></span>
+          <select v-model="approveForm.routeId">
+            <option v-if="approveRoutes.length === 0" value="">Нет маршрутов</option>
+            <option v-for="r in approveRoutes" :key="r.id" :value="r.id">{{ flightRouteOptionLabel(r) }}</option>
+          </select>
+        </label>
+        <div class="two">
+          <label class="field">
+            <span class="label">Дата рейса</span>
+            <input v-model="approveForm.date" type="date" />
+          </label>
+          <label class="field">
+            <span class="label">Время</span>
+            <input v-model="approveForm.time" type="time" />
+          </label>
+        </div>
+        <div class="two">
+          <label class="field">
+            <span class="label">Машина <span class="opt">(необязательно)</span></span>
+            <select v-model="approveForm.carId">
+              <option value="">Назначить позже</option>
+              <option v-for="c in approveCars" :key="c.id" :value="c.id">{{ c.model }} · {{ c.plate }}</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="label">Мест в рейсе</span>
+            <input v-model.number="approveForm.seatsTotal" type="number" min="1" inputmode="numeric" />
+          </label>
+        </div>
+        <div class="two">
+          <label class="field">
+            <span class="label">Имя клиента</span>
+            <input v-model="approveForm.name" placeholder="Айгуль Сапарова" />
+          </label>
+          <label class="field">
+            <span class="label">Телефон</span>
+            <input v-model="approveForm.phone" placeholder="+996 700 000 000" />
+          </label>
+        </div>
+        <div class="two">
+          <label class="field">
+            <span class="label">Пассажиров</span>
+            <div class="stepper">
+              <button type="button" @click="approveForm.pax = Math.max(1, approveForm.pax - 1)">−</button>
+              <span class="stepper-val">{{ approveForm.pax }}</span>
+              <button type="button" @click="approveForm.pax = approveForm.pax + 1">+</button>
+            </div>
+          </label>
+          <label class="check whatsapp-check">
+            <input v-model="approveForm.whatsapp" type="checkbox" />
+            <span>Номер в WhatsApp</span>
+          </label>
+        </div>
+        <div class="two">
+          <label class="field">
+            <span class="label">Скидка <span class="opt">(необязательно)</span></span>
+            <input v-model.number="approveForm.discount" type="number" min="0" inputmode="numeric" placeholder="0" />
+          </label>
+          <label class="field">
+            <span class="label">Предоплата <span class="opt">(необязательно)</span></span>
+            <input v-model.number="approveForm.prepaid" type="number" min="0" inputmode="numeric" placeholder="0" />
+          </label>
+        </div>
+        <label class="field">
+          <span class="label">Комментарий <span class="opt">(необязательно)</span></span>
+          <textarea v-model="approveForm.comment" rows="2" placeholder="Особые пожелания…" />
+        </label>
+        <div class="total-row">
+          <span class="total-cap">Итого</span>
+          <span class="total-sum">{{ approveTotal }}</span>
+        </div>
+        <div v-if="approveError" class="form-error">{{ approveError }}</div>
+      </form>
+
+      <template #footer>
+        <button type="button" class="btn ghost" @click="closeApprove">Отмена</button>
+        <button type="button" class="btn primary" :disabled="approving" @click="submitApprove">
+          {{ approving ? 'Создание…' : 'Создать рейс и бронь' }}
+        </button>
+      </template>
+    </AppModal>
   </div>
 </template>
 
 <style scoped>
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--eg-line);
+}
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 4px 12px;
+  margin-right: 18px;
+  border: none;
+  background: transparent;
+  color: var(--eg-muted);
+  font: 700 14px var(--eg-font);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.tab.active {
+  color: var(--eg-ink);
+  border-bottom-color: var(--eg-brand);
+}
+.tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--eg-brand-light);
+  color: var(--eg-brand-dark);
+  font: 800 11px var(--eg-font);
+}
+.c-row {
+  grid-template-columns: minmax(180px, 1.6fr) 1.4fr 90px 70px 1.1fr 130px 40px;
+  column-gap: 16px;
+}
+.whatsapp-check {
+  align-self: end;
+  height: 46px;
+}
+.status-btn.accept {
+  font-weight: 800;
+}
+.c-row > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .toolbar {
   display: flex;
   align-items: center;

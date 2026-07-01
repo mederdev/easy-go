@@ -28,6 +28,17 @@ export async function myBookings(clientId: string, q: MyBookingsQuery) {
   return { items, total, limit: q.limit, offset: q.offset };
 }
 
+/** The client's own custom ("leave a request") entries, matched by phone. */
+export async function myCustomRequests(clientId: string) {
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { phone: true } });
+  if (!client) throw Errors.notFound('Клиент');
+  const items = await prisma.customRequest.findMany({
+    where: { phone: client.phone },
+    orderBy: { createdAt: 'desc' },
+  });
+  return { items, total: items.length };
+}
+
 export async function myBooking(clientId: string, id: string) {
   const booking = await prisma.booking.findUnique({ where: { id }, include: bookingInclude });
   if (!booking || booking.clientId !== clientId) throw Errors.notFound('Бронирование');

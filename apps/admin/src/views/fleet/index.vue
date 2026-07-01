@@ -17,12 +17,16 @@ const {
   formError,
   cities,
   statuses,
+  types,
+  seatOptions,
+  onTypeChange,
   form,
   openEdit,
   closeModal,
   save,
   driverName,
   CAR_STATUS_LABEL,
+  CAR_TYPE_LABEL,
 } = useFleetModel();
 </script>
 
@@ -45,6 +49,10 @@ const {
             </div>
             <div class="plate">{{ c.plate }}</div>
             <div class="facts">
+              <div>
+                <div class="cap">Тип</div>
+                <div class="fact">{{ CAR_TYPE_LABEL[c.type] }}</div>
+              </div>
               <div>
                 <div class="cap">Водитель</div>
                 <div class="fact">{{ driverName(c) }}</div>
@@ -84,17 +92,25 @@ const {
         </label>
         <div class="two">
           <label class="field">
-            <span class="label">Водитель</span>
-            <select v-model="form.driverId">
-              <option value="">— без водителя</option>
-              <option v-for="d in drivers" :key="d.id" :value="d.id">{{ d.name }}</option>
+            <span class="label">Тип машины</span>
+            <select v-model="form.type" @change="onTypeChange">
+              <option v-for="t in types" :key="t" :value="t">{{ CAR_TYPE_LABEL[t] }}</option>
             </select>
           </label>
           <label class="field">
             <span class="label">Мест</span>
-            <input v-model.number="form.seats" type="number" min="1" />
+            <select v-model.number="form.seats">
+              <option v-for="n in seatOptions" :key="n" :value="n">{{ n }}</option>
+            </select>
           </label>
         </div>
+        <label class="field">
+          <span class="label">Водитель</span>
+          <select v-model="form.driverId">
+            <option value="">— без водителя</option>
+            <option v-for="d in drivers" :key="d.id" :value="d.id">{{ d.name }}</option>
+          </select>
+        </label>
         <div class="two">
           <label class="field">
             <span class="label">Статус</span>

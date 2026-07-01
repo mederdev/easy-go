@@ -1,7 +1,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import type { FlightView } from '@easygo/shared';
-import { paxLabel } from '@easygo/shared';
+import type { CarType, FlightView } from '@easygo/shared';
+import { paxLabel, carTypeSeats, CAR_TYPE_LABEL, CAR_TYPE_SEAT_OPTIONS } from '@easygo/shared';
 import { ApiError } from '@easygo/api-client';
 import { api } from '@/lib/api';
 import { useBookingStore } from '@/stores/booking';
@@ -131,16 +131,35 @@ export function useResultsModel() {
   );
 
   // ── Custom request form ──
+  const carTypes: CarType[] = ['SEDAN', 'MINIVAN', 'BUS'];
   const customFormOpen = ref(false);
   const customPhone = ref(authStore.client?.phone ?? '');
   const customComment = ref('');
+  const customTime = ref(''); // "HH:MM" desired departure time (empty = no preference)
+  const customCarType = ref<CarType>('MINIVAN');
+  const customSeats = ref<number>(CAR_TYPE_SEAT_OPTIONS.MINIVAN[0]);
+  const customWholeCabin = ref(false);
   const customSubmitting = ref(false);
   const customSuccess = ref(false);
   const customError = ref<string | null>(null);
 
+  // Seat options for the chosen class (sedan/bus have one, minivan 5/6/7).
+  const carSeatOptions = computed(() => CAR_TYPE_SEAT_OPTIONS[customCarType.value]);
+
+  /** Snap the seat count into the selected type's allowed range. */
+  function selectCarType(type: CarType) {
+    customCarType.value = type;
+    const opts: readonly number[] = CAR_TYPE_SEAT_OPTIONS[type];
+    if (!opts.includes(customSeats.value)) customSeats.value = carTypeSeats(type);
+  }
+
   function openCustomForm() {
     customPhone.value = authStore.client?.phone ?? '';
     customComment.value = '';
+    customTime.value = '';
+    customCarType.value = 'MINIVAN';
+    customSeats.value = CAR_TYPE_SEAT_OPTIONS.MINIVAN[0];
+    customWholeCabin.value = false;
     customError.value = null;
     customSuccess.value = false;
     customFormOpen.value = true;
@@ -155,11 +174,16 @@ export function useResultsModel() {
     }
     customSubmitting.value = true;
     try {
+      // "Салон" books the whole car → pax is the chosen vehicle's capacity.
+      const pax = customWholeCabin.value ? customSeats.value : store.pax;
       await api.customRequests.create({
         fromCity: store.fromCity,
         toCity: store.toCity,
         date: store.date,
-        pax: store.pax,
+        time: customTime.value || undefined,
+        pax,
+        carType: customCarType.value,
+        wholeCabin: customWholeCabin.value,
         phone,
         comment: customComment.value.trim() || undefined,
       });
@@ -191,14 +215,22 @@ export function useResultsModel() {
     displayDate,
     highlightedDates,
     // custom request
+    carTypes,
     customFormOpen,
     customPhone,
     customComment,
+    customTime,
+    customCarType,
+    customSeats,
+    customWholeCabin,
+    carSeatOptions,
+    selectCarType,
     customSubmitting,
     customSuccess,
     customError,
     openCustomForm,
     submitCustomRequest,
     closeCustomForm,
+    CAR_TYPE_LABEL,
   };
 }

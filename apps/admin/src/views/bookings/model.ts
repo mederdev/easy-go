@@ -169,7 +169,7 @@ export function useBookingsModel() {
   function pickClientSuggestion(c: Client): void {
     selectedClient.value = c;
     createForm.name = c.name;
-    createForm.phone = c.phone;
+    createForm.phone = c.phone ?? '';
     createForm.whatsapp = c.whatsapp;
     clientSearch.value = '';
     clientSuggestions.value = [];

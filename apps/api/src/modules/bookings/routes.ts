@@ -6,6 +6,7 @@ import {
   UpdateBookingStatusInput,
   Id,
   IDEMPOTENCY_HEADER,
+  type JwtClaims,
 } from '@easygo/shared';
 import { parse } from '../../lib/validate.js';
 import * as svc from './service.js';
@@ -15,8 +16,22 @@ const routes: FastifyPluginAsync = async (app) => {
   app.post('/', { config: { idempotent: true } }, async (request, reply) => {
     const input = parse(CreateBookingInput, request.body);
     const key = request.headers[IDEMPOTENCY_HEADER];
+    // Soft auth: attach the booking to the logged-in customer when a valid
+    // client token is present (anonymous submissions still work).
+    let clientId: string | undefined;
+    if (request.headers.authorization) {
+      try {
+        const claims = (await request.jwtVerify()) as JwtClaims;
+        if (claims.kind === 'client') clientId = claims.sub;
+      } catch {
+        // ignore — treat as an anonymous submission
+      }
+    }
     reply.code(201);
-    return svc.createBooking(input, { idempotencyKey: typeof key === 'string' ? key : undefined });
+    return svc.createBooking(input, {
+      idempotencyKey: typeof key === 'string' ? key : undefined,
+      clientId,
+    });
   });
 
   // ── Admin CRM ──

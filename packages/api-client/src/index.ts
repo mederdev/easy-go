@@ -34,6 +34,7 @@ import type {
   OtpRequestInput,
   OtpRequestResponse,
   OtpVerifyInput,
+  TelegramLoginInput,
   Paginated,
   PartnerApplication,
   PresignUploadInput,
@@ -134,6 +135,7 @@ export function createApiClient(opts: ApiClientOptions) {
       requestOtp: (input: OtpRequestInput) => request<OtpRequestResponse>('POST', '/client-auth/request-otp', input),
       verify: (input: OtpVerifyInput) => request<ClientAuthResponse>('POST', '/client-auth/verify', input),
       login: (input: ClientLoginInput) => request<ClientAuthResponse>('POST', '/client-auth/login', input),
+      telegram: (input: TelegramLoginInput) => request<ClientAuthResponse>('POST', '/client-auth/telegram', input),
     },
 
     // Authenticated customer (личный кабинет), scoped to the bearer token.

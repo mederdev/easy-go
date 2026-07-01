@@ -25,7 +25,7 @@ function isoDay(d: Date): string {
  */
 export async function createBooking(
   input: CreateBookingInput,
-  opts: { status?: BookingStatus; idempotencyKey?: string } = {},
+  opts: { status?: BookingStatus; idempotencyKey?: string; clientId?: string } = {},
 ) {
   const phone = normalizePhone(input.phone);
 
@@ -39,12 +39,26 @@ export async function createBooking(
       throw Errors.conflict(`Недостаточно мест: осталось ${seatsLeft}`, 'NOT_ENOUGH_SEATS');
     }
 
-    const existingClient = await tx.client.findUnique({ where: { phone } });
-    const client = await tx.client.upsert({
-      where: { phone },
-      create: { name: input.name, phone, whatsapp: input.whatsapp },
-      update: { name: input.name, whatsapp: input.whatsapp },
-    });
+    // Authenticated customer (e.g. Telegram signup) → attach to their account and
+    // back-fill the phone if they don't have one yet. Otherwise upsert by phone.
+    let client;
+    let isNewClient = false;
+    if (opts.clientId) {
+      const existing = await tx.client.findUnique({ where: { id: opts.clientId } });
+      if (!existing) throw Errors.notFound('Клиент');
+      client = await tx.client.update({
+        where: { id: existing.id },
+        data: { name: input.name, whatsapp: input.whatsapp, ...(existing.phone ? {} : { phone }) },
+      });
+    } else {
+      const existingClient = await tx.client.findUnique({ where: { phone } });
+      isNewClient = !existingClient;
+      client = await tx.client.upsert({
+        where: { phone },
+        create: { name: input.name, phone, whatsapp: input.whatsapp },
+        update: { name: input.name, whatsapp: input.whatsapp },
+      });
+    }
 
     const total = flight.route.price * input.pax;
 
@@ -83,7 +97,7 @@ export async function createBooking(
       data: { tripsCount: { increment: 1 }, totalSum: { increment: total }, lastBookingAt: new Date() },
     });
 
-    return { booking: withCode, isNewClient: !existingClient, departAt: flight.departAt };
+    return { booking: withCode, isNewClient, departAt: flight.departAt };
   });
 
   await enqueueStatsRecompute(isoDay(booking.departAt)).catch(() => undefined);

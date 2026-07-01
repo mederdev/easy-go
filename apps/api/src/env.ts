@@ -15,6 +15,13 @@ const EnvSchema = z.object({
   JWT_SECRET: z.string().min(8, 'JWT_SECRET must be at least 8 chars'),
   JWT_EXPIRES_IN: z.string().default('7d'),
 
+  // Telegram Login Widget (customer auth). Token verifies the widget `hash`;
+  // username configures the widget button on the client. Both optional — when
+  // the token is unset outside production, hash verification is bypassed so the
+  // flow can be tested locally without a real bot/domain (mirrors the OTP stub).
+  TELEGRAM_BOT_TOKEN: z.string().optional(),
+  TELEGRAM_BOT_USERNAME: z.string().optional(),
+
   CORS_ORIGINS: z.string().default('http://localhost:5173,http://localhost:5174,http://localhost:8100'),
 
   // Internal endpoint — how the API itself reaches MinIO (e.g. minio:9000).

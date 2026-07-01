@@ -88,15 +88,19 @@ model User {
   updatedAt    DateTime @updatedAt
 }
 
-/// Booking customer. Upserted by phone from the public booking flow.
+/// Booking customer. Upserted by phone from the public booking flow, or created
+/// via the Telegram Login Widget (no phone until they provide one at booking).
 model Client {
-  id            String    @id @default(uuid())
-  name          String
-  phone         String    @unique
-  whatsapp      Boolean   @default(true)
-  passwordHash  String?
-  passwordRaw   String?   // plain-text copy for admin display
-  tripsCount    Int       @default(0) // denormalized
+  id               String    @id @default(uuid())
+  name             String
+  phone            String?   @unique // nullable: Telegram signups have no phone yet
+  whatsapp         Boolean   @default(true)
+  telegramId       String?   @unique // Telegram Login Widget user id
+  telegramUsername String?
+  photoUrl         String?   // Telegram avatar
+  passwordHash     String?
+  passwordRaw      String?   // plain-text copy for admin display
+  tripsCount       Int       @default(0) // denormalized
   totalSum      Int       @default(0) // denormalized, minor units
   lastBookingAt DateTime?
   createdAt     DateTime  @default(now())

@@ -1,12 +1,11 @@
 import { randomInt } from 'node:crypto';
 import { makeRedis } from './queue.js';
-import { isProd } from '../env.js';
 import { AppError } from './errors.js';
 
 /**
  * Phone OTP backed by Redis (no DB migration). A 6-digit code is stored under
  * `otp:<phone>` with a short TTL; verification is attempt-limited. Delivery is a
- * dev stub for now — swap `sendOtp` for a real SMS / WhatsApp Business provider.
+ * mock SMS sender for now — replace `sendSms` with a real SMS provider later.
  */
 const redis = makeRedis();
 
@@ -18,13 +17,19 @@ const codeKey = (phone: string) => `otp:${phone}`;
 const attemptsKey = (phone: string) => `otp:att:${phone}`;
 const cooldownKey = (phone: string) => `otp:cool:${phone}`;
 
-/** Dev stub: logs the code. Production: send via SMS / WhatsApp. */
+/**
+ * Mock SMS sender — the future integration seam. No real delivery yet: it logs a
+ * clearly-labelled line so codes can be read from the API logs in dev/demo.
+ * TODO: replace the body with a real SMS provider (e.g. Twilio / SMSC.ru / Nikita.kg).
+ */
+async function sendSms(phone: string, text: string): Promise<void> {
+  // eslint-disable-next-line no-console
+  console.info(`[SMS mock] → ${phone}: ${text}`);
+}
+
+/** Send the OTP code to the phone over SMS (mocked for now). */
 async function sendOtp(phone: string, code: string): Promise<void> {
-  if (!isProd) {
-    // eslint-disable-next-line no-console
-    console.info(`[otp] ${phone} → ${code}`);
-  }
-  // TODO: integrate a real provider for production delivery.
+  await sendSms(phone, `EasyGo: ваш код для входа — ${code}. Никому его не сообщайте.`);
 }
 
 export async function issueOtp(phone: string): Promise<{ code: string; expiresIn: number }> {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { IonPage, IonContent } from '@ionic/vue';
 import ErrorBanner from '@/components/ErrorBanner.vue';
+import TelegramLoginButton from '@/components/TelegramLoginButton.vue';
 import { useLoginModel } from './model';
 
 const {
@@ -25,7 +26,9 @@ const {
   clientLogin,
   sendCode,
   confirm,
+  telegramLogin,
   driverLogin,
+  showTelegram,
 } = useLoginModel();
 </script>
 
@@ -81,7 +84,7 @@ const {
             <template v-if="step === 'phone'">
               <div class="icon-badge"><span class="ms">smartphone</span></div>
               <h1 class="title">Войти по номеру</h1>
-              <p class="subtitle">Введите номер телефона — пришлём одноразовый код для входа.</p>
+              <p class="subtitle">Введите номер телефона — пришлём одноразовый код по SMS.</p>
 
               <div class="field">
                 <div class="field-label">Номер телефона</div>
@@ -105,7 +108,7 @@ const {
             <template v-else>
               <div class="icon-badge"><span class="ms">password</span></div>
               <h1 class="title">Введите код</h1>
-              <p class="subtitle">Код отправлен на <b>{{ phone }}</b>.</p>
+              <p class="subtitle">Код отправлен по SMS на <b>{{ phone }}</b>.</p>
 
               <input
                 v-model="code"
@@ -129,6 +132,12 @@ const {
                 {{ resendIn > 0 ? `Отправить повторно через 0:${String(resendIn).padStart(2, '0')}` : 'Отправить код повторно' }}
               </button>
             </template>
+          </template>
+
+          <!-- Telegram login (shown on entry screens, not while entering the code) -->
+          <template v-if="showTelegram && !(clientMode === 'otp' && step === 'otp')">
+            <div class="or-divider"><span>или войти через</span></div>
+            <TelegramLoginButton @auth="telegramLogin" />
           </template>
         </template>
 
@@ -222,5 +231,12 @@ const {
   background: none; border: none; cursor: pointer; padding: 0;
   font: 600 13px 'Manrope', sans-serif; color: var(--eg-green); text-decoration: underline;
   text-underline-offset: 2px;
+}
+.or-divider {
+  display: flex; align-items: center; gap: 10px; margin: 22px 0 2px;
+  color: var(--eg-muted-light); font: 600 12px 'Manrope', sans-serif;
+}
+.or-divider::before, .or-divider::after {
+  content: ''; flex: 1; height: 1px; background: #e2e5df;
 }
 </style>

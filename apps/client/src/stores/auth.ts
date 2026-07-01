@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { Client, DriverProfile } from '@easygo/shared';
+import type { Client, DriverProfile, TelegramLoginInput } from '@easygo/shared';
 import { api, driverApi, TOKEN_KEY, DRIVER_KEY } from '../lib/api.js';
 
 export const useAuthStore = defineStore('auth', () => {
@@ -43,6 +43,14 @@ export const useAuthStore = defineStore('auth', () => {
   /** Client login with phone + password (after password has been set). */
   async function clientLogin(phone: string, password: string): Promise<Client> {
     const res = await api.clientAuth.login({ phone, password });
+    setToken(res.token);
+    client.value = res.client;
+    return res.client;
+  }
+
+  /** Login via the Telegram Login Widget payload (creates the client on first login). */
+  async function telegramLogin(payload: TelegramLoginInput): Promise<Client> {
+    const res = await api.clientAuth.telegram(payload);
     setToken(res.token);
     client.value = res.client;
     return res.client;
@@ -113,6 +121,7 @@ export const useAuthStore = defineStore('auth', () => {
     requestOtp,
     verify,
     clientLogin,
+    telegramLogin,
     driverLogin,
     fetchMe,
     logout,

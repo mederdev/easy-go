@@ -1,5 +1,6 @@
 import { ref, computed, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
+import type { TelegramLoginInput } from '@easygo/shared';
 import { ApiError } from '@easygo/api-client';
 import { useAuthStore } from '@/stores/auth';
 
@@ -7,6 +8,11 @@ import { useAuthStore } from '@/stores/auth';
 export function useLoginModel() {
   const router = useRouter();
   const auth = useAuthStore();
+
+  // Show the Telegram block only when the widget can actually render — the bot
+  // username is configured (prod build) or we're in dev (mock button). Avoids an
+  // empty "или войти через" divider when the build has no bot username.
+  const showTelegram = Boolean(import.meta.env.VITE_TELEGRAM_BOT_USERNAME) || import.meta.env.DEV;
 
   const mode = ref<'client' | 'driver'>('client');
   // client sub-mode: password by default, otp as fallback for forgotten password
@@ -113,6 +119,22 @@ export function useLoginModel() {
     }
   }
 
+  // ── Telegram login ──
+
+  async function telegramLogin(user: TelegramLoginInput): Promise<void> {
+    if (busy.value) return;
+    busy.value = true;
+    error.value = null;
+    try {
+      await auth.telegramLogin(user);
+      router.replace('/tabs/home');
+    } catch (e) {
+      error.value = e instanceof ApiError ? e.message : 'Не удалось войти через Telegram';
+    } finally {
+      busy.value = false;
+    }
+  }
+
   // ── Driver (password) flow ──
 
   async function driverLogin(): Promise<void> {
@@ -151,6 +173,8 @@ export function useLoginModel() {
     clientLogin,
     sendCode,
     confirm,
+    telegramLogin,
     driverLogin,
+    showTelegram,
   };
 }

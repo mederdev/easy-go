@@ -83,6 +83,22 @@ export const ClientLoginInput = z.object({
 });
 export type ClientLoginInput = z.infer<typeof ClientLoginInput>;
 
+/**
+ * Telegram Login Widget payload (https://core.telegram.org/widgets/login).
+ * The widget never returns a phone — the customer is created without one and
+ * asked for a number later (at booking). Verified server-side via the `hash`.
+ */
+export const TelegramLoginInput = z.object({
+  id: z.number().int(),
+  first_name: z.string(),
+  last_name: z.string().optional(),
+  username: z.string().optional(),
+  photo_url: z.string().url().optional(),
+  auth_date: z.number().int(),
+  hash: z.string(),
+});
+export type TelegramLoginInput = z.infer<typeof TelegramLoginInput>;
+
 /** Customer sets or changes their password from личный кабинет. */
 export const SetClientPasswordInput = z.object({
   password: z.string().min(6).max(100),

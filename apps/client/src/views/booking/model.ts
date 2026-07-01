@@ -20,7 +20,7 @@ export function useBookingModel() {
   onMounted(() => {
     if (auth.client) {
       name.value = auth.client.name;
-      phone.value = auth.client.phone;
+      phone.value = auth.client.phone ?? '';
     }
   });
 

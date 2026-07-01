@@ -134,7 +134,7 @@ const {
     <AppModal
       :open="modalOpen"
       :title="modalClient ? modalClient.name : 'Клиент'"
-      :subtitle="modalClient ? modalClient.phone : undefined"
+      :subtitle="modalClient?.phone ?? undefined"
       @close="closeModal"
     >
       <div v-if="modalLoading" class="modal-state">

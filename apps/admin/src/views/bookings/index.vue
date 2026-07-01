@@ -244,10 +244,11 @@ const {
         </div>
 
         <div class="drawer-footer">
-          <a class="wa" :href="waLink(selected)" target="_blank" rel="noopener">
+          <a v-if="selected.client?.phone" class="wa" :href="waLink(selected)" target="_blank" rel="noopener">
             <span class="material-symbols-outlined">chat</span>
             WhatsApp
           </a>
+          <span v-else class="wa wa--disabled">Нет номера телефона</span>
         </div>
       </template>
     </AppDrawer>
@@ -621,6 +622,10 @@ const {
   align-items: center;
   justify-content: center;
   gap: 8px;
+}
+.wa--disabled {
+  background: var(--eg-surface-alt, #f6f7f5);
+  color: var(--eg-muted, #6e747c);
 }
 
 /* Create-booking form */

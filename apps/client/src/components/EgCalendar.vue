@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 interface HighlightedDate {
   date: string;
@@ -15,6 +15,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: string];
+  'visible-range': [range: { from: string; to: string }];
 }>();
 
 const MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
@@ -38,6 +39,22 @@ watch(() => props.modelValue, (iso) => {
 });
 
 const monthLabel = computed(() => `${MONTHS[viewMonth.value]} ${viewYear.value}`);
+
+function pad(n: number) { return String(n).padStart(2, '0'); }
+
+// Notify parent which month is on screen so it can load flight dots for it
+function emitVisibleRange() {
+  const y = viewYear.value;
+  const m = viewMonth.value;
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  emit('visible-range', {
+    from: `${y}-${pad(m + 1)}-01`,
+    to: `${y}-${pad(m + 1)}-${pad(daysInMonth)}`,
+  });
+}
+
+watch([viewYear, viewMonth], emitVisibleRange);
+onMounted(emitVisibleRange);
 
 const highlightedSet = computed(() =>
   new Set((props.highlightedDates ?? []).map((h) => h.date)),

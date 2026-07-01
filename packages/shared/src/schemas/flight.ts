@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Id } from './common.js';
-import { FlightStatus } from '../enums.js';
+import { FlightStatus, PaymentStatus } from '../enums.js';
 import { Route } from './route.js';
 import { Car } from './car.js';
 
@@ -17,6 +17,7 @@ export const Flight = z.object({
   seatsTotal: z.number().int().positive(),
   seatsTaken: z.number().int().nonnegative(), // denormalized
   status: FlightStatus,
+  paymentStatus: PaymentStatus, // aggregated from active bookings
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });

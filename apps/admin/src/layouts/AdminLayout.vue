@@ -11,8 +11,7 @@ interface NavItem {
 }
 
 const navMain: NavItem[] = [
-  { to: '/', label: 'Дашборд', icon: 'dashboard' },
-  { to: '/bookings', label: 'Бронирования', icon: 'receipt_long' },
+  { to: '/', label: 'Бронирования', icon: 'receipt_long' },
   { to: '/flights', label: 'Рейсы', icon: 'event_seat' },
   { to: '/routes', label: 'Маршруты', icon: 'route' },
   { to: '/fleet', label: 'Автопарк', icon: 'directions_car' },
@@ -39,7 +38,8 @@ const userRole = computed(() =>
   auth.user ? USER_ROLE_LABEL[auth.user.role] : 'Диспетчерская',
 );
 
-const menuOpen = ref(false);
+/** Notifications dropdown state (no API yet — always shows an empty state). */
+const notifOpen = ref(false);
 /** Mobile off-canvas navigation drawer state (desktop ignores this). */
 const navOpen = ref(false);
 
@@ -64,8 +64,7 @@ function logout(): void {
 /** The topbar CTA simply navigates to the relevant create surface. */
 function onCta(): void {
   const map: Record<string, string> = {
-    dashboard: '/bookings',
-    bookings: '/bookings',
+    bookings: '/',
     flights: '/flights',
     routes: '/routes',
     fleet: '/fleet',
@@ -147,20 +146,16 @@ function onCta(): void {
           <span class="cta-label">{{ ctaLabel }}</span>
         </button>
         <div class="user-menu">
-          <button class="bell" type="button" @click="menuOpen = !menuOpen">
+          <button class="bell" type="button" @click="notifOpen = !notifOpen">
             <span class="material-symbols-outlined">notifications</span>
             <span class="dot" />
           </button>
-          <button class="avatar-btn" type="button" @click="menuOpen = !menuOpen">
-            {{ auth.initials }}
-          </button>
-          <div v-if="menuOpen" class="dropdown" @click="menuOpen = false">
-            <div class="dropdown-name">{{ userName }}</div>
-            <div class="dropdown-role">{{ userRole }}</div>
-            <button class="dropdown-logout" type="button" @click="logout">
-              <span class="material-symbols-outlined">logout</span>
-              Выйти
-            </button>
+          <div v-if="notifOpen" class="dropdown notif-dropdown">
+            <div class="notif-title">Уведомления</div>
+            <div class="notif-empty">
+              <span class="material-symbols-outlined">notifications_off</span>
+              <span>Уведомлений нет</span>
+            </div>
           </div>
         </div>
       </header>
@@ -386,21 +381,11 @@ function onCta(): void {
   background: var(--eg-brand);
   border: 2px solid #fff;
 }
-.avatar-btn {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  border: none;
-  background: var(--eg-ink);
-  color: var(--eg-brand-bright);
-  font: 800 14px var(--eg-font);
-  cursor: pointer;
-}
 .dropdown {
   position: absolute;
   top: 52px;
   right: 0;
-  width: 200px;
+  width: 280px;
   background: #fff;
   border: 1px solid #e7e9e5;
   border-radius: 14px;
@@ -408,30 +393,22 @@ function onCta(): void {
   padding: 14px;
   z-index: 30;
 }
-.dropdown-name {
+.notif-title {
   font: 800 14px var(--eg-font);
+  margin-bottom: 12px;
 }
-.dropdown-role {
-  font: 500 12px var(--eg-font);
-  color: var(--eg-hint);
-  margin-bottom: 10px;
-}
-.dropdown-logout {
-  width: 100%;
-  height: 40px;
-  border: 1px solid var(--eg-border);
-  border-radius: 11px;
-  background: #fff;
-  color: #c0492e;
-  font: 700 13px var(--eg-font);
-  cursor: pointer;
+.notif-empty {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 8px;
+  padding: 22px 0 18px;
+  color: var(--eg-hint);
+  font: 600 13px var(--eg-font);
 }
-.dropdown-logout .material-symbols-outlined {
-  font-size: 18px;
+.notif-empty .material-symbols-outlined {
+  font-size: 30px;
+  color: #c2c7bd;
 }
 
 /* Content */

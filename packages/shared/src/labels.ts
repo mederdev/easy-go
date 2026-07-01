@@ -4,6 +4,7 @@ import type {
   RouteStatus,
   CarStatus,
   ApplicationStatus,
+  PaymentStatus,
   UserRole,
 } from './enums.js';
 
@@ -26,6 +27,12 @@ export const FLIGHT_STATUS_LABEL: Record<FlightStatus, string> = {
   CANCELLED: 'Отменён',
   CANCELLED_BY_CLIENT: 'Отменён клиентом',
   CANCELLED_BY_COMPANY: 'Отменён компанией',
+};
+
+export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
+  UNPAID: 'Не оплачено',
+  PARTIAL: 'Частично',
+  PAID: 'Оплачено',
 };
 
 export const ROUTE_STATUS_LABEL: Record<RouteStatus, string> = {

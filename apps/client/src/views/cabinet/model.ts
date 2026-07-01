@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import type { Booking, DriverFlightView } from '@easygo/shared';
-import { BOOKING_STATUS_LABEL, FLIGHT_STATUS_LABEL, formatMoney } from '@easygo/shared';
+import type { Booking, DriverFlightView, PaymentStatus } from '@easygo/shared';
+import { BOOKING_STATUS_LABEL, FLIGHT_STATUS_LABEL, PAYMENT_STATUS_LABEL, formatMoney } from '@easygo/shared';
 import { useAuthStore } from '@/stores/auth';
 import { api, driverApi } from '@/lib/api';
 import { useAsyncResource } from '@/composables/useAsyncResource';
@@ -62,10 +62,58 @@ export function useCabinetModel() {
 
   function openFlight(f: DriverFlightView): void {
     selectedFlight.value = f;
+    paymentError.value = null;
   }
   function closeFlight(): void {
     selectedFlight.value = null;
     statusChangeError.value = null;
+    paymentError.value = null;
+  }
+
+  // ── Driver payment actions (status only — amounts are admin-managed) ──
+  const paymentBusy = ref<string | null>(null); // bookingId | flightId being saved
+  const paymentError = ref<string | null>(null);
+
+  async function syncSelectedFlight(flightId: string): Promise<void> {
+    await reloadDriverFlights();
+    if (selectedFlight.value?.id === flightId) {
+      selectedFlight.value = driverFlights.value.find((f) => f.id === flightId) ?? null;
+    }
+  }
+
+  async function markBookingPaid(flightId: string, bookingId: string, status: PaymentStatus): Promise<void> {
+    paymentBusy.value = bookingId;
+    paymentError.value = null;
+    try {
+      await driverApi.driverFlights.setBookingPayment(flightId, bookingId, status);
+      await syncSelectedFlight(flightId);
+    } catch (e: unknown) {
+      paymentError.value = (e as Error).message ?? 'Ошибка';
+    } finally {
+      paymentBusy.value = null;
+    }
+  }
+
+  async function markFlightPaid(flightId: string, status: PaymentStatus): Promise<void> {
+    paymentBusy.value = flightId;
+    paymentError.value = null;
+    try {
+      await driverApi.driverFlights.setFlightPayment(flightId, status);
+      await syncSelectedFlight(flightId);
+    } catch (e: unknown) {
+      paymentError.value = (e as Error).message ?? 'Ошибка';
+    } finally {
+      paymentBusy.value = null;
+    }
+  }
+
+  const PAYMENT_STATUS_STYLE: Record<PaymentStatus, { bg: string; color: string }> = {
+    UNPAID: { bg: '#FBEDEA', color: '#C0492E' },
+    PARTIAL: { bg: '#FEF3E2', color: '#C77A18' },
+    PAID: { bg: '#EEF6E6', color: '#3E7C12' },
+  };
+  function paymentStatusStyle(s: PaymentStatus) {
+    return PAYMENT_STATUS_STYLE[s] ?? { bg: '#F0F1EE', color: '#8A8F86' };
   }
 
   // Shared helpers
@@ -177,6 +225,7 @@ export function useCabinetModel() {
     initials,
     statusStyle,
     flightStatusStyle,
+    paymentStatusStyle,
     upcoming,
     history,
     shown,
@@ -186,6 +235,7 @@ export function useCabinetModel() {
     logout,
     BOOKING_STATUS_LABEL,
     FLIGHT_STATUS_LABEL,
+    PAYMENT_STATUS_LABEL,
     formatMoney,
     // Driver
     driverFlightTab,
@@ -204,6 +254,11 @@ export function useCabinetModel() {
     driverFlightTime,
     nextStatus,
     nextStatusLabel,
+    // Driver payment
+    paymentBusy,
+    paymentError,
+    markBookingPaid,
+    markFlightPaid,
     // Menu
     menuOpen,
     toggleMenu,

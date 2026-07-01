@@ -16,6 +16,7 @@ const {
   error,
   choose,
   selectDate,
+  onCalendarRange,
   routeTitle,
   paxLabelVal,
   highlightedDates,
@@ -78,6 +79,7 @@ const calendarOpen = ref(false);
           :min-date="dateStrip[0]?.iso"
           :highlighted-dates="highlightedDates"
           @update:model-value="selectDate"
+          @visible-range="onCalendarRange"
         />
 
         <!-- Content -->
@@ -234,7 +236,7 @@ const calendarOpen = ref(false);
 
 .date-strip-wrap {
   position: relative;
-  padding: 2px 0 12px;
+  padding: 2px 0 12px 16px;
   display: flex;
   align-items: center;
 }

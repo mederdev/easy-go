@@ -41,9 +41,12 @@ import type {
   Route,
   SearchFlightsQuery,
   SetDriverPasswordInput,
+  SetPaymentStatusInput,
+  UpdateBookingPaymentInput,
   UpdateDriverInput,
   SystemConfig,
   UpdateBookingStatusInput,
+  PaymentStatus,
   UpdateCarInput,
   UpdateMyProfileInput,
   UpdateRouteInput,
@@ -168,6 +171,8 @@ export function createApiClient(opts: ApiClientOptions) {
       list: (query?: Query) => request<FlightView[]>('GET', '/flights', undefined, { query }),
       create: (input: unknown) => request<FlightView>('POST', '/flights', input),
       update: (id: string, input: unknown) => request<FlightView>('PATCH', `/flights/${id}`, input),
+      setPaymentStatus: (id: string, status: PaymentStatus) =>
+        request<FlightView>('PATCH', `/flights/${id}/payment-status`, { status }),
     },
 
     bookings: {
@@ -179,6 +184,9 @@ export function createApiClient(opts: ApiClientOptions) {
       list: (query?: ListBookingsQuery) => request<Paginated<Booking>>('GET', '/bookings', undefined, { query: query as unknown as Query }),
       get: (id: string) => request<Booking>('GET', `/bookings/${id}`),
       setStatus: (id: string, input: UpdateBookingStatusInput) => request<Booking>('PATCH', `/bookings/${id}/status`, input),
+      /** Admin-only edit of discount/prepayment amounts. */
+      setPayment: (id: string, input: UpdateBookingPaymentInput) => request<Booking>('PATCH', `/bookings/${id}/payment`, input),
+      setPaymentStatus: (id: string, input: SetPaymentStatusInput) => request<Booking>('PATCH', `/bookings/${id}/payment-status`, input),
     },
 
     clients: {
@@ -205,6 +213,10 @@ export function createApiClient(opts: ApiClientOptions) {
       get: (id: string) => request<DriverFlightView>('GET', `/driver-flights/${id}`),
       setStatus: (id: string, status: 'DEPARTED' | 'COMPLETED') =>
         request<DriverFlightView>('PATCH', `/driver-flights/${id}/status`, { status }),
+      setFlightPayment: (id: string, status: PaymentStatus) =>
+        request<DriverFlightView>('PATCH', `/driver-flights/${id}/payment-status`, { status }),
+      setBookingPayment: (flightId: string, bookingId: string, status: PaymentStatus) =>
+        request<DriverFlightView>('PATCH', `/driver-flights/${flightId}/bookings/${bookingId}/payment-status`, { status }),
     },
 
     fleet: {

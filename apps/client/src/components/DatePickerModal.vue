@@ -19,6 +19,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:open': [value: boolean];
   'update:modelValue': [value: string];
+  'visible-range': [range: { from: string; to: string }];
 }>();
 
 const windowWidth = ref(window.innerWidth);
@@ -55,6 +56,7 @@ function close() { emit('update:open', false); }
         :min-date="minDate"
         :highlighted-dates="highlightedDates"
         @update:model-value="localDate = $event"
+        @visible-range="emit('visible-range', $event)"
       />
       <button class="dp-confirm" @click="confirm">Готово</button>
     </div>
@@ -70,6 +72,7 @@ function close() { emit('update:open', false); }
             :min-date="minDate"
             :highlighted-dates="highlightedDates"
             @update:model-value="localDate = $event"
+            @visible-range="emit('visible-range', $event)"
           />
           <button class="dp-confirm dp-confirm--card" @click="confirm">Готово</button>
         </div>

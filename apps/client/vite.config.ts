@@ -10,6 +10,7 @@ export default defineConfig({
     },
   },
   server: {
+    host: true, // expose on LAN so phones on the same Wi-Fi can connect
     port: 8100,
   },
   build: {

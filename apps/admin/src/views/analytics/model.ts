@@ -16,6 +16,10 @@ export function useAnalyticsModel() {
   const series = ref<AnalyticsSeries | null>(null);
   const routes = ref<Route[]>([]);
 
+  // Selectable reporting window (defaults to the last ~8 weeks).
+  const from = ref(isoDateDaysAgo(55));
+  const to = ref(todayISODate());
+
   function money(minor: number): string {
     return formatMoney(minor, config.currency, config.locale);
   }
@@ -33,8 +37,8 @@ export function useAnalyticsModel() {
     try {
       await config.ensure();
       const [s, r] = await Promise.all([
-        api.analytics.series({ from: isoDateDaysAgo(55), to: todayISODate() }),
-        api.routes.list(),
+        api.analytics.series({ from: from.value, to: to.value }),
+        routes.value.length ? Promise.resolve(routes.value) : api.routes.list(),
       ]);
       series.value = s;
       routes.value = r;
@@ -43,6 +47,20 @@ export function useAnalyticsModel() {
     } finally {
       loading.value = false;
     }
+  }
+
+  function setFrom(date: string): void {
+    if (!date || date === from.value) return;
+    from.value = date;
+    if (to.value && from.value > to.value) to.value = from.value;
+    void load();
+  }
+
+  function setTo(date: string): void {
+    if (!date || date === to.value) return;
+    to.value = date;
+    if (from.value && to.value < from.value) from.value = to.value;
+    void load();
   }
 
   const points = computed<DailyStat[]>(() => series.value?.points ?? []);
@@ -104,6 +122,11 @@ export function useAnalyticsModel() {
     loading,
     error,
     series,
+    from,
+    to,
+    setFrom,
+    setTo,
+    maxToday: todayISODate(),
     load,
     money,
     points,

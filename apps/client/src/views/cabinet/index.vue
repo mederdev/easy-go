@@ -74,6 +74,21 @@ const {
           <button class="logout" @click="logout"><span class="ms" style="font-size: 16px">logout</span>Выйти</button>
         </div>
 
+        <!-- Assigned cars -->
+        <div v-if="auth.driver?.cars?.length" class="cars">
+          <div class="cars-label">Мои авто</div>
+          <div
+            v-for="car in auth.driver.cars"
+            :key="car.id"
+            class="car-item"
+          >
+            <span class="ms car-ic">directions_car</span>
+            <span class="car-model">{{ car.model }}</span>
+            <span class="car-plate">{{ car.plate }}</span>
+            <span class="car-seats">{{ car.seats }} мест</span>
+          </div>
+        </div>
+
         <div class="tabs">
           <button :class="['seg', driverFlightTab === 'upcoming' && 'seg--on']" @click="driverFlightTab = 'upcoming'">Предстоящие</button>
           <button :class="['seg', driverFlightTab === 'history' && 'seg--on']" @click="driverFlightTab = 'history'">История</button>
@@ -155,7 +170,7 @@ const {
                 <!-- Passengers -->
                 <div class="pass-title">
                   Пассажиры
-                  <span class="pass-count">{{ selectedFlight.passengers.length }} чел. / {{ selectedFlight.seatsTaken }} мест</span>
+                  <span class="pass-count">Броней: {{ selectedFlight.passengers.length }} · Занято мест: {{ selectedFlight.seatsTaken }} / {{ selectedFlight.seatsTotal }}</span>
                 </div>
                 <div v-if="selectedFlight.passengers.length === 0" class="pass-empty">Бронирований нет</div>
                 <div v-else class="pass-list">
@@ -169,8 +184,18 @@ const {
                     </div>
                     <div class="pass-pay">
                       <span class="pass-sum">
-                        {{ formatMoney(p.prepaid) }} / {{ formatMoney(p.total) }}
-                        <span class="pass-pax">· {{ p.pax }} мест</span>
+                        <span class="pass-metric">
+                          <span class="pass-metric-label">Внесено</span>
+                          <span class="pass-metric-val">{{ formatMoney(p.prepaid) }}</span>
+                        </span>
+                        <span class="pass-metric">
+                          <span class="pass-metric-label">Итого</span>
+                          <span class="pass-metric-val">{{ formatMoney(p.total) }}</span>
+                        </span>
+                        <span class="pass-metric">
+                          <span class="pass-metric-label">Мест</span>
+                          <span class="pass-metric-val">{{ p.pax }}</span>
+                        </span>
                       </span>
                       <button
                         v-if="p.paymentStatus !== 'PAID'"
@@ -193,29 +218,32 @@ const {
                 </div>
 
                 <ErrorBanner v-if="paymentError" :message="paymentError" style="margin-top: 12px" />
-
-                <!-- Mark the whole flight paid -->
-                <button
-                  v-if="selectedFlight.passengers.length && selectedFlight.paymentStatus !== 'PAID'"
-                  class="status-btn pay-all"
-                  :disabled="paymentBusy === selectedFlight.id"
-                  @click="markFlightPaid(selectedFlight.id, 'PAID')"
-                >
-                  <span class="ms">payments</span>
-                  {{ paymentBusy === selectedFlight.id ? 'Обновляем…' : 'Весь рейс оплачен' }}
-                </button>
-
-                <!-- Status action -->
                 <ErrorBanner v-if="statusChangeError" :message="statusChangeError" style="margin-top: 12px" />
-                <button
-                  v-if="nextStatus(selectedFlight)"
-                  class="status-btn"
-                  :disabled="statusChanging === selectedFlight.id"
-                  @click="changeFlightStatus(selectedFlight.id, nextStatus(selectedFlight)!)"
-                >
-                  <span class="ms">{{ nextStatus(selectedFlight) === 'DEPARTED' ? 'departure_board' : 'check_circle' }}</span>
-                  {{ statusChanging === selectedFlight.id ? 'Обновляем…' : nextStatusLabel[nextStatus(selectedFlight)!] }}
-                </button>
+
+                <!-- Flight actions -->
+                <div class="flight-actions">
+                  <!-- Mark the whole flight paid -->
+                  <button
+                    v-if="selectedFlight.passengers.length && selectedFlight.paymentStatus !== 'PAID'"
+                    class="status-btn pay-all"
+                    :disabled="paymentBusy === selectedFlight.id"
+                    @click="markFlightPaid(selectedFlight.id, 'PAID')"
+                  >
+                    <span class="ms">payments</span>
+                    {{ paymentBusy === selectedFlight.id ? 'Обновляем…' : 'Весь рейс оплачен' }}
+                  </button>
+
+                  <!-- Status action -->
+                  <button
+                    v-if="nextStatus(selectedFlight)"
+                    class="status-btn status-next"
+                    :disabled="statusChanging === selectedFlight.id"
+                    @click="changeFlightStatus(selectedFlight.id, nextStatus(selectedFlight)!)"
+                  >
+                    <span class="ms">{{ nextStatus(selectedFlight) === 'DEPARTED' ? 'departure_board' : 'check_circle' }}</span>
+                    {{ statusChanging === selectedFlight.id ? 'Обновляем…' : nextStatusLabel[nextStatus(selectedFlight)!] }}
+                  </button>
+                </div>
               </div>
             </div>
           </Transition>
@@ -347,6 +375,23 @@ const {
   font: 700 12px 'Manrope', sans-serif; color: var(--eg-muted); cursor: pointer; display: flex; align-items: center; gap: 5px;
 }
 
+/* Assigned cars */
+.cars { padding: 14px 16px 0; display: flex; flex-direction: column; gap: 8px; }
+.cars-label {
+  font: 700 11px 'Manrope', sans-serif; color: #9fa59a; text-transform: uppercase; letter-spacing: .06em;
+}
+.car-item {
+  display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid #eceee9;
+  border-radius: 13px; padding: 12px 14px; font: 600 14px 'Manrope', sans-serif; color: var(--eg-ink);
+}
+.car-ic { font-size: 20px; color: var(--eg-green); flex: none; }
+.car-model { font-weight: 700; }
+.car-plate {
+  font: 700 12px 'Manrope', sans-serif; color: var(--eg-muted); background: var(--eg-bg-subtle);
+  padding: 3px 8px; border-radius: 7px; letter-spacing: .03em;
+}
+.car-seats { margin-left: auto; font: 600 12px 'Manrope', sans-serif; color: var(--eg-muted-light); }
+
 /* Menu */
 .menu-wrap { position: relative; flex-shrink: 0; }
 .menu-btn {
@@ -455,22 +500,38 @@ const {
   display: flex; align-items: center; justify-content: center; font: 800 13px 'Manrope', sans-serif; flex: none;
 }
 .pass-name { flex: 1; font: 600 14px 'Manrope', sans-serif; }
-.pass-pax { font: 600 12px 'Manrope', sans-serif; color: var(--eg-muted-light); }
-.pass-pay { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-left: 44px; }
-.pass-sum { font: 600 13px 'Manrope', sans-serif; color: var(--eg-muted); }
+.pass-pay { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; padding-left: 44px; }
+.pass-sum { display: flex; gap: 18px; flex-wrap: wrap; }
+.pass-metric { display: flex; flex-direction: column; gap: 2px; }
+.pass-metric-label {
+  font: 600 10px 'Manrope', sans-serif; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--eg-muted-light);
+}
+.pass-metric-val { font: 700 14px 'Manrope', sans-serif; color: var(--eg-ink); }
 .pay-mini {
   height: 32px; padding: 0 14px; border: none; border-radius: 9px;
   background: var(--eg-green); color: #fff; font: 700 12px 'Manrope', sans-serif; cursor: pointer; flex: none;
 }
 .pay-mini--off { background: #fff; border: 1px solid #e2e5df; color: var(--eg-muted); }
 .pay-mini:disabled { opacity: 0.5; cursor: not-allowed; }
-.pay-all { background: #3E7C12; }
+.flight-actions {
+  display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap;
+}
 .status-btn {
-  width: 100%; height: 54px; border: none; border-radius: 15px;
-  background: var(--eg-green); color: #fff; font: 700 16px 'Manrope', sans-serif; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px;
+  flex: 1 1 0; min-width: 140px; height: 54px; border-radius: 15px;
+  font: 700 15px 'Manrope', sans-serif; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
 }
 .status-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+/* "Оплачено" — secondary / outlined */
+.pay-all {
+  background: var(--eg-green-light, #EEF6E6); color: #3E7C12;
+  border: 1.5px solid #3E7C12;
+}
+/* "Выехали" — primary / solid */
+.status-next {
+  background: var(--eg-green); color: #fff; border: none;
+}
 
 /* Slide-up transition */
 .slide-up-enter-active { animation: slideUp .25s ease-out; }

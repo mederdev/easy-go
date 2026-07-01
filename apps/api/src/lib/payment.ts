@@ -4,8 +4,12 @@ import type { PaymentStatus } from '@easygo/shared';
 /** Prisma client or an interactive-transaction client. */
 type Tx = PrismaClient | Prisma.TransactionClient;
 
-/** Booking lifecycle statuses that still count toward a flight's payment total. */
-const ACTIVE_BOOKING_STATUSES = ['NEW', 'CONFIRMED', 'COMPLETED'] as const;
+/**
+ * Booking statuses attached to the flight — the ones that count toward its
+ * aggregated payment total. A NEW request isn't attached until an admin confirms
+ * it, so it doesn't affect the flight's payment status (mirrors `holdsSeat`).
+ */
+const ACTIVE_BOOKING_STATUSES = ['CONFIRMED', 'COMPLETED'] as const;
 
 /**
  * Booking payment state derived from the prepaid amount vs the amount due.

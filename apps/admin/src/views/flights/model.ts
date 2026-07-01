@@ -1,20 +1,40 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import type { Booking, Car, CreateFlightInput, FlightStatus, FlightView, Route } from '@easygo/shared';
-import { BOOKING_STATUS_LABEL, FLIGHT_STATUS_LABEL, PAYMENT_STATUS_LABEL } from '@easygo/shared';
+import { useRouter } from 'vue-router';
+import type { Booking, Car, CreateFlightInput, FlightStatus, FlightView, Route, UpdateFlightInput } from '@easygo/shared';
+import { BOOKING_STATUS_LABEL, FLIGHT_STATUS_LABEL, PAYMENT_STATUS_LABEL, formatMoney } from '@easygo/shared';
 import { api, errorMessage } from '@/lib/api';
 import { dateLabel, flightRouteLabel, routeLabel, timeLabel } from '@/lib/format';
+import { useConfigStore } from '@/stores/config';
 import { useCrudList } from '@/composables/useCrudList';
 import { useFormModel } from '@/composables/useFormModel';
 
 /** Flights admin: card grid of upcoming flights with a create modal. The seat
  *  load bar (%/color) and the per-car seat default are bespoke and kept inline. */
 export function useFlightsModel() {
+  const router = useRouter();
+  const config = useConfigStore();
   const routes = ref<Route[]>([]);
   const cars = ref<Car[]>([]);
+
+  function money(minor: number): string {
+    return formatMoney(minor, config.currency, config.locale);
+  }
+
+  /** Amount still owed on a booking (minor units), never negative. */
+  function remaining(b: Booking): number {
+    return Math.max(0, b.total - b.prepaid);
+  }
+
+  /** Jump to the Bookings page and open this booking's detail drawer. */
+  function openBookingDetail(b: Booking): void {
+    void router.push({ name: 'bookings', query: { open: b.id } });
+  }
 
   // List filters: by route (chips) and by calendar day. Empty = no filter.
   const routeFilter = ref<string>('');
   const dateFilter = ref<string>(''); // YYYY-MM-DD
+  // Status tab: 'active' shows only open & upcoming flights (default), 'all' shows every flight.
+  const statusFilter = ref<'active' | 'all'>('active');
 
   function buildQuery(): Record<string, string> {
     const q: Record<string, string> = {};
@@ -26,7 +46,7 @@ export function useFlightsModel() {
     return q;
   }
 
-  const { loading, error, items: flights, load } = useCrudList<FlightView>(async () => {
+  const { loading, error, items: rawFlights, load } = useCrudList<FlightView>(async () => {
     // Routes/cars are static metadata — fetch them once, then only re-query flights.
     const needMeta = routes.value.length === 0;
     const [f, r, c] = await Promise.all([
@@ -39,9 +59,73 @@ export function useFlightsModel() {
     return f;
   });
 
+  // The "Активные" tab narrows to open & upcoming flights; "Все" keeps them all
+  // but floats active ones first. Within each group show the freshest
+  // (latest departure) first — the API returns them oldest-first.
+  const byDepartDesc = (a: FlightView, b: FlightView) =>
+    new Date(b.departAt).getTime() - new Date(a.departAt).getTime();
+  const flights = computed(() => {
+    const list = statusFilter.value === 'active'
+      ? rawFlights.value.filter(isActive).sort(byDepartDesc)
+      : [...rawFlights.value].sort(
+          (a, b) => Number(!isActive(a)) - Number(!isActive(b)) || byDepartDesc(a, b),
+        );
+    return list;
+  });
+
+  function setStatusFilter(v: 'active' | 'all'): void {
+    if (statusFilter.value === v && routeFilter.value === '') return;
+    statusFilter.value = v;
+    // "Активные" is a peer of the route chips — clear any route selection.
+    if (routeFilter.value !== '') {
+      routeFilter.value = '';
+      availableDates.value = new Set();
+      loadedRanges.clear();
+      void load();
+    }
+  }
+
+  // ── Calendar "has flights" dots ──────────────────────────────────────────
+  // ISO days (YYYY-MM-DD) that have ≥1 flight, for the months the user has viewed.
+  const availableDates = ref<Set<string>>(new Set());
+  // Ranges already fetched (keyed by route + window) so we don't refetch needlessly.
+  const loadedRanges = new Set<string>();
+
+  async function loadAvailableDates(from: string, to: string): Promise<void> {
+    const key = `${routeFilter.value}_${from}_${to}`;
+    if (loadedRanges.has(key)) return;
+    loadedRanges.add(key);
+    try {
+      const q: Record<string, string> = {
+        from: `${from}T00:00:00.000Z`,
+        to: `${to}T23:59:59.999Z`,
+      };
+      if (routeFilter.value) q.routeId = routeFilter.value;
+      const fs = await api.flights.list(q);
+      // departAt is UTC ISO; slice matches the UTC-day filter semantics used elsewhere.
+      const days = fs.map((f) => f.departAt.slice(0, 10));
+      availableDates.value = new Set([...availableDates.value, ...days]);
+    } catch {
+      // non-critical — dots just won't show; allow a retry later
+      loadedRanges.delete(key);
+    }
+  }
+
+  /** Called by the calendar when the user navigates to / opens a month. */
+  function onCalendarRange(range: { from: string; to: string }): void {
+    void loadAvailableDates(range.from, range.to);
+  }
+
+  const highlightedDates = computed(() => [...availableDates.value]);
+
   function setRouteFilter(id: string): void {
-    if (routeFilter.value === id) return;
+    // Selecting "Все маршруты" or a specific route switches off the active-only tab.
+    if (routeFilter.value === id && statusFilter.value === 'all') return;
+    statusFilter.value = 'all';
     routeFilter.value = id;
+    // Dots depend on the route filter — drop cached days so the calendar refetches.
+    availableDates.value = new Set();
+    loadedRanges.clear();
     void load();
   }
 
@@ -52,7 +136,7 @@ export function useFlightsModel() {
   }
 
   const form = useFormModel();
-  const statuses: FlightStatus[] = ['SCHEDULED', 'CLOSED', 'DEPARTED', 'CANCELLED', 'CANCELLED_BY_CLIENT', 'CANCELLED_BY_COMPANY'];
+  const statuses: FlightStatus[] = ['SCHEDULED', 'CLOSED', 'DEPARTED', 'COMPLETED', 'CANCELLED', 'CANCELLED_BY_CLIENT', 'CANCELLED_BY_COMPANY'];
 
   function todayStr(): string {
     const d = new Date();
@@ -134,6 +218,11 @@ export function useFlightsModel() {
     return !Number.isNaN(d.getTime()) && d.getTime() < Date.now();
   }
 
+  /** An active flight: still open for sales and not yet departed. */
+  function isActive(f: FlightView): boolean {
+    return f.status === 'SCHEDULED' && !isPast(f);
+  }
+
   const MONTHS_GEN = [
     'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
     'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
@@ -167,6 +256,7 @@ export function useFlightsModel() {
     detailError.value = null;
     detailBookings.value = [];
     detailStatusEdit.value = f.status;
+    detailCarEdit.value = f.carId ?? '';
     try {
       const res = await api.bookings.list({ flightId: f.id, limit: 100, offset: 0 });
       detailBookings.value = res.items;
@@ -182,24 +272,43 @@ export function useFlightsModel() {
     detailFlight.value = null;
     detailBookings.value = [];
     detailStatusEdit.value = null;
+    detailCarEdit.value = '';
     detailStatusSaving.value = false;
     detailStatusError.value = null;
   }
 
   const detailStatusEdit = ref<FlightStatus | null>(null);
+  const detailCarEdit = ref<string>(''); // carId, '' = no car assigned
   const detailStatusSaving = ref(false);
   const detailStatusError = ref<string | null>(null);
 
-  async function saveDetailStatus(): Promise<void> {
-    if (!detailFlight.value || !detailStatusEdit.value) return;
-    if (detailStatusEdit.value === detailFlight.value.status) return;
+  // Whether the editable status/car fields differ from the loaded flight.
+  const detailDirty = computed(() => {
+    const f = detailFlight.value;
+    if (!f) return false;
+    const statusChanged = detailStatusEdit.value !== null && detailStatusEdit.value !== f.status;
+    const carChanged = (detailCarEdit.value || null) !== (f.carId ?? null);
+    return statusChanged || carChanged;
+  });
+
+  async function saveDetailChanges(): Promise<void> {
+    const f = detailFlight.value;
+    if (!f) return;
+    const patch: UpdateFlightInput = {};
+    if (detailStatusEdit.value !== null && detailStatusEdit.value !== f.status) {
+      patch.status = detailStatusEdit.value;
+    }
+    if ((detailCarEdit.value || null) !== (f.carId ?? null)) {
+      patch.carId = detailCarEdit.value || null;
+    }
+    if (Object.keys(patch).length === 0) return;
     detailStatusSaving.value = true;
     detailStatusError.value = null;
     try {
-      const updated = await api.flights.update(detailFlight.value.id, { status: detailStatusEdit.value });
+      const updated = await api.flights.update(f.id, patch);
       detailFlight.value = updated;
-      const idx = flights.value.findIndex((f) => f.id === updated.id);
-      if (idx !== -1) flights.value[idx] = updated;
+      const idx = rawFlights.value.findIndex((r) => r.id === updated.id);
+      if (idx !== -1) rawFlights.value[idx] = updated;
     } catch (e) {
       detailStatusError.value = errorMessage(e);
     } finally {
@@ -218,8 +327,8 @@ export function useFlightsModel() {
     try {
       const updated = await api.flights.setPaymentStatus(detailFlight.value.id, paid ? 'PAID' : 'UNPAID');
       detailFlight.value = updated;
-      const idx = flights.value.findIndex((f) => f.id === updated.id);
-      if (idx !== -1) flights.value[idx] = updated;
+      const idx = rawFlights.value.findIndex((f) => f.id === updated.id);
+      if (idx !== -1) rawFlights.value[idx] = updated;
       // The cascade changed each booking's payment status — refresh the list.
       const res = await api.bookings.list({ flightId: updated.id, limit: 100, offset: 0 });
       detailBookings.value = res.items;
@@ -234,7 +343,10 @@ export function useFlightsModel() {
 
   form.watchCreateCta(openCreate);
 
-  onMounted(load);
+  onMounted(() => {
+    void config.ensure(); // currency/locale for money() in the passenger list
+    void load();
+  });
 
   return {
     loading,
@@ -245,8 +357,12 @@ export function useFlightsModel() {
     load,
     routeFilter,
     dateFilter,
+    statusFilter,
     setRouteFilter,
     setDateFilter,
+    setStatusFilter,
+    highlightedDates,
+    onCalendarRange,
     modalOpen: form.open,
     saving: form.saving,
     formError: form.error,
@@ -274,11 +390,16 @@ export function useFlightsModel() {
     openDetail,
     closeDetail,
     detailStatusEdit,
+    detailCarEdit,
+    detailDirty,
     detailStatusSaving,
     detailStatusError,
-    saveDetailStatus,
+    saveDetailChanges,
     detailPaymentSaving,
     detailPaymentError,
     setFlightPaid,
+    money,
+    remaining,
+    openBookingDetail,
   };
 }

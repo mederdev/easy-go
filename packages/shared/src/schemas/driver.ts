@@ -35,11 +35,21 @@ export const DriverLoginInput = z.object({
 });
 export type DriverLoginInput = z.infer<typeof DriverLoginInput>;
 
+/** A car assigned to the driver (visible in the driver's cabinet). */
+export const DriverCar = z.object({
+  id: Id,
+  model: z.string(),
+  plate: z.string(),
+  seats: z.number().int(),
+});
+export type DriverCar = z.infer<typeof DriverCar>;
+
 export const DriverProfile = z.object({
   id: Id,
   name: z.string(),
   phone: z.string(),
   experience: z.string().nullable(),
+  cars: z.array(DriverCar),
 });
 export type DriverProfile = z.infer<typeof DriverProfile>;
 

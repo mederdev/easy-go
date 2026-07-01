@@ -1,7 +1,7 @@
 import type { DriverFlightView, PaymentStatus } from '@easygo/shared';
 import { prisma } from '../../lib/prisma.js';
 import { Errors } from '../../lib/errors.js';
-import { setBookingPaymentStatus } from '../bookings/service.js';
+import { completeFlightBookings, setBookingPaymentStatus } from '../bookings/service.js';
 import { setFlightPayment } from '../flights/service.js';
 
 function toDriverFlightView(flight: Awaited<ReturnType<typeof fetchFlight>>): DriverFlightView {
@@ -20,7 +20,7 @@ function toDriverFlightView(flight: Awaited<ReturnType<typeof fetchFlight>>): Dr
     },
     car: flight.car ? { model: flight.car.model, plate: flight.car.plate } : null,
     passengers: flight.bookings
-      .filter((b) => b.status === 'NEW' || b.status === 'CONFIRMED')
+      .filter((b) => b.status === 'NEW' || b.status === 'CONFIRMED' || b.status === 'COMPLETED')
       .map((b) => ({
         bookingId: b.id,
         name: b.client.name,
@@ -40,7 +40,7 @@ async function fetchFlight(flightId: string) {
       route: true,
       car: true,
       bookings: {
-        where: { status: { in: ['NEW', 'CONFIRMED'] } },
+        where: { status: { in: ['NEW', 'CONFIRMED', 'COMPLETED'] } },
         include: { client: { select: { name: true } } },
         orderBy: { createdAt: 'asc' },
       },
@@ -64,7 +64,7 @@ export async function listDriverFlights(driverId: string): Promise<DriverFlightV
       route: true,
       car: true,
       bookings: {
-        where: { status: { in: ['NEW', 'CONFIRMED'] } },
+        where: { status: { in: ['NEW', 'CONFIRMED', 'COMPLETED'] } },
         include: { client: { select: { name: true } } },
         orderBy: { createdAt: 'asc' },
       },
@@ -97,20 +97,12 @@ export async function setDriverFlightStatus(
     throw Errors.badRequest(`Нельзя перевести рейс из статуса «${flight.status}» в «${status}»`);
   }
 
-  const updated = await prisma.flight.update({
-    where: { id: flightId },
-    data: { status },
-    include: {
-      route: true,
-      car: true,
-      bookings: {
-        where: { status: { in: ['NEW', 'CONFIRMED'] } },
-        include: { client: { select: { name: true } } },
-        orderBy: { createdAt: 'asc' },
-      },
-    },
-  });
-  return toDriverFlightView(updated);
+  await prisma.flight.update({ where: { id: flightId }, data: { status } });
+  // Completing the flight completes its confirmed bookings so passengers see it
+  // as finished on their side (they display booking status, not flight status).
+  if (status === 'COMPLETED') await completeFlightBookings(flightId);
+
+  return getDriverFlight(driverId, flightId);
 }
 
 /** Driver marks one booking on their flight paid/unpaid (status only, no amounts). */

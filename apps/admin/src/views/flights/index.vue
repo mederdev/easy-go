@@ -16,8 +16,12 @@ const {
   load,
   routeFilter,
   dateFilter,
+  statusFilter,
   setRouteFilter,
   setDateFilter,
+  setStatusFilter,
+  highlightedDates,
+  onCalendarRange,
   modalOpen,
   saving,
   formError,
@@ -43,12 +47,17 @@ const {
   openDetail,
   closeDetail,
   detailStatusEdit,
+  detailCarEdit,
+  detailDirty,
   detailStatusSaving,
   detailStatusError,
-  saveDetailStatus,
+  saveDetailChanges,
   detailPaymentSaving,
   detailPaymentError,
   setFlightPaid,
+  money,
+  remaining,
+  openBookingDetail,
 } = useFlightsModel();
 </script>
 
@@ -59,8 +68,13 @@ const {
     <div class="filters">
       <div class="chips">
         <FilterChip
+          label="Активные"
+          :active="statusFilter === 'active'"
+          @click="setStatusFilter('active')"
+        />
+        <FilterChip
           label="Все маршруты"
-          :active="routeFilter === ''"
+          :active="statusFilter === 'all' && routeFilter === ''"
           @click="setRouteFilter('')"
         />
         <FilterChip
@@ -74,8 +88,10 @@ const {
       <DatePicker
         class="date-picker"
         :model-value="dateFilter"
+        :highlighted-dates="highlightedDates"
         placeholder="Все даты"
         @update:model-value="setDateFilter"
+        @visible-range="onCalendarRange"
       />
     </div>
 
@@ -157,9 +173,9 @@ const {
               <span class="info-label">Автомобиль</span>
               <span class="info-val">{{ detailFlight.car.model }} · {{ detailFlight.car.plate }}</span>
             </div>
-            <div v-if="detailFlight.car.driver" class="info-item">
+            <div class="info-item">
               <span class="info-label">Водитель</span>
-              <span class="info-val">{{ detailFlight.car.driver.name }}</span>
+              <span class="info-val">{{ detailFlight.car.driver?.name ?? 'Не назначен' }}</span>
             </div>
             <div v-if="detailFlight.car.driver?.phone" class="info-item">
               <span class="info-label">Телефон</span>
@@ -167,6 +183,10 @@ const {
             </div>
           </div>
           <div v-else class="no-car">Автомобиль не назначен</div>
+          <select v-model="detailCarEdit" class="status-select car-select">
+            <option value="">Без авто</option>
+            <option v-for="c in cars" :key="c.id" :value="c.id">{{ c.model }} · {{ c.plate }}</option>
+          </select>
         </div>
 
         <!-- Seats load -->
@@ -197,11 +217,32 @@ const {
               <div class="pax-info">
                 <span class="pax-name">{{ b.client?.name ?? '—' }}</span>
                 <span class="pax-phone">{{ b.client?.phone ?? '' }}</span>
+                <div class="pax-money">
+                  <template v-if="b.paymentStatus === 'PAID'">
+                    <span class="pax-due settled">Оплачено полностью</span>
+                    <span class="pax-total">{{ money(b.total) }}</span>
+                  </template>
+                  <template v-else>
+                    <span class="pax-paid">Оплачено {{ money(b.prepaid) }}</span>
+                    <span class="pax-due" :class="{ settled: remaining(b) === 0 }">
+                      {{ remaining(b) === 0 ? 'Оплачено полностью' : `Осталось ${money(remaining(b))}` }}
+                    </span>
+                    <span class="pax-total">из {{ money(b.total) }}</span>
+                  </template>
+                </div>
               </div>
               <div class="pax-right">
                 <span class="pax-count">{{ b.pax }} чел.</span>
                 <span class="pax-status" :class="`bs-${b.status.toLowerCase()}`">{{ BOOKING_STATUS_LABEL[b.status] }}</span>
                 <StatusChip kind="payment" :status="b.paymentStatus" />
+                <button
+                  type="button"
+                  class="pax-open"
+                  title="Открыть бронирование"
+                  @click="openBookingDetail(b)"
+                >
+                  <span class="material-symbols-outlined">open_in_new</span>
+                </button>
               </div>
             </div>
           </div>
@@ -238,10 +279,10 @@ const {
         <button
           type="button"
           class="btn primary"
-          :disabled="detailStatusSaving || detailStatusEdit === detailFlight?.status"
-          @click="saveDetailStatus"
+          :disabled="detailStatusSaving || !detailDirty"
+          @click="saveDetailChanges"
         >
-          {{ detailStatusSaving ? 'Сохранение…' : 'Сохранить статус' }}
+          {{ detailStatusSaving ? 'Сохранение…' : 'Сохранить' }}
         </button>
       </template>
     </AppModal>
@@ -263,7 +304,12 @@ const {
         <div class="two">
           <label class="field">
             <span class="label">Дата</span>
-            <input v-model="form.date" type="date" />
+            <DatePicker
+              class="form-date"
+              :model-value="form.date"
+              placeholder="Выберите дату"
+              @update:model-value="form.date = $event"
+            />
           </label>
           <label class="field">
             <span class="label">Время</span>
@@ -468,6 +514,16 @@ const {
 .form select:focus {
   border-color: var(--eg-brand);
 }
+/* Brand date picker sized to match sibling form inputs */
+.form-date {
+  display: block;
+}
+.form-date :deep(.trigger) {
+  width: 100%;
+  height: 46px;
+  border-radius: 11px;
+  padding: 0 12px;
+}
 .form-error {
   background: #fbedea;
   color: #c0492e;
@@ -520,6 +576,10 @@ const {
 }
 .status-select:focus {
   border-color: var(--eg-brand);
+}
+.car-select {
+  width: 100%;
+  height: 46px;
 }
 .detail-section {
   display: flex;
@@ -591,11 +651,53 @@ const {
   font: 500 12px var(--eg-font);
   color: var(--eg-hint);
 }
+.pax-money {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin-top: 3px;
+}
+.pax-paid {
+  font: 700 12px var(--eg-font);
+  color: var(--eg-brand-dark);
+}
+.pax-due {
+  font: 700 12px var(--eg-font);
+  color: #c77a18;
+}
+.pax-due.settled {
+  color: #3e7c12;
+}
+.pax-total {
+  font: 500 12px var(--eg-font);
+  color: var(--eg-hint);
+}
 .pax-right {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 4px;
+}
+.pax-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--eg-border);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--eg-muted);
+  cursor: pointer;
+  padding: 0;
+}
+.pax-open:hover {
+  border-color: var(--eg-brand);
+  color: var(--eg-brand-dark);
+}
+.pax-open .material-symbols-outlined {
+  font-size: 17px;
 }
 .pay-actions {
   display: flex;

@@ -23,6 +23,18 @@ function isoDay(d: Date): string {
 }
 
 /**
+ * Booking statuses that hold a reserved seat on the flight — i.e. the booking is
+ * "attached" to the flight. A booking only reserves a seat (and counts toward the
+ * client's trip totals) once an admin confirms it; NEW requests and any cancelled
+ * state hold nothing. Attaching/detaching happens on the status transitions that
+ * cross this boundary (see `setBookingStatus`).
+ */
+const SEAT_HOLDING_STATUSES: BookingStatus[] = ['CONFIRMED', 'COMPLETED'];
+function holdsSeat(status: BookingStatus): boolean {
+  return SEAT_HOLDING_STATUSES.includes(status);
+}
+
+/**
  * Create a booking. Upserts the client by phone, reserves seats atomically, and
  * keeps denormalized counters in sync. Safe to retry behind an Idempotency-Key.
  */
@@ -37,9 +49,16 @@ export async function createBooking(
     if (!flight) throw Errors.notFound('Рейс');
     if (flight.status !== 'SCHEDULED') throw Errors.conflict('Рейс закрыт для бронирования', 'FLIGHT_CLOSED');
 
-    const seatsLeft = flight.seatsTotal - flight.seatsTaken;
-    if (seatsLeft < input.pax) {
-      throw Errors.conflict(`Недостаточно мест: осталось ${seatsLeft}`, 'NOT_ENOUGH_SEATS');
+    const status = opts.status ?? 'NEW';
+    // Only a confirmed booking is "attached" (reserves seats). NEW requests don't
+    // consume capacity, so several may await confirmation — seats are checked and
+    // reserved when the admin confirms.
+    const reservesSeat = holdsSeat(status);
+    if (reservesSeat) {
+      const seatsLeft = flight.seatsTotal - flight.seatsTaken;
+      if (seatsLeft < input.pax) {
+        throw Errors.conflict(`Недостаточно мест: осталось ${seatsLeft}`, 'NOT_ENOUGH_SEATS');
+      }
     }
 
     const existingClient = await tx.client.findUnique({ where: { phone } });
@@ -64,7 +83,7 @@ export async function createBooking(
         discount,
         prepaid,
         total,
-        status: opts.status ?? 'NEW',
+        status,
         paymentStatus: derivePaymentStatus(prepaid, total),
         comment: input.comment ?? null,
         idempotencyKey: opts.idempotencyKey ?? null,
@@ -76,21 +95,24 @@ export async function createBooking(
       include: bookingInclude,
     });
 
-    // Reserve seats; close the flight when it fills up.
-    const newTaken = flight.seatsTaken + input.pax;
-    await tx.flight.update({
-      where: { id: flight.id },
-      data: {
-        seatsTaken: newTaken,
-        status: newTaken >= flight.seatsTotal ? 'CLOSED' : flight.status,
-      },
-    });
-
-    // Denormalized client counters.
-    await tx.client.update({
-      where: { id: client.id },
-      data: { tripsCount: { increment: 1 }, totalSum: { increment: total }, lastBookingAt: new Date() },
-    });
+    // Reserve seats + bump lifetime trip counters only for an already-confirmed
+    // booking; a NEW request stays unattached until an admin confirms it.
+    if (reservesSeat) {
+      const newTaken = flight.seatsTaken + input.pax;
+      await tx.flight.update({
+        where: { id: flight.id },
+        data: {
+          seatsTaken: newTaken,
+          status: newTaken >= flight.seatsTotal ? 'CLOSED' : flight.status,
+        },
+      });
+      await tx.client.update({
+        where: { id: client.id },
+        data: { tripsCount: { increment: 1 }, totalSum: { increment: total }, lastBookingAt: new Date() },
+      });
+    } else {
+      await tx.client.update({ where: { id: client.id }, data: { lastBookingAt: new Date() } });
+    }
 
     // Keep the flight's aggregated payment status in sync.
     await recomputeFlightPayment(tx, flight.id);
@@ -157,17 +179,44 @@ export async function getBooking(id: string) {
   return booking;
 }
 
-/** Explicit status transition. Cancelling frees the reserved seats. */
+/**
+ * Explicit status transition. Confirming a booking attaches it to the flight
+ * (reserves seats, bumps the client's trip counters); cancelling a confirmed
+ * booking detaches it (frees seats, reopens a full flight). Transitions that
+ * don't cross the "attached" boundary (e.g. NEW→CANCELLED, CONFIRMED→COMPLETED)
+ * leave capacity untouched.
+ */
 export async function setBookingStatus(id: string, status: BookingStatus) {
   return prisma.$transaction(async (tx) => {
     const booking = await tx.booking.findUnique({ where: { id } });
     if (!booking) throw Errors.notFound('Бронирование');
     if (booking.status === status) return tx.booking.findUnique({ where: { id }, include: bookingInclude });
 
-    const wasActive = booking.status !== 'CANCELLED';
-    const willCancel = status === 'CANCELLED';
+    const wasHolding = holdsSeat(booking.status);
+    const willHold = holdsSeat(status);
 
-    if (wasActive && willCancel) {
+    if (!wasHolding && willHold) {
+      // Attaching: reserve seats now, re-checking availability at confirmation time.
+      const flight = await tx.flight.findUnique({ where: { id: booking.flightId } });
+      if (!flight) throw Errors.notFound('Рейс');
+      const seatsLeft = flight.seatsTotal - flight.seatsTaken;
+      if (seatsLeft < booking.pax) {
+        throw Errors.conflict(`Недостаточно мест: осталось ${seatsLeft}`, 'NOT_ENOUGH_SEATS');
+      }
+      const newTaken = flight.seatsTaken + booking.pax;
+      await tx.flight.update({
+        where: { id: flight.id },
+        data: {
+          seatsTaken: newTaken,
+          status: newTaken >= flight.seatsTotal ? 'CLOSED' : flight.status,
+        },
+      });
+      await tx.client.update({
+        where: { id: booking.clientId },
+        data: { tripsCount: { increment: 1 }, totalSum: { increment: booking.total } },
+      });
+    } else if (wasHolding && !willHold) {
+      // Detaching: free the reserved seats and reopen a flight that had filled up.
       const flight = await tx.flight.findUnique({ where: { id: booking.flightId } });
       if (flight) {
         const newTaken = Math.max(0, flight.seatsTaken - booking.pax);
@@ -186,9 +235,22 @@ export async function setBookingStatus(id: string, status: BookingStatus) {
     }
 
     const updated = await tx.booking.update({ where: { id }, data: { status }, include: bookingInclude });
-    // Cancelling/uncancelling changes which bookings count toward the flight total.
+    // Attaching/detaching changes which bookings count toward the flight total.
     await recomputeFlightPayment(tx, booking.flightId);
     return updated;
+  });
+}
+
+/**
+ * Cascade a completed flight to its passengers: every CONFIRMED booking becomes
+ * COMPLETED. Both statuses hold a seat and count toward the flight total, so
+ * capacity counters and the payment aggregate stay untouched. NEW (unconfirmed)
+ * bookings are left alone — completing them would start holding seats.
+ */
+export async function completeFlightBookings(flightId: string): Promise<void> {
+  await prisma.booking.updateMany({
+    where: { flightId, status: 'CONFIRMED' },
+    data: { status: 'COMPLETED' },
   });
 }
 
@@ -217,12 +279,9 @@ export async function updateBookingPayment(id: string, input: UpdateBookingPayme
       include: bookingInclude,
     });
 
-    // Active bookings contribute to the client's denormalized lifetime total.
-    const isActive = booking.status !== 'CANCELLED'
-      && booking.status !== 'CANCELLED_BY_CLIENT'
-      && booking.status !== 'CANCELLED_BY_COMPANY';
+    // Only attached (confirmed) bookings contribute to the client's lifetime total.
     const delta = total - booking.total;
-    if (isActive && delta !== 0) {
+    if (holdsSeat(booking.status) && delta !== 0) {
       await tx.client.update({
         where: { id: booking.clientId },
         data: { totalSum: { increment: delta } },

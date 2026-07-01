@@ -22,9 +22,14 @@ export function useResultsModel() {
   const store = useBookingStore();
   const authStore = useAuthStore();
 
-  const flights = ref<FlightView[]>([]);
+  const rawFlights = ref<FlightView[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
+
+  // Active (bookable) flights first, sold-out ones last; stable within each group.
+  const flights = computed(() =>
+    [...rawFlights.value].sort((a, b) => Number(a.soldOut) - Number(b.soldOut)),
+  );
 
   // Set of ISO dates that have ≥1 available seat
   const availableDates = ref<Set<string>>(new Set());
@@ -32,18 +37,31 @@ export function useResultsModel() {
   const stripFrom = isoDate(0);
   const stripTo = isoDate(DAYS_IN_STRIP - 1);
 
-  async function loadAvailableDates() {
+  // Ranges already fetched, so calendar month changes don't refetch needlessly
+  const loadedRanges = new Set<string>();
+
+  async function loadAvailableDates(from: string, to: string) {
+    const key = `${from}_${to}`;
+    if (loadedRanges.has(key)) return;
+    loadedRanges.add(key);
     try {
       const dates = await api.flights.availableDates({
         fromCity: store.fromCity,
         toCity: store.toCity,
-        from: stripFrom,
-        to: stripTo,
+        from,
+        to,
       });
-      availableDates.value = new Set(dates);
+      // Merge — keeps dots from previously loaded ranges (strip + other months)
+      availableDates.value = new Set([...availableDates.value, ...dates]);
     } catch {
-      // non-critical — strip dots just won't show
+      // non-critical — dots just won't show; allow a retry later
+      loadedRanges.delete(key);
     }
+  }
+
+  /** Called by the calendar when the user navigates to a month — loads its dots. */
+  function onCalendarRange(range: { from: string; to: string }) {
+    void loadAvailableDates(range.from, range.to);
   }
 
   // 14-day strip
@@ -64,7 +82,7 @@ export function useResultsModel() {
     loading.value = true;
     error.value = null;
     try {
-      flights.value = await api.flights.search({
+      rawFlights.value = await api.flights.search({
         fromCity: store.fromCity,
         toCity: store.toCity,
         date: store.date,
@@ -83,7 +101,7 @@ export function useResultsModel() {
 
   watch(() => store.date, loadFlights);
   onMounted(() => {
-    void loadAvailableDates();
+    void loadAvailableDates(stripFrom, stripTo);
     void loadFlights();
   });
 
@@ -167,6 +185,7 @@ export function useResultsModel() {
     error,
     choose,
     selectDate,
+    onCalendarRange,
     routeTitle,
     paxLabelVal,
     displayDate,

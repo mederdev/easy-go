@@ -11,6 +11,7 @@ import type { Flight, Route, Car } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { Errors } from '../../lib/errors.js';
 import { derivePaymentStatus, recomputeFlightPayment } from '../../lib/payment.js';
+import { completeFlightBookings } from '../bookings/service.js';
 
 type FlightWithRel = Flight & { route?: Route | null; car?: Car | null };
 
@@ -151,7 +152,7 @@ async function getFlightInTx(tx: Parameters<typeof recomputeFlightPayment>[0], i
 
 export async function updateFlight(id: string, input: UpdateFlightInput) {
   await getFlight(id);
-  return prisma.flight.update({
+  const updated = await prisma.flight.update({
     where: { id },
     data: {
       routeId: input.routeId,
@@ -165,4 +166,8 @@ export async function updateFlight(id: string, input: UpdateFlightInput) {
     },
     include: { route: true, car: true },
   });
+  // Completing the flight completes its confirmed bookings so passengers see it
+  // as finished on their side (they display booking status, not flight status).
+  if (input.status === 'COMPLETED') await completeFlightBookings(id);
+  return updated;
 }

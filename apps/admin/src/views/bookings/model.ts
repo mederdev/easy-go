@@ -183,6 +183,18 @@ export function useBookingsModel() {
   }
   function closeDrawer(): void {
     selected.value = null;
+    // Drop the deep-link param so a refresh/back doesn't reopen the drawer.
+    if (route.query.open) void router.replace({ query: { ...route.query, open: undefined } });
+  }
+
+  /** Deep-link entry: fetch a booking by id (e.g. from the flight modal) and open it. */
+  async function openById(id: string): Promise<void> {
+    try {
+      const booking = items.value.find((b) => b.id === id) ?? (await api.bookings.get(id));
+      open(booking);
+    } catch (e) {
+      error.value = errorMessage(e);
+    }
   }
 
   const nextStatuses: Record<BookingStatus, BookingStatus[]> = {
@@ -372,6 +384,15 @@ export function useBookingsModel() {
     () => route.query.create,
     (v) => {
       if (v) void openCreate();
+    },
+    { immediate: true },
+  );
+
+  // Open a booking's drawer when deep-linked with ?open=<bookingId> (e.g. from the flight modal).
+  watch(
+    () => route.query.open,
+    (v) => {
+      if (typeof v === 'string' && v) void openById(v);
     },
     { immediate: true },
   );

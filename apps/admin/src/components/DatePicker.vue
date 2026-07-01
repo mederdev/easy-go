@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 /** Brand-styled date picker: a pill trigger + custom month-grid popover.
  *  Replaces the unstylable native date popup. v-model is an ISO `YYYY-MM-DD`
@@ -9,8 +9,12 @@ const props = defineProps<{
   placeholder?: string;
   min?: string; // earliest selectable day, ISO YYYY-MM-DD
   max?: string; // latest selectable day, ISO YYYY-MM-DD
+  highlightedDates?: string[]; // ISO YYYY-MM-DD days that get a "has flights" dot
 }>();
-const emit = defineEmits<{ (e: 'update:modelValue', value: string): void }>();
+const emit = defineEmits<{
+  (e: 'update:modelValue', value: string): void;
+  (e: 'visible-range', range: { from: string; to: string }): void;
+}>();
 
 const MONTHS = [
   'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
@@ -60,7 +64,9 @@ const label = computed(() => {
 
 const monthTitle = computed(() => `${MONTHS[viewMonth.value]} ${viewYear.value}`);
 
-interface Cell { day: number | null; dateStr?: string; isToday?: boolean; isSelected?: boolean; disabled?: boolean }
+const highlightedSet = computed(() => new Set(props.highlightedDates ?? []));
+
+interface Cell { day: number | null; dateStr?: string; isToday?: boolean; isSelected?: boolean; disabled?: boolean; hasFlights?: boolean }
 
 function outOfRange(ds: string): boolean {
   if (props.min && ds < props.min) return true;
@@ -82,10 +88,22 @@ const cells = computed<Cell[]>(() => {
       isToday: ds === todayStr,
       isSelected: ds === props.modelValue,
       disabled: outOfRange(ds),
+      hasFlights: highlightedSet.value.has(ds),
     });
   }
   return out;
 });
+
+// Tell the parent which month is on screen so it can load flight dots for it.
+function emitVisibleRange(): void {
+  const daysInMonth = new Date(viewYear.value, viewMonth.value + 1, 0).getDate();
+  emit('visible-range', {
+    from: toStr(viewYear.value, viewMonth.value, 1),
+    to: toStr(viewYear.value, viewMonth.value, daysInMonth),
+  });
+}
+watch([viewYear, viewMonth], emitVisibleRange);
+onMounted(emitVisibleRange);
 
 function prevMonth(): void {
   if (viewMonth.value === 0) {
@@ -169,6 +187,7 @@ function onDocPointer(e: MouseEvent): void {
 
 watch(open, (v) => {
   if (v) {
+    emitVisibleRange(); // refresh dots for the current view when the calendar opens
     document.addEventListener('mousedown', onDocPointer);
     window.addEventListener('scroll', position, true);
     window.addEventListener('resize', position);
@@ -238,6 +257,7 @@ onBeforeUnmount(() => {
               @click="pick(c.dateStr)"
             >
               {{ c.day }}
+              <span v-if="c.hasFlights" class="flight-dot" />
             </button>
           </template>
         </div>
@@ -385,12 +405,29 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 .cell.day {
+  position: relative;
   border: none;
   background: transparent;
   border-radius: 9px;
   color: var(--eg-ink);
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
+}
+.flight-dot {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--eg-brand);
+}
+.cell.day.selected .flight-dot {
+  background: rgba(255, 255, 255, 0.85);
+}
+.cell.day.disabled .flight-dot {
+  background: #c7ccc2;
 }
 .cell.day:hover {
   background: var(--eg-brand-light);

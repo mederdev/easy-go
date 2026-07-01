@@ -72,6 +72,7 @@ jobs:
           build-args: |
             VITE_API_URL=${{ env.VITE_API_URL }}
             VITE_2GIS_KEY=${{ secrets.VITE_2GIS_KEY }}
+            VITE_TELEGRAM_BOT_USERNAME=${{ vars.VITE_TELEGRAM_BOT_USERNAME }}
           tags: |
             ghcr.io/${{ steps.vars.outputs.owner }}/easygo-client:${{ github.sha }}
             ghcr.io/${{ steps.vars.outputs.owner }}/easygo-client:latest

@@ -3,6 +3,7 @@ import type {
   FlightStatus,
   RouteStatus,
   CarStatus,
+  CarType,
   ApplicationStatus,
   PaymentStatus,
   UserRole,
@@ -45,6 +46,12 @@ export const CAR_STATUS_LABEL: Record<CarStatus, string> = {
   AVAILABLE: 'Свободен',
   ON_TRIP: 'В пути',
   MAINTENANCE: 'На обслуживании',
+};
+
+export const CAR_TYPE_LABEL: Record<CarType, string> = {
+  SEDAN: 'Легковушка',
+  MINIVAN: 'Минивэн',
+  BUS: 'Бус',
 };
 
 export const APPLICATION_STATUS_LABEL: Record<ApplicationStatus, string> = {

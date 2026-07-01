@@ -22,6 +22,8 @@ const routes: FastifyPluginAsync = async (app) => {
     svc.myBookings(request.clientId!, parse(MyBookingsQuery, request.query)),
   );
 
+  app.get('/custom-requests', async (request) => svc.myCustomRequests(request.clientId!));
+
   app.get('/bookings/:id', async (request) => {
     const { id } = request.params as { id: string };
     return svc.myBooking(request.clientId!, parse(Id, id));

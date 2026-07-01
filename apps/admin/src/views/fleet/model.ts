@@ -1,6 +1,6 @@
-import { onMounted, reactive, ref } from 'vue';
-import type { Car, CarStatus, CreateCarInput, Driver } from '@easygo/shared';
-import { CAR_STATUS_LABEL, CITIES } from '@easygo/shared';
+import { computed, onMounted, reactive, ref } from 'vue';
+import type { Car, CarStatus, CarType, CreateCarInput, Driver } from '@easygo/shared';
+import { CAR_STATUS_LABEL, CAR_TYPE_LABEL, CAR_TYPE_SEAT_OPTIONS, carTypeSeats, CITIES } from '@easygo/shared';
 import { api } from '@/lib/api';
 import { useCrudList } from '@/composables/useCrudList';
 import { useFormModel } from '@/composables/useFormModel';
@@ -20,21 +20,33 @@ export function useFleetModel() {
 
   const cities = CITIES;
   const statuses: CarStatus[] = ['AVAILABLE', 'ON_TRIP', 'MAINTENANCE'];
+  const types: CarType[] = ['SEDAN', 'MINIVAN', 'BUS'];
 
   const formData = reactive({
     model: 'KIA Carnival',
     plate: '',
+    type: 'MINIVAN' as CarType,
     driverId: '' as string,
-    seats: 11,
+    seats: carTypeSeats('MINIVAN'),
     status: 'AVAILABLE' as CarStatus,
     locationCity: cities[0] as string,
   });
 
+  /** Allowed seat options for the currently selected type. */
+  const seatOptions = computed(() => CAR_TYPE_SEAT_OPTIONS[formData.type]);
+
+  /** Snap seats to the type's allowed range when the type changes. */
+  function onTypeChange(): void {
+    const opts: readonly number[] = CAR_TYPE_SEAT_OPTIONS[formData.type];
+    if (!opts.includes(formData.seats)) formData.seats = carTypeSeats(formData.type);
+  }
+
   function resetForm(): void {
     formData.model = 'KIA Carnival';
     formData.plate = '';
+    formData.type = 'MINIVAN';
     formData.driverId = '';
-    formData.seats = 11;
+    formData.seats = carTypeSeats('MINIVAN');
     formData.status = 'AVAILABLE';
     formData.locationCity = cities[0];
   }
@@ -50,6 +62,7 @@ export function useFleetModel() {
     editing.value = c;
     formData.model = c.model;
     formData.plate = c.plate;
+    formData.type = c.type;
     formData.driverId = c.driverId ?? '';
     formData.seats = c.seats;
     formData.status = c.status;
@@ -68,8 +81,9 @@ export function useFleetModel() {
       const payload: CreateCarInput = {
         model: formData.model.trim(),
         plate: formData.plate.trim(),
+        type: formData.type,
         driverId: formData.driverId || null,
-        seats: Number(formData.seats) || 11,
+        seats: Number(formData.seats) || carTypeSeats(formData.type),
         status: formData.status,
         locationCity: formData.locationCity || null,
       };
@@ -105,6 +119,9 @@ export function useFleetModel() {
     formError: form.error,
     cities,
     statuses,
+    types,
+    seatOptions,
+    onTypeChange,
     form: formData,
     openCreate,
     openEdit,
@@ -112,5 +129,6 @@ export function useFleetModel() {
     save,
     driverName,
     CAR_STATUS_LABEL,
+    CAR_TYPE_LABEL,
   };
 }

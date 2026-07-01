@@ -22,7 +22,13 @@ const {
   BOOKING_STATUS_LABEL,
   FLIGHT_STATUS_LABEL,
   PAYMENT_STATUS_LABEL,
+  APPLICATION_STATUS_LABEL,
+  CAR_TYPE_LABEL,
   formatMoney,
+  customRequests,
+  customStatusStyle,
+  customRouteTitle,
+  customDateLabel,
   driverFlightTab,
   driverShown,
   statusChanging,
@@ -323,6 +329,27 @@ const {
             <div class="empty-text">{{ activeTab === 'upcoming' ? 'Предстоящих поездок нет' : 'История поездок пуста' }}</div>
           </div>
         </div>
+
+        <!-- Custom ("leave a request") orders -->
+        <template v-if="!loading && customRequests.length">
+          <div class="section-label">Мои заявки</div>
+          <div class="list">
+            <div v-for="r in customRequests" :key="r.id" class="card card--static">
+              <div class="card-head">
+                <div class="card-route">{{ customRouteTitle(r) }}</div>
+                <span class="chip" :style="{ background: customStatusStyle(r.status).bg, color: customStatusStyle(r.status).color }">
+                  {{ APPLICATION_STATUS_LABEL[r.status] }}
+                </span>
+              </div>
+              <div class="card-meta">
+                <span class="mi"><span class="ms gi">calendar_today</span>{{ customDateLabel(r) }}</span>
+                <span class="mi"><span class="ms gi">group</span>{{ r.pax }}</span>
+                <span v-if="r.carType" class="mi"><span class="ms gi">directions_car</span>{{ CAR_TYPE_LABEL[r.carType] }}<template v-if="r.wholeCabin"> · салон</template></span>
+              </div>
+              <div v-if="r.comment" class="card-comment">{{ r.comment }}</div>
+            </div>
+          </div>
+        </template>
       </template>
 
       <div style="height: 40px"></div>
@@ -453,6 +480,17 @@ const {
 .foot-left { display: flex; align-items: center; gap: 8px; }
 .chip-stack { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .more { font: 700 12px 'Manrope', sans-serif; color: var(--eg-green); display: flex; align-items: center; gap: 3px; }
+
+/* Custom requests section */
+.section-label {
+  padding: 22px 16px 10px; font: 700 11px 'Manrope', sans-serif; color: #9fa59a;
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.card--static { cursor: default; }
+.card-comment {
+  margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f1ee;
+  font: 500 13px/1.4 'Manrope', sans-serif; color: var(--eg-muted);
+}
 
 /* Empty */
 .empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 48px 20px; }

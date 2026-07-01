@@ -148,6 +148,8 @@ export function createApiClient(opts: ApiClientOptions) {
         request<Paginated<Booking>>('GET', '/me/bookings', undefined, { query: query as unknown as Query }),
       booking: (id: string) => request<Booking>('GET', `/me/bookings/${id}`),
       cancelBooking: (id: string) => request<Booking>('PATCH', `/me/bookings/${id}/cancel`),
+      customRequests: () =>
+        request<{ items: CustomRequest[]; total: number }>('GET', '/me/custom-requests'),
     },
 
     config: {
@@ -255,6 +257,8 @@ export function createApiClient(opts: ApiClientOptions) {
         request<CustomRequest>('POST', '/custom-requests', input, { idempotencyKey }),
       list: (query?: Query) =>
         request<Paginated<CustomRequest>>('GET', '/custom-requests', undefined, { query }),
+      setStatus: (id: string, status: string) =>
+        request<CustomRequest>('PATCH', `/custom-requests/${id}/status`, { status }),
     },
   };
 }

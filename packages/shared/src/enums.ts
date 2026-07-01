@@ -30,6 +30,10 @@ export type RouteStatus = z.infer<typeof RouteStatus>;
 export const CarStatus = z.enum(['AVAILABLE', 'ON_TRIP', 'MAINTENANCE']);
 export type CarStatus = z.infer<typeof CarStatus>;
 
+/** Vehicle class. Drives seat capacity: sedan 4, minivan 5–7, bus 20. */
+export const CarType = z.enum(['SEDAN', 'MINIVAN', 'BUS']);
+export type CarType = z.infer<typeof CarType>;
+
 export const ApplicationStatus = z.enum(['NEW', 'REVIEWING', 'ACCEPTED', 'REJECTED']);
 export type ApplicationStatus = z.infer<typeof ApplicationStatus>;
 

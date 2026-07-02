@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Id, Phone, PaginationQuery } from './common.js';
-import { BookingStatus } from '../enums.js';
+import { BookingStatus, PaymentStatus } from '../enums.js';
 import { Client } from './client.js';
 import { Flight } from './flight.js';
 
@@ -12,8 +12,11 @@ export const Booking = z.object({
   flightId: Id,
   flight: Flight.optional(),
   pax: z.number().int().positive(),
-  total: z.number().int().nonnegative(), // minor units (price * pax at booking time)
+  discount: z.number().int().nonnegative(), // minor units, amount off
+  prepaid: z.number().int().nonnegative(), // minor units, paid so far
+  total: z.number().int().nonnegative(), // minor units = price * pax - discount
   status: BookingStatus,
+  paymentStatus: PaymentStatus,
   comment: z.string().nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -34,9 +37,11 @@ export const CreateBookingInput = z.object({
 });
 export type CreateBookingInput = z.infer<typeof CreateBookingInput>;
 
-/** Operator-side manual booking (admin CRM). */
+/** Operator-side manual booking (admin CRM). Discount/prepayment are admin-only. */
 export const AdminCreateBookingInput = CreateBookingInput.extend({
   status: BookingStatus.default('NEW'),
+  discount: z.number().int().nonnegative().default(0), // minor units
+  prepaid: z.number().int().nonnegative().default(0), // minor units
 });
 export type AdminCreateBookingInput = z.infer<typeof AdminCreateBookingInput>;
 
@@ -45,11 +50,30 @@ export const UpdateBookingStatusInput = z.object({
 });
 export type UpdateBookingStatusInput = z.infer<typeof UpdateBookingStatusInput>;
 
+/** Admin-only edit of the money fields; total + paymentStatus recompute server-side. */
+export const UpdateBookingPaymentInput = z
+  .object({
+    discount: z.number().int().nonnegative().optional(), // minor units
+    prepaid: z.number().int().nonnegative().optional(), // minor units
+  })
+  .refine((v) => v.discount !== undefined || v.prepaid !== undefined, {
+    message: 'Укажите скидку или предоплату',
+  });
+export type UpdateBookingPaymentInput = z.infer<typeof UpdateBookingPaymentInput>;
+
+/** Explicit payment-status action (mark paid / clear). Shared by admin + driver. */
+export const SetPaymentStatusInput = z.object({
+  status: PaymentStatus,
+});
+export type SetPaymentStatusInput = z.infer<typeof SetPaymentStatusInput>;
+
 export const ListBookingsQuery = PaginationQuery.extend({
   status: BookingStatus.optional(),
   clientId: Id.optional(),
   flightId: Id.optional(),
   search: z.string().trim().optional(),
+  from: z.string().date().optional(), // filter by flight departure day, inclusive
+  to: z.string().date().optional(),
 });
 export type ListBookingsQuery = z.infer<typeof ListBookingsQuery>;
 

@@ -1,7 +1,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import type { Booking } from '@easygo/shared';
-import { BOOKING_STATUS_LABEL, formatMoney, paxLabel } from '@easygo/shared';
+import type { Booking, PaymentStatus } from '@easygo/shared';
+import { BOOKING_STATUS_LABEL, PAYMENT_STATUS_LABEL, formatMoney, paxLabel } from '@easygo/shared';
 import { ApiError } from '@easygo/api-client';
 import { api } from '@/lib/api';
 import { useConfigStore } from '@/stores/config';
@@ -67,6 +67,26 @@ export function useTripDetailModel() {
     void openWhatsApp(phone, `Здравствуйте! Вопрос по брони ${booking.value?.code ?? ''}.`);
   }
 
+  /** Send a payment-confirmation message to the admin's WhatsApp. */
+  function sendReceipt(): void {
+    const phone = config.config?.whatsappPhone ?? '';
+    const b = booking.value;
+    const sum = b ? formatMoney(b.total) : '';
+    void openWhatsApp(
+      phone,
+      `Здравствуйте! Отправляю чек об оплате по брони ${b?.code ?? ''} на сумму ${sum}.`,
+    );
+  }
+
+  const PAYMENT_STATUS_STYLE: Record<PaymentStatus, { bg: string; color: string }> = {
+    UNPAID: { bg: 'rgba(192,73,46,0.2)', color: '#FF9B82' },
+    PARTIAL: { bg: 'rgba(199,122,24,0.22)', color: '#F2C078' },
+    PAID: { bg: 'rgba(86,169,25,0.2)', color: 'var(--eg-green-bright)' },
+  };
+  function paymentStatusStyle(s: PaymentStatus) {
+    return PAYMENT_STATUS_STYLE[s] ?? { bg: 'rgba(255,255,255,0.16)', color: '#fff' };
+  }
+
   onMounted(load);
 
   return {
@@ -82,7 +102,10 @@ export function useTripDetailModel() {
     timeLabel,
     doCancel,
     contactOperator,
+    sendReceipt,
+    paymentStatusStyle,
     BOOKING_STATUS_LABEL,
+    PAYMENT_STATUS_LABEL,
     formatMoney,
     paxLabel,
   };

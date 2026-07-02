@@ -17,7 +17,10 @@ const {
   timeLabel,
   doCancel,
   contactOperator,
+  sendReceipt,
+  paymentStatusStyle,
   BOOKING_STATUS_LABEL,
+  PAYMENT_STATUS_LABEL,
   formatMoney,
   paxLabel,
 } = useTripDetailModel();
@@ -39,7 +42,12 @@ const {
         <div class="hero">
           <div class="hero-top">
             <div class="hero-route">{{ booking.flight?.route ? `${booking.flight.route.fromCity} → ${booking.flight.route.toCity}` : booking.code }}</div>
-            <span class="hero-chip">{{ BOOKING_STATUS_LABEL[booking.status] }}</span>
+            <div class="hero-chips">
+              <span class="hero-chip">{{ BOOKING_STATUS_LABEL[booking.status] }}</span>
+              <span class="hero-chip" :style="{ background: paymentStatusStyle(booking.paymentStatus).bg, color: paymentStatusStyle(booking.paymentStatus).color }">
+                {{ PAYMENT_STATUS_LABEL[booking.paymentStatus] }}
+              </span>
+            </div>
           </div>
           <div class="hero-meta">
             <div><div class="cap">Дата</div><div class="val">{{ dateLabel(booking.flight?.departAt) }}</div></div>
@@ -53,11 +61,22 @@ const {
           <div class="row"><span class="k">Авто</span><span class="v">{{ booking.flight?.car?.model ?? 'KIA Carnival' }}</span></div>
           <div class="div"></div>
           <div class="row"><span class="k">Подача</span><span class="v">{{ booking.flight?.pickupAddress ?? '—' }}</span></div>
+          <template v-if="booking.discount > 0">
+            <div class="div"></div>
+            <div class="row"><span class="k">Скидка</span><span class="v">−{{ formatMoney(booking.discount) }}</span></div>
+          </template>
+          <template v-if="booking.prepaid > 0">
+            <div class="div"></div>
+            <div class="row"><span class="k">Предоплата</span><span class="v">{{ formatMoney(booking.prepaid) }}</span></div>
+          </template>
           <div class="div"></div>
           <div class="row"><span class="k strong">Итого</span><span class="v total">{{ formatMoney(booking.total) }}</span></div>
         </div>
 
         <button class="wa" @click="contactOperator"><span class="ms">chat</span>Связаться с оператором</button>
+        <button v-if="booking.paymentStatus !== 'PAID'" class="receipt" @click="sendReceipt">
+          <span class="ms">receipt_long</span>Отправить чек админу
+        </button>
 
         <template v-if="cancellable">
           <ErrorBanner v-if="cancelError" :message="cancelError" style="margin: 12px 16px 0" />
@@ -97,11 +116,12 @@ const {
 }
 .head-title { font: 800 18px 'Manrope', sans-serif; }
 .hero { margin: 0 16px; background: var(--eg-ink); border-radius: 18px; padding: 16px 18px; color: #fff; }
-.hero-top { display: flex; align-items: center; justify-content: space-between; }
+.hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .hero-route { font: 800 18px 'Manrope', sans-serif; }
+.hero-chips { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex: none; }
 .hero-chip {
   padding: 5px 11px; border-radius: 999px; background: rgba(86, 169, 25, 0.2);
-  color: var(--eg-green-bright); font: 700 11px 'Manrope', sans-serif;
+  color: var(--eg-green-bright); font: 700 11px 'Manrope', sans-serif; white-space: nowrap;
 }
 .hero-meta { display: flex; gap: 18px; margin-top: 12px; }
 .cap { font: 600 10px 'Manrope', sans-serif; color: #8b918a; text-transform: uppercase; }
@@ -118,6 +138,11 @@ const {
   display: flex; align-items: center; justify-content: center; gap: 9px; width: calc(100% - 32px);
   margin: 18px 16px 0; height: 52px; border: none; border-radius: 14px; background: var(--eg-whatsapp);
   color: #fff; font: 700 15px 'Manrope', sans-serif; cursor: pointer;
+}
+.receipt {
+  display: flex; align-items: center; justify-content: center; gap: 9px; width: calc(100% - 32px);
+  margin: 10px 16px 0; height: 52px; border: 1px solid #e2e5df; background: #fff;
+  color: var(--eg-ink); font: 700 15px 'Manrope', sans-serif; cursor: pointer; border-radius: 14px;
 }
 .cancel {
   display: flex; align-items: center; justify-content: center; gap: 8px; width: calc(100% - 32px);

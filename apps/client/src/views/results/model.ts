@@ -1,7 +1,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import type { FlightView } from '@easygo/shared';
-import { paxLabel } from '@easygo/shared';
+import type { CarType, FlightView } from '@easygo/shared';
+import { paxLabel, carTypeSeats, CAR_TYPE_LABEL, CAR_TYPE_SEAT_OPTIONS } from '@easygo/shared';
 import { ApiError } from '@easygo/api-client';
 import { api } from '@/lib/api';
 import { useBookingStore } from '@/stores/booking';
@@ -22,9 +22,14 @@ export function useResultsModel() {
   const store = useBookingStore();
   const authStore = useAuthStore();
 
-  const flights = ref<FlightView[]>([]);
+  const rawFlights = ref<FlightView[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
+
+  // Active (bookable) flights first, sold-out ones last; stable within each group.
+  const flights = computed(() =>
+    [...rawFlights.value].sort((a, b) => Number(a.soldOut) - Number(b.soldOut)),
+  );
 
   // Set of ISO dates that have ≥1 available seat
   const availableDates = ref<Set<string>>(new Set());
@@ -32,18 +37,31 @@ export function useResultsModel() {
   const stripFrom = isoDate(0);
   const stripTo = isoDate(DAYS_IN_STRIP - 1);
 
-  async function loadAvailableDates() {
+  // Ranges already fetched, so calendar month changes don't refetch needlessly
+  const loadedRanges = new Set<string>();
+
+  async function loadAvailableDates(from: string, to: string) {
+    const key = `${from}_${to}`;
+    if (loadedRanges.has(key)) return;
+    loadedRanges.add(key);
     try {
       const dates = await api.flights.availableDates({
         fromCity: store.fromCity,
         toCity: store.toCity,
-        from: stripFrom,
-        to: stripTo,
+        from,
+        to,
       });
-      availableDates.value = new Set(dates);
+      // Merge — keeps dots from previously loaded ranges (strip + other months)
+      availableDates.value = new Set([...availableDates.value, ...dates]);
     } catch {
-      // non-critical — strip dots just won't show
+      // non-critical — dots just won't show; allow a retry later
+      loadedRanges.delete(key);
     }
+  }
+
+  /** Called by the calendar when the user navigates to a month — loads its dots. */
+  function onCalendarRange(range: { from: string; to: string }) {
+    void loadAvailableDates(range.from, range.to);
   }
 
   // 14-day strip
@@ -64,7 +82,7 @@ export function useResultsModel() {
     loading.value = true;
     error.value = null;
     try {
-      flights.value = await api.flights.search({
+      rawFlights.value = await api.flights.search({
         fromCity: store.fromCity,
         toCity: store.toCity,
         date: store.date,
@@ -83,7 +101,7 @@ export function useResultsModel() {
 
   watch(() => store.date, loadFlights);
   onMounted(() => {
-    void loadAvailableDates();
+    void loadAvailableDates(stripFrom, stripTo);
     void loadFlights();
   });
 
@@ -113,16 +131,35 @@ export function useResultsModel() {
   );
 
   // ── Custom request form ──
+  const carTypes: CarType[] = ['SEDAN', 'MINIVAN', 'BUS'];
   const customFormOpen = ref(false);
   const customPhone = ref(authStore.client?.phone ?? '');
   const customComment = ref('');
+  const customTime = ref(''); // "HH:MM" desired departure time (empty = no preference)
+  const customCarType = ref<CarType>('MINIVAN');
+  const customSeats = ref<number>(CAR_TYPE_SEAT_OPTIONS.MINIVAN[0]);
+  const customWholeCabin = ref(false);
   const customSubmitting = ref(false);
   const customSuccess = ref(false);
   const customError = ref<string | null>(null);
 
+  // Seat options for the chosen class (sedan/bus have one, minivan 5/6/7).
+  const carSeatOptions = computed(() => CAR_TYPE_SEAT_OPTIONS[customCarType.value]);
+
+  /** Snap the seat count into the selected type's allowed range. */
+  function selectCarType(type: CarType) {
+    customCarType.value = type;
+    const opts: readonly number[] = CAR_TYPE_SEAT_OPTIONS[type];
+    if (!opts.includes(customSeats.value)) customSeats.value = carTypeSeats(type);
+  }
+
   function openCustomForm() {
     customPhone.value = authStore.client?.phone ?? '';
     customComment.value = '';
+    customTime.value = '';
+    customCarType.value = 'MINIVAN';
+    customSeats.value = CAR_TYPE_SEAT_OPTIONS.MINIVAN[0];
+    customWholeCabin.value = false;
     customError.value = null;
     customSuccess.value = false;
     customFormOpen.value = true;
@@ -137,11 +174,16 @@ export function useResultsModel() {
     }
     customSubmitting.value = true;
     try {
+      // "Салон" books the whole car → pax is the chosen vehicle's capacity.
+      const pax = customWholeCabin.value ? customSeats.value : store.pax;
       await api.customRequests.create({
         fromCity: store.fromCity,
         toCity: store.toCity,
         date: store.date,
-        pax: store.pax,
+        time: customTime.value || undefined,
+        pax,
+        carType: customCarType.value,
+        wholeCabin: customWholeCabin.value,
         phone,
         comment: customComment.value.trim() || undefined,
       });
@@ -167,19 +209,28 @@ export function useResultsModel() {
     error,
     choose,
     selectDate,
+    onCalendarRange,
     routeTitle,
     paxLabelVal,
     displayDate,
     highlightedDates,
     // custom request
+    carTypes,
     customFormOpen,
     customPhone,
     customComment,
+    customTime,
+    customCarType,
+    customSeats,
+    customWholeCabin,
+    carSeatOptions,
+    selectCarType,
     customSubmitting,
     customSuccess,
     customError,
     openCustomForm,
     submitCustomRequest,
     closeCustomForm,
+    CAR_TYPE_LABEL,
   };
 }

@@ -2,6 +2,7 @@ import type {
   AvailableDatesQuery,
   CreateFlightInput,
   ListFlightsQuery,
+  PaymentStatus,
   SearchFlightsQuery,
   UpdateFlightInput,
 } from '@easygo/shared';
@@ -9,6 +10,8 @@ import { FEW_SEATS_RATIO } from '@easygo/shared';
 import type { Flight, Route, Car } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { Errors } from '../../lib/errors.js';
+import { derivePaymentStatus, recomputeFlightPayment } from '../../lib/payment.js';
+import { completeFlightBookings } from '../bookings/service.js';
 
 type FlightWithRel = Flight & { route?: Route | null; car?: Car | null };
 
@@ -105,9 +108,51 @@ export function createFlight(input: CreateFlightInput) {
   });
 }
 
+/**
+ * Bulk payment action on a whole flight (admin + driver). PAID marks every active
+ * booking paid and the flight paid; UNPAID re-derives each booking from its own
+ * prepaid amount, then re-aggregates the flight. PARTIAL is derived, not settable.
+ */
+export async function setFlightPayment(id: string, status: PaymentStatus) {
+  if (status === 'PARTIAL') {
+    throw Errors.badRequest('Статус «Частично» вычисляется автоматически из броней');
+  }
+  return prisma.$transaction(async (tx) => {
+    const flight = await tx.flight.findUnique({ where: { id } });
+    if (!flight) throw Errors.notFound('Рейс');
+
+    const active = await tx.booking.findMany({
+      where: { flightId: id, status: { in: ['NEW', 'CONFIRMED', 'COMPLETED'] } },
+      select: { id: true, prepaid: true, total: true },
+    });
+
+    for (const b of active) {
+      const next = status === 'PAID' ? 'PAID' : derivePaymentStatus(b.prepaid, b.total);
+      await tx.booking.update({ where: { id: b.id }, data: { paymentStatus: next } });
+    }
+
+    // PAID is an explicit bulk action: the flight is paid even if it has no
+    // active bookings (recompute would force an empty flight back to UNPAID).
+    // For UNPAID we re-derive so existing prepayments surface as PARTIAL.
+    if (status === 'PAID') {
+      await tx.flight.update({ where: { id }, data: { paymentStatus: 'PAID' } });
+    } else {
+      await recomputeFlightPayment(tx, id);
+    }
+    return getFlightInTx(tx, id);
+  });
+}
+
+async function getFlightInTx(tx: Parameters<typeof recomputeFlightPayment>[0], id: string) {
+  return tx.flight.findUniqueOrThrow({
+    where: { id },
+    include: { route: true, car: { include: { driver: true } } },
+  }).then(toFlightView);
+}
+
 export async function updateFlight(id: string, input: UpdateFlightInput) {
   await getFlight(id);
-  return prisma.flight.update({
+  const updated = await prisma.flight.update({
     where: { id },
     data: {
       routeId: input.routeId,
@@ -121,4 +166,8 @@ export async function updateFlight(id: string, input: UpdateFlightInput) {
     },
     include: { route: true, car: true },
   });
+  // Completing the flight completes its confirmed bookings so passengers see it
+  // as finished on their side (they display booking status, not flight status).
+  if (input.status === 'COMPLETED') await completeFlightBookings(id);
+  return updated;
 }

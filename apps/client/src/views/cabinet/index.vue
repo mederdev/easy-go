@@ -13,6 +13,7 @@ const {
   initials,
   statusStyle,
   flightStatusStyle,
+  paymentStatusStyle,
   shown,
   routeTitle,
   dateLabel,
@@ -20,7 +21,14 @@ const {
   logout,
   BOOKING_STATUS_LABEL,
   FLIGHT_STATUS_LABEL,
+  PAYMENT_STATUS_LABEL,
+  APPLICATION_STATUS_LABEL,
+  CAR_TYPE_LABEL,
   formatMoney,
+  customRequests,
+  customStatusStyle,
+  customRouteTitle,
+  customDateLabel,
   driverFlightTab,
   driverShown,
   statusChanging,
@@ -34,6 +42,10 @@ const {
   driverFlightTime,
   nextStatus,
   nextStatusLabel,
+  paymentBusy,
+  paymentError,
+  markBookingPaid,
+  markFlightPaid,
   menuOpen,
   toggleMenu,
   closeMenu,
@@ -68,6 +80,21 @@ const {
           <button class="logout" @click="logout"><span class="ms" style="font-size: 16px">logout</span>Выйти</button>
         </div>
 
+        <!-- Assigned cars -->
+        <div v-if="auth.driver?.cars?.length" class="cars">
+          <div class="cars-label">Мои авто</div>
+          <div
+            v-for="car in auth.driver.cars"
+            :key="car.id"
+            class="car-item"
+          >
+            <span class="ms car-ic">directions_car</span>
+            <span class="car-model">{{ car.model }}</span>
+            <span class="car-plate">{{ car.plate }}</span>
+            <span class="car-seats">{{ car.seats }} мест</span>
+          </div>
+        </div>
+
         <div class="tabs">
           <button :class="['seg', driverFlightTab === 'upcoming' && 'seg--on']" @click="driverFlightTab = 'upcoming'">Предстоящие</button>
           <button :class="['seg', driverFlightTab === 'history' && 'seg--on']" @click="driverFlightTab = 'history'">История</button>
@@ -86,9 +113,14 @@ const {
           >
             <div class="card-head">
               <div class="card-route">{{ driverFlightRoute(f) }}</div>
-              <span class="chip" :style="{ background: flightStatusStyle(f.status).bg, color: flightStatusStyle(f.status).color }">
-                {{ FLIGHT_STATUS_LABEL[f.status] }}
-              </span>
+              <div class="chip-stack">
+                <span class="chip" :style="{ background: flightStatusStyle(f.status).bg, color: flightStatusStyle(f.status).color }">
+                  {{ FLIGHT_STATUS_LABEL[f.status] }}
+                </span>
+                <span class="chip" :style="{ background: paymentStatusStyle(f.paymentStatus).bg, color: paymentStatusStyle(f.paymentStatus).color }">
+                  {{ PAYMENT_STATUS_LABEL[f.paymentStatus] }}
+                </span>
+              </div>
             </div>
             <div class="card-meta">
               <span class="mi"><span class="ms gi">calendar_today</span>{{ driverFlightDate(f) }}</span>
@@ -126,6 +158,12 @@ const {
                     {{ FLIGHT_STATUS_LABEL[selectedFlight.status] }}
                   </span>
                 </div>
+                <div class="sheet-row">
+                  <span class="label">Оплата</span>
+                  <span class="chip" :style="{ background: paymentStatusStyle(selectedFlight.paymentStatus).bg, color: paymentStatusStyle(selectedFlight.paymentStatus).color }">
+                    {{ PAYMENT_STATUS_LABEL[selectedFlight.paymentStatus] }}
+                  </span>
+                </div>
                 <div v-if="selectedFlight.car" class="sheet-row">
                   <span class="label">Авто</span>
                   <span>{{ selectedFlight.car.model }} · {{ selectedFlight.car.plate }}</span>
@@ -138,28 +176,80 @@ const {
                 <!-- Passengers -->
                 <div class="pass-title">
                   Пассажиры
-                  <span class="pass-count">{{ selectedFlight.passengers.length }} чел. / {{ selectedFlight.seatsTaken }} мест</span>
+                  <span class="pass-count">Броней: {{ selectedFlight.passengers.length }} · Занято мест: {{ selectedFlight.seatsTaken }} / {{ selectedFlight.seatsTotal }}</span>
                 </div>
                 <div v-if="selectedFlight.passengers.length === 0" class="pass-empty">Бронирований нет</div>
                 <div v-else class="pass-list">
-                  <div v-for="(p, i) in selectedFlight.passengers" :key="i" class="pass-row">
-                    <span class="pass-avatar">{{ (p.name[0] ?? '?').toUpperCase() }}</span>
-                    <span class="pass-name">{{ p.name }}</span>
-                    <span class="pass-pax">{{ p.pax }} мест</span>
+                  <div v-for="p in selectedFlight.passengers" :key="p.bookingId" class="pass-block">
+                    <div class="pass-row">
+                      <span class="pass-avatar">{{ (p.name[0] ?? '?').toUpperCase() }}</span>
+                      <span class="pass-name">{{ p.name }}</span>
+                      <span class="chip" :style="{ background: paymentStatusStyle(p.paymentStatus).bg, color: paymentStatusStyle(p.paymentStatus).color }">
+                        {{ PAYMENT_STATUS_LABEL[p.paymentStatus] }}
+                      </span>
+                    </div>
+                    <div class="pass-pay">
+                      <span class="pass-sum">
+                        <span class="pass-metric">
+                          <span class="pass-metric-label">Внесено</span>
+                          <span class="pass-metric-val">{{ formatMoney(p.prepaid) }}</span>
+                        </span>
+                        <span class="pass-metric">
+                          <span class="pass-metric-label">Итого</span>
+                          <span class="pass-metric-val">{{ formatMoney(p.total) }}</span>
+                        </span>
+                        <span class="pass-metric">
+                          <span class="pass-metric-label">Мест</span>
+                          <span class="pass-metric-val">{{ p.pax }}</span>
+                        </span>
+                      </span>
+                      <button
+                        v-if="p.paymentStatus !== 'PAID'"
+                        class="pay-mini"
+                        :disabled="paymentBusy === p.bookingId"
+                        @click="markBookingPaid(selectedFlight.id, p.bookingId, 'PAID')"
+                      >
+                        {{ paymentBusy === p.bookingId ? '…' : 'Оплачено' }}
+                      </button>
+                      <button
+                        v-else
+                        class="pay-mini pay-mini--off"
+                        :disabled="paymentBusy === p.bookingId"
+                        @click="markBookingPaid(selectedFlight.id, p.bookingId, 'UNPAID')"
+                      >
+                        {{ paymentBusy === p.bookingId ? '…' : 'Снять' }}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                <!-- Status action -->
+                <ErrorBanner v-if="paymentError" :message="paymentError" style="margin-top: 12px" />
                 <ErrorBanner v-if="statusChangeError" :message="statusChangeError" style="margin-top: 12px" />
-                <button
-                  v-if="nextStatus(selectedFlight)"
-                  class="status-btn"
-                  :disabled="statusChanging === selectedFlight.id"
-                  @click="changeFlightStatus(selectedFlight.id, nextStatus(selectedFlight)!)"
-                >
-                  <span class="ms">{{ nextStatus(selectedFlight) === 'DEPARTED' ? 'departure_board' : 'check_circle' }}</span>
-                  {{ statusChanging === selectedFlight.id ? 'Обновляем…' : nextStatusLabel[nextStatus(selectedFlight)!] }}
-                </button>
+
+                <!-- Flight actions -->
+                <div class="flight-actions">
+                  <!-- Mark the whole flight paid -->
+                  <button
+                    v-if="selectedFlight.passengers.length && selectedFlight.paymentStatus !== 'PAID'"
+                    class="status-btn pay-all"
+                    :disabled="paymentBusy === selectedFlight.id"
+                    @click="markFlightPaid(selectedFlight.id, 'PAID')"
+                  >
+                    <span class="ms">payments</span>
+                    {{ paymentBusy === selectedFlight.id ? 'Обновляем…' : 'Весь рейс оплачен' }}
+                  </button>
+
+                  <!-- Status action -->
+                  <button
+                    v-if="nextStatus(selectedFlight)"
+                    class="status-btn status-next"
+                    :disabled="statusChanging === selectedFlight.id"
+                    @click="changeFlightStatus(selectedFlight.id, nextStatus(selectedFlight)!)"
+                  >
+                    <span class="ms">{{ nextStatus(selectedFlight) === 'DEPARTED' ? 'departure_board' : 'check_circle' }}</span>
+                    {{ statusChanging === selectedFlight.id ? 'Обновляем…' : nextStatusLabel[nextStatus(selectedFlight)!] }}
+                  </button>
+                </div>
               </div>
             </div>
           </Transition>
@@ -224,7 +314,12 @@ const {
               <span class="mi"><span class="ms gi">group</span>{{ b.pax }}</span>
             </div>
             <div class="card-foot">
-              <span class="total">{{ formatMoney(b.total) }}</span>
+              <span class="foot-left">
+                <span class="total">{{ formatMoney(b.total) }}</span>
+                <span class="chip" :style="{ background: paymentStatusStyle(b.paymentStatus).bg, color: paymentStatusStyle(b.paymentStatus).color }">
+                  {{ PAYMENT_STATUS_LABEL[b.paymentStatus] }}
+                </span>
+              </span>
               <span class="more">Подробнее<span class="ms" style="font-size: 16px">chevron_right</span></span>
             </div>
           </button>
@@ -234,6 +329,27 @@ const {
             <div class="empty-text">{{ activeTab === 'upcoming' ? 'Предстоящих поездок нет' : 'История поездок пуста' }}</div>
           </div>
         </div>
+
+        <!-- Custom ("leave a request") orders -->
+        <template v-if="!loading && customRequests.length">
+          <div class="section-label">Мои заявки</div>
+          <div class="list">
+            <div v-for="r in customRequests" :key="r.id" class="card card--static">
+              <div class="card-head">
+                <div class="card-route">{{ customRouteTitle(r) }}</div>
+                <span class="chip" :style="{ background: customStatusStyle(r.status).bg, color: customStatusStyle(r.status).color }">
+                  {{ APPLICATION_STATUS_LABEL[r.status] }}
+                </span>
+              </div>
+              <div class="card-meta">
+                <span class="mi"><span class="ms gi">calendar_today</span>{{ customDateLabel(r) }}</span>
+                <span class="mi"><span class="ms gi">group</span>{{ r.pax }}</span>
+                <span v-if="r.carType" class="mi"><span class="ms gi">directions_car</span>{{ CAR_TYPE_LABEL[r.carType] }}<template v-if="r.wholeCabin"> · салон</template></span>
+              </div>
+              <div v-if="r.comment" class="card-comment">{{ r.comment }}</div>
+            </div>
+          </div>
+        </template>
       </template>
 
       <div style="height: 40px"></div>
@@ -285,6 +401,23 @@ const {
   height: 34px; padding: 0 13px; border: 1px solid #e2e5df; background: #fff; border-radius: 10px;
   font: 700 12px 'Manrope', sans-serif; color: var(--eg-muted); cursor: pointer; display: flex; align-items: center; gap: 5px;
 }
+
+/* Assigned cars */
+.cars { padding: 14px 16px 0; display: flex; flex-direction: column; gap: 8px; }
+.cars-label {
+  font: 700 11px 'Manrope', sans-serif; color: #9fa59a; text-transform: uppercase; letter-spacing: .06em;
+}
+.car-item {
+  display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid #eceee9;
+  border-radius: 13px; padding: 12px 14px; font: 600 14px 'Manrope', sans-serif; color: var(--eg-ink);
+}
+.car-ic { font-size: 20px; color: var(--eg-green); flex: none; }
+.car-model { font-weight: 700; }
+.car-plate {
+  font: 700 12px 'Manrope', sans-serif; color: var(--eg-muted); background: var(--eg-bg-subtle);
+  padding: 3px 8px; border-radius: 7px; letter-spacing: .03em;
+}
+.car-seats { margin-left: auto; font: 600 12px 'Manrope', sans-serif; color: var(--eg-muted-light); }
 
 /* Menu */
 .menu-wrap { position: relative; flex-shrink: 0; }
@@ -344,7 +477,20 @@ const {
   margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f1ee;
 }
 .total { font: 800 16px 'Manrope', sans-serif; }
+.foot-left { display: flex; align-items: center; gap: 8px; }
+.chip-stack { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .more { font: 700 12px 'Manrope', sans-serif; color: var(--eg-green); display: flex; align-items: center; gap: 3px; }
+
+/* Custom requests section */
+.section-label {
+  padding: 22px 16px 10px; font: 700 11px 'Manrope', sans-serif; color: #9fa59a;
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.card--static { cursor: default; }
+.card-comment {
+  margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f1ee;
+  font: 500 13px/1.4 'Manrope', sans-serif; color: var(--eg-muted);
+}
 
 /* Empty */
 .empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 48px 20px; }
@@ -383,20 +529,47 @@ const {
 }
 .pass-count { font: 600 12px 'Manrope', sans-serif; color: var(--eg-muted-light); text-transform: none; letter-spacing: 0; }
 .pass-empty { font: 500 13px 'Manrope', sans-serif; color: var(--eg-muted-light); padding: 8px 0; }
-.pass-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.pass-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.pass-block { display: flex; flex-direction: column; gap: 6px; padding-bottom: 12px; border-bottom: 1px solid #f0f1ee; }
+.pass-block:last-child { border-bottom: none; padding-bottom: 0; }
 .pass-row { display: flex; align-items: center; gap: 10px; }
 .pass-avatar {
   width: 34px; height: 34px; border-radius: 50%; background: var(--eg-ink); color: var(--eg-green-bright);
   display: flex; align-items: center; justify-content: center; font: 800 13px 'Manrope', sans-serif; flex: none;
 }
 .pass-name { flex: 1; font: 600 14px 'Manrope', sans-serif; }
-.pass-pax { font: 600 12px 'Manrope', sans-serif; color: var(--eg-muted-light); }
+.pass-pay { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; padding-left: 44px; }
+.pass-sum { display: flex; gap: 18px; flex-wrap: wrap; }
+.pass-metric { display: flex; flex-direction: column; gap: 2px; }
+.pass-metric-label {
+  font: 600 10px 'Manrope', sans-serif; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--eg-muted-light);
+}
+.pass-metric-val { font: 700 14px 'Manrope', sans-serif; color: var(--eg-ink); }
+.pay-mini {
+  height: 32px; padding: 0 14px; border: none; border-radius: 9px;
+  background: var(--eg-green); color: #fff; font: 700 12px 'Manrope', sans-serif; cursor: pointer; flex: none;
+}
+.pay-mini--off { background: #fff; border: 1px solid #e2e5df; color: var(--eg-muted); }
+.pay-mini:disabled { opacity: 0.5; cursor: not-allowed; }
+.flight-actions {
+  display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap;
+}
 .status-btn {
-  width: 100%; height: 54px; border: none; border-radius: 15px;
-  background: var(--eg-green); color: #fff; font: 700 16px 'Manrope', sans-serif; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px;
+  flex: 1 1 0; min-width: 140px; height: 54px; border-radius: 15px;
+  font: 700 15px 'Manrope', sans-serif; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
 }
 .status-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+/* "Оплачено" — secondary / outlined */
+.pay-all {
+  background: var(--eg-green-light, #EEF6E6); color: #3E7C12;
+  border: 1.5px solid #3E7C12;
+}
+/* "Выехали" — primary / solid */
+.status-next {
+  background: var(--eg-green); color: #fff; border: none;
+}
 
 /* Slide-up transition */
 .slide-up-enter-active { animation: slideUp .25s ease-out; }

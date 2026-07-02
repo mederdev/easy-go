@@ -4,6 +4,7 @@ import {
   CreateFlightInput,
   ListFlightsQuery,
   SearchFlightsQuery,
+  SetPaymentStatusInput,
   UpdateFlightInput,
   Id,
 } from '@easygo/shared';
@@ -42,6 +43,13 @@ const routes: FastifyPluginAsync = async (app) => {
   app.patch('/:id', { preHandler: [app.authorize(['operator', 'admin', 'owner'])] }, async (request) => {
     const { id } = request.params as { id: string };
     return svc.updateFlight(parse(Id, id), parse(UpdateFlightInput, request.body));
+  });
+
+  // Bulk-mark the whole flight paid/unpaid (cascades to its bookings).
+  app.patch('/:id/payment-status', { preHandler: [app.authorize(['operator', 'admin', 'owner'])] }, async (request) => {
+    const { id } = request.params as { id: string };
+    const { status } = parse(SetPaymentStatusInput, request.body);
+    return svc.setFlightPayment(parse(Id, id), status);
   });
 };
 

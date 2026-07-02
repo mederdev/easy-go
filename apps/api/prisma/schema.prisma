@@ -43,6 +43,19 @@ enum RouteStatus {
   ARCHIVED
 }
 
+/// Payment state of a booking (from prepaid vs total) or a flight (aggregated).
+enum PaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+}
+
+enum CarType {
+  SEDAN
+  MINIVAN
+  BUS
+}
+
 enum CarStatus {
   AVAILABLE
   ON_TRIP
@@ -97,14 +110,14 @@ model Client {
   whatsapp         Boolean   @default(true)
   telegramId       String?   @unique // Telegram Login Widget user id
   telegramUsername String?
-  photoUrl         String?   // Telegram avatar
+  photoUrl         String? // Telegram avatar
   passwordHash     String?
-  passwordRaw      String?   // plain-text copy for admin display
+  passwordRaw      String? // plain-text copy for admin display
   tripsCount       Int       @default(0) // denormalized
-  totalSum      Int       @default(0) // denormalized, minor units
-  lastBookingAt DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  totalSum         Int       @default(0) // denormalized, minor units
+  lastBookingAt    DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   bookings Booking[]
 
@@ -116,7 +129,7 @@ model Driver {
   name         String
   phone        String   @unique
   passwordHash String?
-  passwordRaw  String?  // plain-text copy for admin display
+  passwordRaw  String? // plain-text copy for admin display
   experience   String?
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
@@ -129,6 +142,7 @@ model Car {
   id           String    @id @default(uuid())
   model        String
   plate        String    @unique
+  type         CarType   @default(MINIVAN)
   driverId     String?
   driver       Driver?   @relation(fields: [driverId], references: [id], onDelete: SetNull)
   seats        Int       @default(11)
@@ -164,20 +178,21 @@ model Route {
 }
 
 model Flight {
-  id            String       @id @default(uuid())
+  id            String        @id @default(uuid())
   routeId       String
-  route         Route        @relation(fields: [routeId], references: [id], onDelete: Restrict)
+  route         Route         @relation(fields: [routeId], references: [id], onDelete: Restrict)
   carId         String?
-  car           Car?         @relation(fields: [carId], references: [id], onDelete: SetNull)
+  car           Car?          @relation(fields: [carId], references: [id], onDelete: SetNull)
   departAt      DateTime
   pickupLat     Float?
   pickupLng     Float?
   pickupAddress String?
-  seatsTotal    Int          @default(11)
-  seatsTaken    Int          @default(0) // denormalized
-  status        FlightStatus @default(SCHEDULED)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  seatsTotal    Int           @default(11)
+  seatsTaken    Int           @default(0) // denormalized
+  status        FlightStatus  @default(SCHEDULED)
+  paymentStatus PaymentStatus @default(UNPAID) // aggregated from active bookings
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   bookings Booking[]
 
@@ -195,8 +210,11 @@ model Booking {
   flightId       String
   flight         Flight        @relation(fields: [flightId], references: [id], onDelete: Restrict)
   pax            Int
-  total          Int // minor units
+  discount       Int           @default(0) // minor units, amount off
+  prepaid        Int           @default(0) // minor units, paid so far
+  total          Int // minor units = price * pax - discount
   status         BookingStatus @default(NEW)
+  paymentStatus  PaymentStatus @default(UNPAID)
   comment        String?
   idempotencyKey String?       @unique
   createdAt      DateTime      @default(now())
@@ -210,14 +228,14 @@ model Booking {
 
 /// Precomputed per-route, per-day analytics (source for all dashboards).
 model DailyStat {
-  id                String   @id @default(uuid())
-  date              DateTime @db.Date
-  routeId           String?
-  route             Route?   @relation(fields: [routeId], references: [id], onDelete: SetNull)
-  ordersCount       Int      @default(0)
-  revenue           Int      @default(0) // minor units
-  newClients        Int      @default(0)
-  returningClients  Int      @default(0)
+  id               String   @id @default(uuid())
+  date             DateTime @db.Date
+  routeId          String?
+  route            Route?   @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  ordersCount      Int      @default(0)
+  revenue          Int      @default(0) // minor units
+  newClients       Int      @default(0)
+  returningClients Int      @default(0)
 
   @@unique([date, routeId])
   @@index([date])
@@ -266,15 +284,18 @@ model FileObject {
 
 /// Individual trip request left by a customer when no suitable flight exists.
 model CustomRequest {
-  id        String            @id @default(uuid())
-  fromCity  String
-  toCity    String
-  date      String            // YYYY-MM-DD desired departure
-  pax       Int
-  phone     String
-  comment   String?
-  status    ApplicationStatus @default(NEW)
-  createdAt DateTime          @default(now())
+  id         String            @id @default(uuid())
+  fromCity   String
+  toCity     String
+  date       String // YYYY-MM-DD desired departure
+  time       String? // "HH:MM" desired departure time (null = no preference)
+  pax        Int
+  carType    CarType? // desired vehicle class (null = no preference)
+  wholeCabin Boolean           @default(false) // "салон" — book the entire car
+  phone      String
+  comment    String?
+  status     ApplicationStatus @default(NEW)
+  createdAt  DateTime          @default(now())
 
   @@index([status])
   @@index([createdAt])

@@ -14,12 +14,6 @@ const routes: RouteRecordRaw[] = [
     children: [
       {
         path: '',
-        name: 'dashboard',
-        component: () => import('@/views/dashboard/index.vue'),
-        meta: { title: 'Дашборд', subtitle: 'Обзор за сегодня', cta: 'Новое бронирование' },
-      },
-      {
-        path: 'bookings',
         name: 'bookings',
         component: () => import('@/views/bookings/index.vue'),
         meta: { title: 'Бронирования', subtitle: 'CRM · заявки клиентов', cta: 'Новое бронирование' },
@@ -88,7 +82,7 @@ router.beforeEach((to) => {
     return { name: 'login', query: to.fullPath !== '/' ? { redirect: to.fullPath } : undefined };
   }
   if (to.name === 'login' && auth.isAuthenticated) {
-    return { name: 'dashboard' };
+    return { name: 'bookings' };
   }
   return true;
 });

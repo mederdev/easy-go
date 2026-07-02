@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import type { Booking, DriverFlightView } from '@easygo/shared';
-import { BOOKING_STATUS_LABEL, FLIGHT_STATUS_LABEL, formatMoney } from '@easygo/shared';
+import type { Booking, CustomRequest, DriverFlightView, PaymentStatus } from '@easygo/shared';
+import { APPLICATION_STATUS_LABEL, BOOKING_STATUS_LABEL, CAR_TYPE_LABEL, FLIGHT_STATUS_LABEL, PAYMENT_STATUS_LABEL, formatMoney } from '@easygo/shared';
 import { useAuthStore } from '@/stores/auth';
 import { api, driverApi } from '@/lib/api';
 import { useAsyncResource } from '@/composables/useAsyncResource';
@@ -23,6 +23,38 @@ export function useCabinetModel() {
     const res = await api.me.bookings({ limit: 50, offset: 0 });
     return res.items;
   }, []);
+
+  // ── Client custom ("leave a request") orders ──
+  const {
+    data: customRequests,
+    loading: customLoading,
+    error: customError,
+  } = useAsyncResource<CustomRequest[]>(async () => {
+    if (!auth.isAuthenticated || auth.isDriver) return [];
+    if (!auth.client) await auth.fetchMe();
+    const res = await api.me.customRequests();
+    return res.items;
+  }, []);
+
+  const CUSTOM_STATUS_STYLE: Record<string, { bg: string; color: string }> = {
+    NEW: { bg: '#EEF6E6', color: '#3E7C12' },
+    REVIEWING: { bg: '#FEF3E2', color: '#C77A18' },
+    ACCEPTED: { bg: '#EEF0FF', color: '#5060C8' },
+    REJECTED: { bg: '#FBEDEA', color: '#C0492E' },
+  };
+  function customStatusStyle(s: string) {
+    return CUSTOM_STATUS_STYLE[s] ?? { bg: '#F0F1EE', color: '#8A8F86' };
+  }
+  function customRouteTitle(r: CustomRequest): string {
+    return `${r.fromCity} → ${r.toCity}`;
+  }
+  function customDateLabel(r: CustomRequest): string {
+    const d = new Date(r.date);
+    const day = Number.isNaN(d.getTime())
+      ? r.date
+      : d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+    return r.time ? `${day} · ${r.time}` : day;
+  }
 
   // ── Driver flights ──
   const driverFlightTab = ref<'upcoming' | 'history'>('upcoming');
@@ -62,10 +94,58 @@ export function useCabinetModel() {
 
   function openFlight(f: DriverFlightView): void {
     selectedFlight.value = f;
+    paymentError.value = null;
   }
   function closeFlight(): void {
     selectedFlight.value = null;
     statusChangeError.value = null;
+    paymentError.value = null;
+  }
+
+  // ── Driver payment actions (status only — amounts are admin-managed) ──
+  const paymentBusy = ref<string | null>(null); // bookingId | flightId being saved
+  const paymentError = ref<string | null>(null);
+
+  async function syncSelectedFlight(flightId: string): Promise<void> {
+    await reloadDriverFlights();
+    if (selectedFlight.value?.id === flightId) {
+      selectedFlight.value = driverFlights.value.find((f) => f.id === flightId) ?? null;
+    }
+  }
+
+  async function markBookingPaid(flightId: string, bookingId: string, status: PaymentStatus): Promise<void> {
+    paymentBusy.value = bookingId;
+    paymentError.value = null;
+    try {
+      await driverApi.driverFlights.setBookingPayment(flightId, bookingId, status);
+      await syncSelectedFlight(flightId);
+    } catch (e: unknown) {
+      paymentError.value = (e as Error).message ?? 'Ошибка';
+    } finally {
+      paymentBusy.value = null;
+    }
+  }
+
+  async function markFlightPaid(flightId: string, status: PaymentStatus): Promise<void> {
+    paymentBusy.value = flightId;
+    paymentError.value = null;
+    try {
+      await driverApi.driverFlights.setFlightPayment(flightId, status);
+      await syncSelectedFlight(flightId);
+    } catch (e: unknown) {
+      paymentError.value = (e as Error).message ?? 'Ошибка';
+    } finally {
+      paymentBusy.value = null;
+    }
+  }
+
+  const PAYMENT_STATUS_STYLE: Record<PaymentStatus, { bg: string; color: string }> = {
+    UNPAID: { bg: '#FBEDEA', color: '#C0492E' },
+    PARTIAL: { bg: '#FEF3E2', color: '#C77A18' },
+    PAID: { bg: '#EEF6E6', color: '#3E7C12' },
+  };
+  function paymentStatusStyle(s: PaymentStatus) {
+    return PAYMENT_STATUS_STYLE[s] ?? { bg: '#F0F1EE', color: '#8A8F86' };
   }
 
   // Shared helpers
@@ -73,7 +153,7 @@ export function useCabinetModel() {
     return name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '👤';
   }
 
-  const loading = computed(() => bookingsLoading.value || driverFlightsLoading.value);
+  const loading = computed(() => bookingsLoading.value || customLoading.value || driverFlightsLoading.value);
   const error = computed(() => bookingsError.value || driverFlightsError.value);
 
   // Client booking helpers
@@ -164,6 +244,7 @@ export function useCabinetModel() {
   function logout(): void {
     auth.logout();
     bookings.value = [];
+    customRequests.value = [];
     driverFlights.value = [];
   }
 
@@ -177,6 +258,7 @@ export function useCabinetModel() {
     initials,
     statusStyle,
     flightStatusStyle,
+    paymentStatusStyle,
     upcoming,
     history,
     shown,
@@ -186,7 +268,16 @@ export function useCabinetModel() {
     logout,
     BOOKING_STATUS_LABEL,
     FLIGHT_STATUS_LABEL,
+    PAYMENT_STATUS_LABEL,
+    APPLICATION_STATUS_LABEL,
+    CAR_TYPE_LABEL,
     formatMoney,
+    // Custom requests
+    customRequests,
+    customError,
+    customStatusStyle,
+    customRouteTitle,
+    customDateLabel,
     // Driver
     driverFlightTab,
     driverFlights,
@@ -204,6 +295,11 @@ export function useCabinetModel() {
     driverFlightTime,
     nextStatus,
     nextStatusLabel,
+    // Driver payment
+    paymentBusy,
+    paymentError,
+    markBookingPaid,
+    markFlightPaid,
     // Menu
     menuOpen,
     toggleMenu,

@@ -16,18 +16,27 @@ const {
   error,
   choose,
   selectDate,
+  onCalendarRange,
   routeTitle,
   paxLabelVal,
   highlightedDates,
+  carTypes,
   customFormOpen,
   customPhone,
   customComment,
+  customTime,
+  customCarType,
+  customSeats,
+  customWholeCabin,
+  carSeatOptions,
+  selectCarType,
   customSubmitting,
   customSuccess,
   customError,
   openCustomForm,
   submitCustomRequest,
   closeCustomForm,
+  CAR_TYPE_LABEL,
 } = useResultsModel();
 
 const calendarOpen = ref(false);
@@ -78,6 +87,7 @@ const calendarOpen = ref(false);
           :min-date="dateStrip[0]?.iso"
           :highlighted-dates="highlightedDates"
           @update:model-value="selectDate"
+          @visible-range="onCalendarRange"
         />
 
         <!-- Content -->
@@ -152,6 +162,63 @@ const calendarOpen = ref(false);
                 </div>
 
                 <div class="modal-fields">
+                  <!-- Car type selection -->
+                  <div class="field">
+                    <span class="field__label">Тип машины</span>
+                    <div class="type-chips">
+                      <button
+                        v-for="t in carTypes"
+                        :key="t"
+                        type="button"
+                        :class="['type-chip', customCarType === t && 'type-chip--active']"
+                        @click="selectCarType(t)"
+                      >
+                        {{ CAR_TYPE_LABEL[t] }}
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Minivan seat sub-selection (5/6/7) -->
+                  <div v-if="carSeatOptions.length > 1" class="field">
+                    <span class="field__label">Количество мест</span>
+                    <div class="type-chips">
+                      <button
+                        v-for="n in carSeatOptions"
+                        :key="n"
+                        type="button"
+                        :class="['type-chip', customSeats === n && 'type-chip--active']"
+                        @click="customSeats = n"
+                      >
+                        {{ n }}
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- "Салон" — book the entire car -->
+                  <button
+                    type="button"
+                    :class="['cabin-toggle', customWholeCabin && 'cabin-toggle--active']"
+                    @click="customWholeCabin = !customWholeCabin"
+                  >
+                    <span class="ms cabin-toggle__check">
+                      {{ customWholeCabin ? 'check_box' : 'check_box_outline_blank' }}
+                    </span>
+                    <span class="cabin-toggle__body">
+                      <span class="cabin-toggle__label">Выкупить весь салон</span>
+                      <span class="cabin-toggle__hint">Бронируются все {{ customSeats }} мест в машине</span>
+                    </span>
+                  </button>
+
+                  <label class="field">
+                    <span class="field__label">Желаемое время (необязательно)</span>
+                    <input
+                      v-model="customTime"
+                      class="field__input"
+                      type="time"
+                      placeholder="ЧЧ:ММ"
+                    />
+                  </label>
+
                   <label class="field">
                     <span class="field__label">Номер телефона (WhatsApp)</span>
                     <input
@@ -168,7 +235,7 @@ const calendarOpen = ref(false);
                     <textarea
                       v-model="customComment"
                       class="field__input field__textarea"
-                      placeholder="Желаемое время, особые пожелания..."
+                      placeholder="Особые пожелания..."
                       rows="3"
                     ></textarea>
                   </label>
@@ -234,7 +301,7 @@ const calendarOpen = ref(false);
 
 .date-strip-wrap {
   position: relative;
-  padding: 2px 0 12px;
+  padding: 2px 0 12px 16px;
   display: flex;
   align-items: center;
 }
@@ -531,6 +598,74 @@ const calendarOpen = ref(false);
 .field__textarea {
   resize: vertical;
   min-height: 80px;
+}
+
+/* ── Car type / seat chips ── */
+.type-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.type-chip {
+  flex: 1;
+  min-width: 64px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  border: 1.5px solid #E7E9E5;
+  background: #fff;
+  cursor: pointer;
+  font: 700 13px 'Manrope', sans-serif;
+  color: var(--eg-muted);
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.type-chip--active {
+  border-color: var(--eg-green);
+  background: #EEF6E6;
+  color: var(--eg-green);
+}
+
+/* ── "Салон" toggle ── */
+.cabin-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1.5px solid #E7E9E5;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.cabin-toggle--active {
+  border-color: var(--eg-green);
+  background: #EEF6E6;
+}
+
+.cabin-toggle__check {
+  font-size: 24px;
+  color: var(--eg-green);
+  flex-shrink: 0;
+}
+
+.cabin-toggle__body {
+  display: flex;
+  flex-direction: column;
+}
+
+.cabin-toggle__label {
+  font: 700 14px 'Manrope', sans-serif;
+  color: var(--eg-ink);
+}
+
+.cabin-toggle__hint {
+  font: 500 12px 'Manrope', sans-serif;
+  color: var(--eg-muted);
+  margin-top: 2px;
 }
 
 .modal-error {

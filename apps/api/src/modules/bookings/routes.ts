@@ -3,6 +3,8 @@ import {
   AdminCreateBookingInput,
   CreateBookingInput,
   ListBookingsQuery,
+  SetPaymentStatusInput,
+  UpdateBookingPaymentInput,
   UpdateBookingStatusInput,
   Id,
   IDEMPOTENCY_HEADER,
@@ -63,6 +65,28 @@ const routes: FastifyPluginAsync = async (app) => {
       const { id } = request.params as { id: string };
       const { status } = parse(UpdateBookingStatusInput, request.body);
       return svc.setBookingStatus(parse(Id, id), status);
+    },
+  );
+
+  // Admin-only edit of discount/prepayment amounts.
+  app.patch(
+    '/:id/payment',
+    { preHandler: [app.authorize(['operator', 'admin', 'owner'])] },
+    async (request) => {
+      const { id } = request.params as { id: string };
+      const input = parse(UpdateBookingPaymentInput, request.body);
+      return svc.updateBookingPayment(parse(Id, id), input);
+    },
+  );
+
+  // Mark paid / clear payment (admin side; the driver app uses /driver-flights).
+  app.patch(
+    '/:id/payment-status',
+    { preHandler: [app.authorize(['operator', 'admin', 'owner'])] },
+    async (request) => {
+      const { id } = request.params as { id: string };
+      const { status } = parse(SetPaymentStatusInput, request.body);
+      return svc.setBookingPaymentStatus(parse(Id, id), status);
     },
   );
 };

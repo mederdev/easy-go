@@ -92,20 +92,29 @@ export function useSettingsModel() {
   const tgError = ref<string | null>(null);
   const tgNonce = ref<string | null>(null);
   let tgPollTimer: number | undefined;
+  // Popup handle — closed + refocused on confirm so the admin isn't left on the
+  // Telegram tab having to switch back manually.
+  let tgPopup: Window | null = null;
 
   const isDev = import.meta.env.DEV;
 
   async function telegramLink(): Promise<void> {
     tgError.value = null;
+    // Open the popup synchronously within the click gesture (blocker-safe).
+    tgPopup = window.open('', 'easygo_tg', 'width=520,height=700');
     try {
       const res = await api.auth.telegramLinkStart();
       tgNonce.value = res.nonce;
       tgDeepLink.value = res.deepLink;
       tgWaiting.value = true;
-      if (res.deepLink) window.open(res.deepLink, '_blank');
+      if (res.deepLink && tgPopup && !tgPopup.closed) tgPopup.location.href = res.deepLink;
+      else if (res.deepLink) window.open(res.deepLink, '_blank'); // popup blocked → plain tab
+      else tgPopup?.close(); // dev without a bot
       window.clearInterval(tgPollTimer);
       tgPollTimer = window.setInterval(pollLink, 2000);
     } catch (e) {
+      tgPopup?.close();
+      tgPopup = null;
       tgError.value = errorMessage(e);
     }
   }
@@ -139,6 +148,9 @@ export function useSettingsModel() {
 
   function cancelLink(): void {
     window.clearInterval(tgPollTimer);
+    tgPopup?.close();
+    tgPopup = null;
+    window.focus();
     tgWaiting.value = false;
     tgNonce.value = null;
   }

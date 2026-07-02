@@ -143,7 +143,7 @@ const {
           <template v-if="showTelegram && !(clientMode === 'otp' && step === 'otp')">
             <div class="or-divider"><span>или войти через</span></div>
             <div v-if="tgWaiting" class="tg-wait">
-              <div class="tg-wait-text">Откройте Telegram и нажмите «Start» в чате с ботом. Ожидаем подтверждения…</div>
+              <div class="tg-wait-text">Подтвердите вход в открывшемся окне Telegram — оно закроется автоматически.</div>
               <a v-if="tgDeepLink" class="tg-wait-link" :href="tgDeepLink" target="_blank" rel="noopener">
                 Открыть Telegram ещё раз
               </a>

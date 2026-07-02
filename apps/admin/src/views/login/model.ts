@@ -32,6 +32,9 @@ export function useLoginModel() {
   const tgDeepLink = ref<string | null>(null);
   const tgNonce = ref<string | null>(null);
   let tgPollTimer: number | undefined;
+  // Popup handle — closed + refocused on confirm so the user isn't left on the
+  // Telegram tab having to switch back manually.
+  let tgPopup: Window | null = null;
 
   const isDev = import.meta.env.DEV;
 
@@ -98,15 +101,21 @@ export function useLoginModel() {
 
   async function telegramLogin(): Promise<void> {
     error.value = null;
+    // Open the popup synchronously within the click gesture (blocker-safe).
+    tgPopup = window.open('', 'easygo_tg', 'width=520,height=700');
     try {
       const res = await api.auth.telegramStart();
       tgNonce.value = res.nonce;
       tgDeepLink.value = res.deepLink;
       tgWaiting.value = true;
-      if (res.deepLink) window.open(res.deepLink, '_blank');
+      if (res.deepLink && tgPopup && !tgPopup.closed) tgPopup.location.href = res.deepLink;
+      else if (res.deepLink) window.open(res.deepLink, '_blank'); // popup blocked → plain tab
+      else tgPopup?.close(); // dev without a bot
       window.clearInterval(tgPollTimer);
       tgPollTimer = window.setInterval(pollTelegram, 2000);
     } catch (e) {
+      tgPopup?.close();
+      tgPopup = null;
       error.value = errorMessage(e);
     }
   }
@@ -142,6 +151,9 @@ export function useLoginModel() {
 
   function cancelTelegram(): void {
     window.clearInterval(tgPollTimer);
+    tgPopup?.close();
+    tgPopup = null;
+    window.focus();
     tgWaiting.value = false;
     tgNonce.value = null;
   }

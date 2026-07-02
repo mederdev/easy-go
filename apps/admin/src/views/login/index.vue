@@ -34,7 +34,7 @@ const {
       <div v-if="tgWaiting" class="tg-wait">
         <div class="tg-wait-title">Подтвердите вход в Telegram</div>
         <div class="tg-wait-text">
-          Откройте Telegram и нажмите «Start» в чате с ботом. Ожидаем подтверждения…
+          Подтвердите вход в открывшемся окне Telegram — оно закроется автоматически.
         </div>
         <a v-if="tgDeepLink" class="tg-wait-link" :href="tgDeepLink" target="_blank" rel="noopener">
           Открыть Telegram ещё раз

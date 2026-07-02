@@ -77,7 +77,7 @@ const {
       <div class="card">
         <div class="card-title">Мой Telegram</div>
         <div v-if="tgWaiting" class="fields">
-          <div class="note">Откройте Telegram и нажмите «Start» в чате с ботом. Ожидаем подтверждения…</div>
+          <div class="note">Подтвердите привязку в открывшемся окне Telegram — оно закроется автоматически.</div>
           <a v-if="tgDeepLink" class="tg-link" :href="tgDeepLink" target="_blank" rel="noopener">
             Открыть Telegram ещё раз
           </a>

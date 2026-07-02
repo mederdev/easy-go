@@ -55,7 +55,7 @@ export function useDriversModel() {
       if (createData.password) {
         await api.drivers.setPassword(created.id, { password: createData.password });
       }
-      createForm.open.value = false;
+      createForm.close(); // also clears the ?create=1 CTA flag from the URL
       await load();
     });
   }
@@ -93,6 +93,39 @@ export function useDriversModel() {
     pwError.value = null;
     pwSuccess.value = false;
     statusError.value = null;
+    deleteConfirm.value = false;
+    deleteError.value = null;
+  }
+
+  // Deletion (admin/owner; API refuses while the driver has flights)
+  const deleteConfirm = ref(false);
+  const deleting = ref(false);
+  const deleteError = ref<string | null>(null);
+
+  async function deleteDriver(): Promise<void> {
+    if (!selected.value || deleting.value) return;
+    if (!deleteConfirm.value) {
+      deleteConfirm.value = true;
+      deleteError.value = null;
+      return;
+    }
+    deleting.value = true;
+    deleteError.value = null;
+    try {
+      await api.drivers.delete(selected.value.id);
+      closeDriver();
+      await load();
+    } catch (e: unknown) {
+      deleteError.value = errorMessage(e);
+      deleteConfirm.value = false;
+    } finally {
+      deleting.value = false;
+    }
+  }
+
+  function cancelDelete(): void {
+    deleteConfirm.value = false;
+    deleteError.value = null;
   }
 
   function openPw(): void {
@@ -191,6 +224,11 @@ export function useDriversModel() {
     statusSaving,
     statusError,
     toggleActive,
+    deleteConfirm,
+    deleting,
+    deleteError,
+    deleteDriver,
+    cancelDelete,
     initials,
     carLabel,
     flightRoute,

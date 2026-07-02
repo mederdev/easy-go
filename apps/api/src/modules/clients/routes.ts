@@ -41,6 +41,31 @@ const routes: FastifyPluginAsync = async (app) => {
     reply.code(204);
     return null;
   });
+
+  // Удаление клиента (только без броней — история заказов неприкосновенна).
+  app.delete('/:id', { preHandler: [app.authorize(['admin', 'owner'])] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const clientId = parse(Id, id);
+    const client = await prisma.client.findUnique({
+      where: { id: clientId },
+      include: { _count: { select: { bookings: true } } },
+    });
+    if (!client) throw Errors.notFound('Клиент');
+    if (client._count.bookings > 0) {
+      throw Errors.conflict('У клиента есть брони — удаление невозможно', 'CLIENT_HAS_BOOKINGS');
+    }
+    try {
+      await prisma.client.delete({ where: { id: clientId } });
+    } catch (err) {
+      // FK restrict race: a booking was created between the check and the delete.
+      if ((err as { code?: string }).code === 'P2003') {
+        throw Errors.conflict('У клиента есть брони — удаление невозможно', 'CLIENT_HAS_BOOKINGS');
+      }
+      throw err;
+    }
+    reply.code(204);
+    return null;
+  });
 };
 
 export default routes;

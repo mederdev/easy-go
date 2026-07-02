@@ -3,7 +3,10 @@ import StateBlock from '@/components/StateBlock.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import AppModal from '@/components/AppModal.vue';
 import StatusChip from '@/components/StatusChip.vue';
+import { useAuthStore } from '@/stores/auth';
 import { useDriversModel } from './model';
+
+const auth = useAuthStore();
 
 const {
   drivers,
@@ -32,6 +35,11 @@ const {
   statusSaving,
   statusError,
   toggleActive,
+  deleteConfirm,
+  deleting,
+  deleteError,
+  deleteDriver,
+  cancelDelete,
   initials,
   carLabel,
   flightRoute,
@@ -281,6 +289,26 @@ const {
             </div>
           </div>
         </div>
+
+        <!-- Deletion (admin/owner) -->
+        <div v-if="auth.isAdmin" class="section">
+          <div v-if="!deleteConfirm" class="danger-row">
+            <button class="btn-danger" type="button" :disabled="deleting" @click="deleteDriver">
+              <span class="material-symbols-outlined">delete</span>
+              Удалить водителя
+            </button>
+          </div>
+          <div v-else class="danger-confirm">
+            <div class="danger-text">Водитель будет удалён безвозвратно. Его машины останутся без водителя.</div>
+            <div class="danger-actions">
+              <button class="btn-danger" type="button" :disabled="deleting" @click="deleteDriver">
+                {{ deleting ? 'Удаляем…' : 'Да, удалить' }}
+              </button>
+              <button class="btn-outline" type="button" :disabled="deleting" @click="cancelDelete">Отмена</button>
+            </div>
+          </div>
+          <div v-if="deleteError" class="danger-error">{{ deleteError }}</div>
+        </div>
       </template>
     </AppModal>
   </div>
@@ -364,6 +392,22 @@ const {
   padding: 10px 12px; border-radius: 10px;
 }
 .btn-save { padding: 0 20px; }
+
+/* Danger zone (delete driver) */
+.btn-danger {
+  display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px;
+  border: 1px solid #eccfc7; border-radius: 10px; background: #fff;
+  font: 700 13px var(--eg-font); cursor: pointer; color: #c0492e;
+}
+.btn-danger .material-symbols-outlined { font-size: 18px; }
+.btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+.danger-confirm { display: flex; flex-direction: column; gap: 10px; }
+.danger-text { font: 500 13px var(--eg-font); color: var(--eg-muted); }
+.danger-actions { display: flex; gap: 10px; }
+.danger-error {
+  margin-top: 10px; background: #fbedea; color: #c0492e;
+  font: 600 13px var(--eg-font); padding: 10px 12px; border-radius: 10px;
+}
 .empty-cta {
   margin-top: 12px; padding: 0 18px;
   display: inline-flex; align-items: center; gap: 6px;

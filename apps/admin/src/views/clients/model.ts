@@ -49,6 +49,39 @@ export function useClientsModel() {
     pwValue.value = '';
     pwError.value = null;
     pwSuccess.value = false;
+    deleteConfirm.value = false;
+    deleteError.value = null;
+  }
+
+  // Deletion (admin/owner; API refuses while the client has bookings)
+  const deleteConfirm = ref(false);
+  const deleting = ref(false);
+  const deleteError = ref<string | null>(null);
+
+  async function deleteClient(): Promise<void> {
+    if (!modalClient.value || deleting.value) return;
+    if (!deleteConfirm.value) {
+      deleteConfirm.value = true;
+      deleteError.value = null;
+      return;
+    }
+    deleting.value = true;
+    deleteError.value = null;
+    try {
+      await api.clients.delete(modalClient.value.id);
+      closeModal();
+      await load();
+    } catch (e) {
+      deleteError.value = errorMessage(e);
+      deleteConfirm.value = false;
+    } finally {
+      deleting.value = false;
+    }
+  }
+
+  function cancelDelete(): void {
+    deleteConfirm.value = false;
+    deleteError.value = null;
   }
 
   // Password form («Забыли пароль» без Telegram решается сбросом здесь)
@@ -164,5 +197,10 @@ export function useClientsModel() {
     pwSuccess,
     openPw,
     savePassword,
+    deleteConfirm,
+    deleting,
+    deleteError,
+    deleteClient,
+    cancelDelete,
   };
 }

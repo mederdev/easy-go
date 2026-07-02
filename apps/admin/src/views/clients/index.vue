@@ -38,6 +38,11 @@ const {
   pwSuccess,
   openPw,
   savePassword,
+  deleteConfirm,
+  deleting,
+  deleteError,
+  deleteClient,
+  cancelDelete,
 } = useClientsModel();
 </script>
 
@@ -226,6 +231,26 @@ const {
               <StatusChip kind="booking" :status="b.status" />
             </div>
           </div>
+        </div>
+
+        <!-- Deletion (admin/owner) -->
+        <div v-if="auth.isAdmin" class="danger-section">
+          <div v-if="!deleteConfirm">
+            <button class="btn-danger" type="button" :disabled="deleting" @click="deleteClient">
+              <span class="material-symbols-outlined">delete</span>
+              Удалить клиента
+            </button>
+          </div>
+          <div v-else class="danger-confirm">
+            <div class="danger-text">Клиент будет удалён безвозвратно.</div>
+            <div class="danger-actions">
+              <button class="btn-danger" type="button" :disabled="deleting" @click="deleteClient">
+                {{ deleting ? 'Удаляем…' : 'Да, удалить' }}
+              </button>
+              <button class="btn-outline" type="button" :disabled="deleting" @click="cancelDelete">Отмена</button>
+            </div>
+          </div>
+          <div v-if="deleteError" class="danger-error">{{ deleteError }}</div>
         </div>
       </template>
     </AppModal>
@@ -450,6 +475,26 @@ const {
   color: #fff; font: 700 14px var(--eg-font); cursor: pointer;
 }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+/* Danger zone (delete client) */
+.danger-section {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f1ee;
+}
+.btn-danger {
+  display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px;
+  border: 1px solid #eccfc7; border-radius: 10px; background: #fff;
+  font: 700 13px var(--eg-font); cursor: pointer; color: #c0492e;
+}
+.btn-danger .material-symbols-outlined { font-size: 18px; }
+.btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+.danger-confirm { display: flex; flex-direction: column; gap: 10px; }
+.danger-text { font: 500 13px var(--eg-font); color: var(--eg-muted); }
+.danger-actions { display: flex; gap: 10px; }
+.danger-error {
+  margin-top: 10px; background: #fbedea; color: #c0492e;
+  font: 600 13px var(--eg-font); padding: 10px 12px; border-radius: 10px;
+}
 .no-bookings {
   display: flex;
   align-items: center;

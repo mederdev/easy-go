@@ -79,6 +79,22 @@ const routes: FastifyPluginAsync = async (app) => {
     return null;
   });
 
+  // Удаление водителя (только без рейсов — история рейсов неприкосновенна).
+  // Машины остаются: Car.driverId имеет onDelete: SetNull.
+  app.delete('/:id', { preHandler: [app.authorize(['admin', 'owner'])] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const driverId = parse(Id, id);
+    const driver = await prisma.driver.findUnique({ where: { id: driverId } });
+    if (!driver) throw Errors.notFound('Водитель');
+    const flights = await prisma.flight.count({ where: { car: { driverId } } });
+    if (flights > 0) {
+      throw Errors.conflict('У водителя есть рейсы — вместо удаления деактивируйте его', 'DRIVER_HAS_FLIGHTS');
+    }
+    await prisma.driver.delete({ where: { id: driverId } });
+    reply.code(204);
+    return null;
+  });
+
   app.get('/:id/flights', async (request) => {
     const { id } = request.params as { id: string };
     const driverId = parse(Id, id);

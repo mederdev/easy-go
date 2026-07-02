@@ -209,6 +209,7 @@ export function createApiClient(opts: ApiClientOptions) {
       list: (query?: ListClientsQuery) => request<Paginated<Client>>('GET', '/clients', undefined, { query: query as unknown as Query }),
       get: (id: string) => request<Client>('GET', `/clients/${id}`),
       setPassword: (id: string, input: SetClientPasswordInput) => request<null>('POST', `/clients/${id}/set-password`, input),
+      delete: (id: string) => request<null>('DELETE', `/clients/${id}`),
     },
 
     drivers: {
@@ -217,6 +218,7 @@ export function createApiClient(opts: ApiClientOptions) {
       create: (input: CreateDriverInput) => request<Driver>('POST', '/drivers', input),
       update: (id: string, input: UpdateDriverInput) => request<Driver>('PATCH', `/drivers/${id}`, input),
       setPassword: (id: string, input: SetDriverPasswordInput) => request<null>('POST', `/drivers/${id}/set-password`, input),
+      delete: (id: string) => request<null>('DELETE', `/drivers/${id}`),
       flights: (id: string) => request<FlightView[]>('GET', `/drivers/${id}/flights`),
     },
 

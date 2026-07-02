@@ -39,8 +39,10 @@ Authenticated (JWT) — admin CRM. Roles: `operator` < `admin` < `owner`.
 - `GET/POST/PATCH/DELETE /routes`
 - `GET/POST/PATCH /flights`
 - `GET /bookings`, `POST /bookings/admin`, `PATCH /bookings/:id/status`
-- `GET/POST/PATCH /clients`, `POST /clients/:id/set-password` (admin/owner)
-- `GET/POST/PATCH /drivers`, `POST /drivers/:id/set-password` (admin/owner)
+- `GET/POST/PATCH /clients`, `POST /clients/:id/set-password`,
+  `DELETE /clients/:id` — 409 while the client has bookings (admin/owner)
+- `GET/POST/PATCH /drivers`, `POST /drivers/:id/set-password`,
+  `DELETE /drivers/:id` — 409 while the driver has flights (admin/owner)
 - `GET/POST/PATCH /fleet`, `PATCH /fleet/:id/location`
 - `GET /applications/{drivers,partners}`, `PATCH .../:id/status`
 - `GET /analytics/dashboard`, `GET /analytics/series`

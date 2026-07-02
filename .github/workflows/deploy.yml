@@ -114,4 +114,8 @@ jobs:
             # and the running API is left untouched. migrate is idempotent.
             $COMPOSE run --rm migrate
             $COMPOSE up -d
+            # Edge nginx resolves the static `upstream` names once at startup;
+            # recreated containers get new IPs, so re-resolve with a zero-
+            # downtime reload — otherwise api/admin 502 until edge restarts.
+            $COMPOSE exec edge nginx -s reload
             docker image prune -f

@@ -5,7 +5,6 @@ import TelegramLoginButton from '@/components/TelegramLoginButton.vue';
 import { useLoginModel } from './model';
 
 const {
-  router,
   mode,
   clientMode,
   step,
@@ -23,6 +22,7 @@ const {
   switchMode,
   switchToOtp,
   switchToPassword,
+  goBack,
   clientLogin,
   sendCode,
   confirm,
@@ -42,7 +42,7 @@ const {
     <IonContent :fullscreen="true">
       <div class="pg pg--narrow">
       <div class="wrap">
-        <button class="back" @click="step === 'otp' ? (step = 'phone') : clientMode === 'otp' ? switchToPassword() : router.back()">
+        <button class="back" @click="goBack">
           <span class="ms">arrow_back</span>
         </button>
 

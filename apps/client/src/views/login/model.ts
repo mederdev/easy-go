@@ -9,9 +9,10 @@ export function useLoginModel() {
   const router = useRouter();
   const auth = useAuthStore();
 
-  // The deep-link flow works everywhere the bot exists; keep the env check as a
-  // render hint (prod builds without a bot hide the block, dev always shows it).
-  const showTelegram = Boolean(import.meta.env.VITE_TELEGRAM_BOT_USERNAME) || import.meta.env.DEV;
+  // The API builds the t.me deep link from its own bot username, so the client
+  // no longer needs the build-time VITE_TELEGRAM_BOT_USERNAME — always offer
+  // Telegram login/registration, matching the admin app.
+  const showTelegram = true;
   const isDev = import.meta.env.DEV;
 
   const mode = ref<'client' | 'driver'>('client');
@@ -68,6 +69,23 @@ export function useLoginModel() {
     error.value = null;
     code.value = '';
     devCode.value = null;
+  }
+
+  /**
+   * Top-left back arrow. Within the OTP flow it steps back one screen; at the
+   * entry screen it returns to the app (home) rather than router.back() — the
+   * latter could escape into unrelated browser history (e.g. the admin panel).
+   */
+  function goBack(): void {
+    if (step.value === 'otp') {
+      step.value = 'phone';
+      return;
+    }
+    if (clientMode.value === 'otp') {
+      switchToPassword();
+      return;
+    }
+    router.replace('/tabs/home');
   }
 
   // ── Client password login ──
@@ -215,6 +233,7 @@ export function useLoginModel() {
     switchMode,
     switchToOtp,
     switchToPassword,
+    goBack,
     clientLogin,
     sendCode,
     confirm,

@@ -15,6 +15,9 @@ export const AuthUser = z.object({
   name: z.string(),
   phone: z.string(),
   role: UserRole,
+  /** Linked Telegram account (bot login + booking notifications). */
+  telegramId: z.string().nullable().optional(),
+  telegramUsername: z.string().nullable().optional(),
 });
 export type AuthUser = z.infer<typeof AuthUser>;
 
@@ -98,6 +101,47 @@ export const TelegramLoginInput = z.object({
   hash: z.string(),
 });
 export type TelegramLoginInput = z.infer<typeof TelegramLoginInput>;
+
+// ── Telegram deep-link login (t.me/<bot>?start=<nonce>) ──
+// Domain-independent (unlike the Login Widget): one bot serves both the client
+// site and the admin CRM. The API issues a one-time nonce, the user confirms it
+// in the bot chat, and the frontend polls until the nonce is confirmed.
+
+export const TelegramStartResponse = z.object({
+  nonce: z.string(),
+  /** Ready-to-open t.me link; null in dev when no bot username is configured. */
+  deepLink: z.string().nullable(),
+  expiresIn: z.number().int(),
+});
+export type TelegramStartResponse = z.infer<typeof TelegramStartResponse>;
+
+export const TelegramPollInput = z.object({ nonce: z.string().length(32) });
+export type TelegramPollInput = z.infer<typeof TelegramPollInput>;
+
+export const AdminTelegramPollResponse = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('pending') }),
+  z.object({ status: z.literal('confirmed'), token: z.string(), user: AuthUser }),
+  z.object({ status: z.literal('error'), message: z.string() }),
+  z.object({ status: z.literal('expired') }),
+]);
+export type AdminTelegramPollResponse = z.infer<typeof AdminTelegramPollResponse>;
+
+export const ClientTelegramPollResponse = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('pending') }),
+  z.object({ status: z.literal('confirmed'), token: z.string(), client: Client }),
+  z.object({ status: z.literal('error'), message: z.string() }),
+  z.object({ status: z.literal('expired') }),
+]);
+export type ClientTelegramPollResponse = z.infer<typeof ClientTelegramPollResponse>;
+
+/** Linking a Telegram account to an already-authenticated back-office user. */
+export const TelegramLinkPollResponse = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('pending') }),
+  z.object({ status: z.literal('confirmed'), user: AuthUser }),
+  z.object({ status: z.literal('error'), message: z.string() }),
+  z.object({ status: z.literal('expired') }),
+]);
+export type TelegramLinkPollResponse = z.infer<typeof TelegramLinkPollResponse>;
 
 /** Customer sets or changes their password from личный кабинет. */
 export const SetClientPasswordInput = z.object({

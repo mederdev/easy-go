@@ -215,3 +215,24 @@ the last three commands — images are retained per commit SHA in GHCR.
 - **Never** run `pnpm db:seed` in production (it wipes all tables).
 - The dev `docker-compose.yml` / `infra/nginx/nginx.conf` are unchanged and
   remain for local use.
+
+## Telegram bot (auth + notifications)
+
+One bot serves customer login, admin login and booking notifications — the
+deep-link flow (`t.me/<bot>?start=…`) is domain-independent, so **no
+`/setdomain`** is required in @BotFather.
+
+1. Create a bot via [@BotFather](https://t.me/BotFather) → put the token and
+   username (without `@`) into `.env.prod` (`TELEGRAM_BOT_TOKEN`,
+   `TELEGRAM_BOT_USERNAME`). The API long-polls `getUpdates` in-process —
+   no webhook, no nginx changes.
+2. Each staff member links their Telegram in админка → Настройки → «Мой
+   Telegram» (needed for bot login and personal booking notifications).
+3. Add the bot to the ops group chat — it captures the chat id automatically
+   and writes it to Настройки → «Уведомления в Telegram».
+4. OTP codes: numbers with a linked Telegram get the code from the bot for
+   free; other +996 numbers fall back to SMS via
+   [smspro.nikita.kg](https://smspro.nikita.kg) (`NIKITA_LOGIN` /
+   `NIKITA_PASSWORD` / `NIKITA_SENDER`). Without Nikita credentials such users
+   are asked to log in via the bot instead. KZ/UZ SMS providers can be added
+   later behind the same seam (`apps/api/src/lib/otp-sender.ts`).

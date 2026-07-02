@@ -24,3 +24,22 @@ export async function enqueueStatsRecompute(date: string): Promise<void> {
     { removeOnComplete: 100, removeOnFail: 100 },
   );
 }
+
+/** Telegram notifications to admins (new bookings / custom requests). */
+export const notificationsQueue = new Queue('notifications', { connection: makeRedis() });
+
+const notifyOpts = {
+  attempts: 3,
+  backoff: { type: 'exponential', delay: 5000 },
+  removeOnComplete: 100,
+  removeOnFail: 100,
+} as const;
+
+export async function enqueueBookingNotification(bookingId: string): Promise<void> {
+  // jobId dedupes retried enqueues for the same booking (BullMQ forbids ":").
+  await notificationsQueue.add('booking-created', { bookingId }, { ...notifyOpts, jobId: `booking-${bookingId}` });
+}
+
+export async function enqueueCustomRequestNotification(id: string): Promise<void> {
+  await notificationsQueue.add('custom-request-created', { id }, { ...notifyOpts, jobId: `custom-request-${id}` });
+}

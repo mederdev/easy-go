@@ -56,6 +56,12 @@ export const useAuthStore = defineStore('auth', () => {
     return res.client;
   }
 
+  /** Adopt a session confirmed through the Telegram deep-link poll. */
+  function setClientSession(t: string, c: Client): void {
+    setToken(t);
+    client.value = c;
+  }
+
   /** Driver login: phone + password. */
   async function driverLogin(phone: string, password: string): Promise<DriverProfile> {
     const res = await api.driverAuth.login({ phone, password });
@@ -122,6 +128,7 @@ export const useAuthStore = defineStore('auth', () => {
     verify,
     clientLogin,
     telegramLogin,
+    setClientSession,
     driverLogin,
     fetchMe,
     logout,

@@ -13,6 +13,16 @@ const {
   form,
   load,
   save,
+  tgLinked,
+  tgUsername,
+  tgWaiting,
+  tgDeepLink,
+  tgError,
+  telegramLink,
+  telegramDevConfirm,
+  cancelLink,
+  telegramUnlink,
+  isDev,
 } = useSettingsModel();
 </script>
 
@@ -49,6 +59,46 @@ const {
             </select>
           </label>
         </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Уведомления в Telegram</div>
+        <div class="fields">
+          <label class="field">
+            <span class="label">ID чата для уведомлений</span>
+            <input v-model="form.telegramNotifyChatId" placeholder="-1001234567890" />
+          </label>
+          <div class="note">
+            Добавьте бота в рабочую группу — ID определится автоматически. Можно указать вручную.
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Мой Telegram</div>
+        <div v-if="tgWaiting" class="fields">
+          <div class="note">Откройте Telegram и нажмите «Start» в чате с ботом. Ожидаем подтверждения…</div>
+          <a v-if="tgDeepLink" class="tg-link" :href="tgDeepLink" target="_blank" rel="noopener">
+            Открыть Telegram ещё раз
+          </a>
+          <div class="tg-row">
+            <button v-if="isDev" type="button" class="tg-secondary" @click="telegramDevConfirm">
+              Подтвердить (dev)
+            </button>
+            <button type="button" class="tg-secondary" @click="cancelLink">Отмена</button>
+          </div>
+        </div>
+        <div v-else class="fields">
+          <div v-if="tgLinked" class="tg-row">
+            <span class="tg-status">Привязан{{ tgUsername ? `: @${tgUsername}` : '' }}</span>
+            <button type="button" class="tg-secondary" @click="telegramUnlink">Отвязать</button>
+          </div>
+          <div v-else class="tg-row">
+            <span class="note">Привяжите Telegram, чтобы входить через бота и получать уведомления о бронях.</span>
+            <button type="button" class="tg-primary" @click="telegramLink">Привязать Telegram</button>
+          </div>
+        </div>
+        <div v-if="tgError" class="tg-error">{{ tgError }}</div>
       </div>
 
       <div class="footer">
@@ -140,6 +190,54 @@ select:focus {
 .save:disabled {
   opacity: 0.6;
   cursor: default;
+}
+.note {
+  font: 500 12px var(--eg-font);
+  color: var(--eg-hint);
+}
+.tg-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.tg-status {
+  font: 700 14px var(--eg-font);
+  color: var(--eg-brand-dark);
+}
+.tg-link {
+  font: 700 13px var(--eg-font);
+  color: #29a3e2;
+  text-decoration: none;
+}
+.tg-primary {
+  height: 42px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 11px;
+  background: #29a3e2;
+  color: #fff;
+  font: 700 13px var(--eg-font);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.tg-secondary {
+  height: 42px;
+  padding: 0 16px;
+  border: 1px solid var(--eg-border);
+  border-radius: 11px;
+  background: #fff;
+  color: var(--eg-hint);
+  font: 700 13px var(--eg-font);
+  cursor: pointer;
+}
+.tg-error {
+  margin-top: 10px;
+  background: #fbedea;
+  color: #c0492e;
+  font: 600 13px var(--eg-font);
+  padding: 10px 14px;
+  border-radius: 11px;
 }
 
 @media (max-width: 600px) {

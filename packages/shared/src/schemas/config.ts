@@ -7,6 +7,8 @@ export const SystemConfig = z.object({
   companyName: z.string(),
   whatsappPhone: z.string(), // E.164 digits, for wa.me links
   locale: z.string(),
+  /** Telegram group chat that receives booking notifications. */
+  telegramNotifyChatId: z.string().nullable(),
   updatedAt: z.string().datetime(),
 });
 export type SystemConfig = z.infer<typeof SystemConfig>;
@@ -16,5 +18,7 @@ export const UpdateSystemConfigInput = z.object({
   companyName: z.string().min(1).optional(),
   whatsappPhone: z.string().min(6).optional(),
   locale: z.string().min(2).optional(),
+  /** Nullable so the admin can clear the notification chat. */
+  telegramNotifyChatId: z.string().nullable().optional(),
 });
 export type UpdateSystemConfigInput = z.infer<typeof UpdateSystemConfigInput>;

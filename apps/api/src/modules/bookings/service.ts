@@ -10,7 +10,7 @@ import type {
 import { prisma } from '../../lib/prisma.js';
 import { Errors } from '../../lib/errors.js';
 import { normalizePhone } from '../../lib/phone.js';
-import { enqueueStatsRecompute } from '../../lib/queue.js';
+import { enqueueBookingNotification, enqueueStatsRecompute } from '../../lib/queue.js';
 import { derivePaymentStatus, recomputeFlightPayment } from '../../lib/payment.js';
 
 const bookingInclude = {
@@ -46,6 +46,8 @@ export async function createBooking(
     prepaid?: number;
     idempotencyKey?: string;
     clientId?: string;
+    /** Telegram admin notification (default true; admin-created bookings skip it). */
+    notify?: boolean;
   } = {},
 ) {
   const phone = normalizePhone(input.phone);
@@ -141,6 +143,9 @@ export async function createBooking(
   });
 
   await enqueueStatsRecompute(isoDay(booking.departAt)).catch(() => undefined);
+  if (opts.notify !== false) {
+    await enqueueBookingNotification(booking.booking.id).catch(() => undefined);
+  }
   return booking.booking;
 }
 
@@ -150,6 +155,7 @@ export async function adminCreateBooking(input: AdminCreateBookingInput, idempot
     discount: input.discount,
     prepaid: input.prepaid,
     idempotencyKey,
+    notify: false, // the operator entered it themselves — nothing to announce
   });
 }
 

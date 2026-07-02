@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import type { AuthUser, UserRole } from '@easygo/shared';
+import type { AuthResponse, AuthUser, UserRole } from '@easygo/shared';
 import { api, TOKEN_STORAGE_KEY, USER_STORAGE_KEY } from '@/lib/api';
 
 interface AuthState {
@@ -56,11 +56,15 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    async login(phone: string, password: string): Promise<void> {
-      const res = await api.auth.login({ phone, password });
+    /** Adopt a session from any login flow (password / OTP / Telegram). */
+    setSession(res: AuthResponse): void {
       this.token = res.token;
       this.user = res.user;
       this.persist();
+    },
+
+    async login(phone: string, password: string): Promise<void> {
+      this.setSession(await api.auth.login({ phone, password }));
     },
 
     async fetchMe(): Promise<void> {

@@ -1,7 +1,7 @@
 import { ref, computed, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
-import type { TelegramLoginInput } from '@easygo/shared';
 import { ApiError } from '@easygo/api-client';
+import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 
 /** Phone + OTP login (clients) and phone+password login (drivers). */
@@ -9,10 +9,10 @@ export function useLoginModel() {
   const router = useRouter();
   const auth = useAuthStore();
 
-  // Show the Telegram block only when the widget can actually render — the bot
-  // username is configured (prod build) or we're in dev (mock button). Avoids an
-  // empty "или войти через" divider when the build has no bot username.
+  // The deep-link flow works everywhere the bot exists; keep the env check as a
+  // render hint (prod builds without a bot hide the block, dev always shows it).
   const showTelegram = Boolean(import.meta.env.VITE_TELEGRAM_BOT_USERNAME) || import.meta.env.DEV;
+  const isDev = import.meta.env.DEV;
 
   const mode = ref<'client' | 'driver'>('client');
   // client sub-mode: password by default, otp as fallback for forgotten password
@@ -119,21 +119,66 @@ export function useLoginModel() {
     }
   }
 
-  // ── Telegram login ──
+  // ── Telegram deep-link login ──
+  // Start → open t.me/<bot>?start=<nonce> → poll until the bot confirms.
 
-  async function telegramLogin(user: TelegramLoginInput): Promise<void> {
+  const tgWaiting = ref(false);
+  const tgDeepLink = ref<string | null>(null);
+  const tgNonce = ref<string | null>(null);
+  let tgPollTimer: ReturnType<typeof setInterval> | undefined;
+
+  async function telegramLogin(): Promise<void> {
     if (busy.value) return;
-    busy.value = true;
     error.value = null;
     try {
-      await auth.telegramLogin(user);
-      router.replace('/tabs/home');
+      const res = await api.clientAuth.telegramStart();
+      tgNonce.value = res.nonce;
+      tgDeepLink.value = res.deepLink;
+      tgWaiting.value = true;
+      if (res.deepLink) window.open(res.deepLink, '_blank');
+      clearInterval(tgPollTimer);
+      tgPollTimer = setInterval(pollTelegram, 2000);
     } catch (e) {
       error.value = e instanceof ApiError ? e.message : 'Не удалось войти через Telegram';
-    } finally {
-      busy.value = false;
     }
   }
+
+  async function pollTelegram(): Promise<void> {
+    if (!tgNonce.value) return;
+    try {
+      const res = await api.clientAuth.telegramPoll(tgNonce.value);
+      if (res.status === 'pending') return;
+      cancelTelegram();
+      if (res.status === 'confirmed') {
+        auth.setClientSession(res.token, res.client);
+        router.replace('/tabs/home');
+      } else if (res.status === 'error') {
+        error.value = res.message;
+      } else {
+        error.value = 'Время ожидания истекло, попробуйте ещё раз';
+      }
+    } catch {
+      // Network hiccup — keep polling until the nonce expires.
+    }
+  }
+
+  /** Dev-only: confirm the nonce without a real bot (backend dev endpoint). */
+  async function telegramDevConfirm(): Promise<void> {
+    if (!tgNonce.value) return;
+    try {
+      await api.auth.telegramDevConfirm(tgNonce.value);
+    } catch (e) {
+      error.value = e instanceof ApiError ? e.message : 'Не удалось подтвердить (dev)';
+    }
+  }
+
+  function cancelTelegram(): void {
+    clearInterval(tgPollTimer);
+    tgWaiting.value = false;
+    tgNonce.value = null;
+  }
+
+  onBeforeUnmount(() => clearInterval(tgPollTimer));
 
   // ── Driver (password) flow ──
 
@@ -174,7 +219,12 @@ export function useLoginModel() {
     sendCode,
     confirm,
     telegramLogin,
+    telegramDevConfirm,
+    cancelTelegram,
+    tgWaiting,
+    tgDeepLink,
     driverLogin,
     showTelegram,
+    isDev,
   };
 }

@@ -1,11 +1,13 @@
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import type { CurrencyCode, UpdateSystemConfigInput } from '@easygo/shared';
 import { api, errorMessage } from '@/lib/api';
 import { useConfigStore } from '@/stores/config';
+import { useAuthStore } from '@/stores/auth';
 
-/** System settings: company + regional config form with load and save. */
+/** System settings: company + regional config form, Telegram notifications & linking. */
 export function useSettingsModel() {
   const config = useConfigStore();
+  const auth = useAuthStore();
 
   const loading = ref(true);
   const error = ref<string | null>(null);
@@ -31,6 +33,7 @@ export function useSettingsModel() {
     whatsappPhone: '',
     currency: 'KGS' as CurrencyCode,
     locale: 'ru-RU',
+    telegramNotifyChatId: '',
   });
 
   async function load(): Promise<void> {
@@ -43,6 +46,7 @@ export function useSettingsModel() {
         form.whatsappPhone = config.config.whatsappPhone;
         form.currency = config.config.currency;
         form.locale = config.config.locale;
+        form.telegramNotifyChatId = config.config.telegramNotifyChatId ?? '';
       }
     } catch (e) {
       error.value = errorMessage(e);
@@ -65,6 +69,7 @@ export function useSettingsModel() {
         whatsappPhone: form.whatsappPhone.trim(),
         currency: form.currency,
         locale: form.locale,
+        telegramNotifyChatId: form.telegramNotifyChatId.trim() || null,
       };
       await config.update(payload);
       saved.value = true;
@@ -78,7 +83,79 @@ export function useSettingsModel() {
     }
   }
 
+  // ── «Мой Telegram»: link the current user's account via the bot deep link ──
+
+  const tgUsername = computed(() => auth.user?.telegramUsername ?? null);
+  const tgLinked = computed(() => Boolean(auth.user?.telegramId));
+  const tgWaiting = ref(false);
+  const tgDeepLink = ref<string | null>(null);
+  const tgError = ref<string | null>(null);
+  const tgNonce = ref<string | null>(null);
+  let tgPollTimer: number | undefined;
+
+  const isDev = import.meta.env.DEV;
+
+  async function telegramLink(): Promise<void> {
+    tgError.value = null;
+    try {
+      const res = await api.auth.telegramLinkStart();
+      tgNonce.value = res.nonce;
+      tgDeepLink.value = res.deepLink;
+      tgWaiting.value = true;
+      if (res.deepLink) window.open(res.deepLink, '_blank');
+      window.clearInterval(tgPollTimer);
+      tgPollTimer = window.setInterval(pollLink, 2000);
+    } catch (e) {
+      tgError.value = errorMessage(e);
+    }
+  }
+
+  async function pollLink(): Promise<void> {
+    if (!tgNonce.value) return;
+    try {
+      const res = await api.auth.telegramLinkPoll(tgNonce.value);
+      if (res.status === 'pending') return;
+      cancelLink();
+      if (res.status === 'confirmed') {
+        await auth.fetchMe();
+      } else if (res.status === 'error') {
+        tgError.value = res.message;
+      } else {
+        tgError.value = 'Время ожидания истекло, попробуйте ещё раз';
+      }
+    } catch {
+      // Network hiccup — keep polling until the nonce expires.
+    }
+  }
+
+  async function telegramDevConfirm(): Promise<void> {
+    if (!tgNonce.value) return;
+    try {
+      await api.auth.telegramDevConfirm(tgNonce.value);
+    } catch (e) {
+      tgError.value = errorMessage(e);
+    }
+  }
+
+  function cancelLink(): void {
+    window.clearInterval(tgPollTimer);
+    tgWaiting.value = false;
+    tgNonce.value = null;
+  }
+
+  async function telegramUnlink(): Promise<void> {
+    if (!window.confirm('Отвязать Telegram? Вход через бота станет недоступен.')) return;
+    tgError.value = null;
+    try {
+      await api.auth.telegramUnlink();
+      await auth.fetchMe();
+    } catch (e) {
+      tgError.value = errorMessage(e);
+    }
+  }
+
   onMounted(load);
+  onUnmounted(() => window.clearInterval(tgPollTimer));
 
   return {
     loading,
@@ -91,5 +168,16 @@ export function useSettingsModel() {
     form,
     load,
     save,
+    // Telegram linking
+    tgLinked,
+    tgUsername,
+    tgWaiting,
+    tgDeepLink,
+    tgError,
+    telegramLink,
+    telegramDevConfirm,
+    cancelLink,
+    telegramUnlink,
+    isDev,
   };
 }

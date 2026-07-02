@@ -1,9 +1,11 @@
 import type {
   AdminCreateBookingInput,
+  AdminTelegramPollResponse,
   AnalyticsQuery,
   AnalyticsSeries,
   AuthResponse,
   AuthUser,
+  ClientTelegramPollResponse,
   AvailableDatesQuery,
   Booking,
   Car,
@@ -34,7 +36,9 @@ import type {
   OtpRequestInput,
   OtpRequestResponse,
   OtpVerifyInput,
+  TelegramLinkPollResponse,
   TelegramLoginInput,
+  TelegramStartResponse,
   Paginated,
   PartnerApplication,
   PresignUploadInput,
@@ -131,6 +135,17 @@ export function createApiClient(opts: ApiClientOptions) {
     auth: {
       login: (input: LoginInput) => request<AuthResponse>('POST', '/auth/login', input),
       me: () => request<AuthUser>('GET', '/auth/me'),
+      // Back-office phone+OTP (the user must already exist).
+      requestOtp: (input: OtpRequestInput) => request<OtpRequestResponse>('POST', '/auth/request-otp', input),
+      verifyOtp: (input: OtpVerifyInput) => request<AuthResponse>('POST', '/auth/verify-otp', input),
+      // Telegram deep-link login + account linking.
+      telegramStart: () => request<TelegramStartResponse>('POST', '/auth/telegram/start'),
+      telegramPoll: (nonce: string) => request<AdminTelegramPollResponse>('POST', '/auth/telegram/poll', { nonce }),
+      telegramLinkStart: () => request<TelegramStartResponse>('POST', '/auth/telegram/link/start'),
+      telegramLinkPoll: (nonce: string) => request<TelegramLinkPollResponse>('POST', '/auth/telegram/link/poll', { nonce }),
+      telegramUnlink: () => request<AuthUser>('DELETE', '/auth/telegram/link'),
+      /** Dev-only helper: confirms a nonce without a real bot. */
+      telegramDevConfirm: (nonce: string) => request<{ ok: true }>('POST', '/auth/telegram/dev-confirm', { nonce }),
     },
 
     // Customer phone+OTP auth.
@@ -139,6 +154,8 @@ export function createApiClient(opts: ApiClientOptions) {
       verify: (input: OtpVerifyInput) => request<ClientAuthResponse>('POST', '/client-auth/verify', input),
       login: (input: ClientLoginInput) => request<ClientAuthResponse>('POST', '/client-auth/login', input),
       telegram: (input: TelegramLoginInput) => request<ClientAuthResponse>('POST', '/client-auth/telegram', input),
+      telegramStart: () => request<TelegramStartResponse>('POST', '/client-auth/telegram/start'),
+      telegramPoll: (nonce: string) => request<ClientTelegramPollResponse>('POST', '/client-auth/telegram/poll', { nonce }),
     },
 
     // Authenticated customer (личный кабинет), scoped to the bearer token.

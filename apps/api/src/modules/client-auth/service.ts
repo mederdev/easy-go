@@ -1,10 +1,12 @@
 import bcrypt from 'bcryptjs';
+import type { Client } from '@prisma/client';
 import type { ClientLoginInput, OtpVerifyInput, SetClientPasswordInput, TelegramLoginInput } from '@easygo/shared';
 import { prisma } from '../../lib/prisma.js';
 import { Errors } from '../../lib/errors.js';
 import { normalizePhone } from '../../lib/phone.js';
 import { issueOtp, verifyOtp } from '../../lib/otp.js';
 import { verifyTelegramAuth } from '../../lib/telegram.js';
+import { consumeLoginNonce, peekLoginNonce, type TgUser } from '../../lib/telegram-login.js';
 import { isProd } from '../../env.js';
 
 /** Issue + send an OTP. Returns the code in dev so the UI can auto-fill it. */
@@ -50,6 +52,43 @@ export async function loginWithTelegram(input: TelegramLoginInput) {
       photoUrl: input.photo_url ?? null,
       whatsapp: true,
     },
+  });
+}
+
+export type ClientTelegramPollResult =
+  | { status: 'pending' }
+  | { status: 'expired' }
+  | { status: 'error'; message: string }
+  | { status: 'confirmed'; client: Client };
+
+/**
+ * Poll a deep-link login nonce. Pending/error reads are non-destructive; a
+ * confirmed nonce is consumed one-time and the customer is upserted by the
+ * Telegram identity the bot captured (same rules as the widget login).
+ */
+export async function pollClientTelegramLogin(nonce: string): Promise<ClientTelegramPollResult> {
+  const record = await peekLoginNonce(nonce);
+  if (!record || record.aud !== 'client-login') return { status: 'expired' };
+  if (record.status === 'pending') return { status: 'pending' };
+  if (record.status === 'error') return { status: 'error', message: record.error ?? 'Ошибка входа' };
+
+  const consumed = await consumeLoginNonce(nonce);
+  if (!consumed || consumed.status !== 'confirmed' || !consumed.tg) return { status: 'expired' };
+  return { status: 'confirmed', client: await upsertClientByTelegram(consumed.tg) };
+}
+
+async function upsertClientByTelegram(tg: TgUser): Promise<Client> {
+  const existing = await prisma.client.findUnique({ where: { telegramId: tg.id } });
+  if (existing) {
+    // Keep the Telegram-sourced fields fresh; leave name/phone as the user set them.
+    return prisma.client.update({
+      where: { id: existing.id },
+      data: { telegramUsername: tg.username ?? null },
+    });
+  }
+  const name = [tg.firstName, tg.lastName].filter(Boolean).join(' ').trim() || 'Клиент';
+  return prisma.client.create({
+    data: { name, telegramId: tg.id, telegramUsername: tg.username ?? null, whatsapp: true },
   });
 }
 

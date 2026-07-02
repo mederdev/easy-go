@@ -27,8 +27,13 @@ const {
   sendCode,
   confirm,
   telegramLogin,
+  telegramDevConfirm,
+  cancelTelegram,
+  tgWaiting,
+  tgDeepLink,
   driverLogin,
   showTelegram,
+  isDev,
 } = useLoginModel();
 </script>
 
@@ -84,7 +89,7 @@ const {
             <template v-if="step === 'phone'">
               <div class="icon-badge"><span class="ms">smartphone</span></div>
               <h1 class="title">Войти по номеру</h1>
-              <p class="subtitle">Введите номер телефона — пришлём одноразовый код по SMS.</p>
+              <p class="subtitle">Введите номер телефона — пришлём одноразовый код в Telegram.</p>
 
               <div class="field">
                 <div class="field-label">Номер телефона</div>
@@ -108,7 +113,7 @@ const {
             <template v-else>
               <div class="icon-badge"><span class="ms">password</span></div>
               <h1 class="title">Введите код</h1>
-              <p class="subtitle">Код отправлен по SMS на <b>{{ phone }}</b>.</p>
+              <p class="subtitle">Код отправлен в Telegram на <b>{{ phone }}</b>.</p>
 
               <input
                 v-model="code"
@@ -137,7 +142,17 @@ const {
           <!-- Telegram login (shown on entry screens, not while entering the code) -->
           <template v-if="showTelegram && !(clientMode === 'otp' && step === 'otp')">
             <div class="or-divider"><span>или войти через</span></div>
-            <TelegramLoginButton @auth="telegramLogin" />
+            <div v-if="tgWaiting" class="tg-wait">
+              <div class="tg-wait-text">Откройте Telegram и нажмите «Start» в чате с ботом. Ожидаем подтверждения…</div>
+              <a v-if="tgDeepLink" class="tg-wait-link" :href="tgDeepLink" target="_blank" rel="noopener">
+                Открыть Telegram ещё раз
+              </a>
+              <button v-if="isDev" class="tg-dev-confirm" type="button" @click="telegramDevConfirm">
+                Подтвердить (dev)
+              </button>
+              <button class="tg-cancel" type="button" @click="cancelTelegram">Отмена</button>
+            </div>
+            <TelegramLoginButton v-else :busy="busy" @click="telegramLogin" />
           </template>
         </template>
 
@@ -238,5 +253,19 @@ const {
 }
 .or-divider::before, .or-divider::after {
   content: ''; flex: 1; height: 1px; background: #e2e5df;
+}
+.tg-wait {
+  margin-top: 14px; display: flex; flex-direction: column; gap: 10px; align-items: center;
+  padding: 16px; border: 1px solid #e2e5df; border-radius: 15px; background: #fff;
+}
+.tg-wait-text { font: 500 13px/1.5 'Manrope', sans-serif; color: var(--eg-muted); text-align: center; }
+.tg-wait-link { font: 700 13px 'Manrope', sans-serif; color: #229ED9; text-decoration: none; }
+.tg-dev-confirm {
+  width: 100%; height: 44px; border: 1px dashed #e2e5df; border-radius: 12px; background: #fbfcfa;
+  font: 700 13px 'Manrope', sans-serif; color: var(--eg-muted); cursor: pointer;
+}
+.tg-cancel {
+  background: none; border: none; cursor: pointer;
+  font: 600 13px 'Manrope', sans-serif; color: var(--eg-muted-light);
 }
 </style>

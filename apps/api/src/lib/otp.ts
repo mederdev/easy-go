@@ -1,11 +1,12 @@
 import { randomInt } from 'node:crypto';
 import { makeRedis } from './queue.js';
 import { AppError } from './errors.js';
+import { sendOtpCode } from './otp-sender.js';
 
 /**
  * Phone OTP backed by Redis (no DB migration). A 6-digit code is stored under
- * `otp:<phone>` with a short TTL; verification is attempt-limited. Delivery is a
- * mock SMS sender for now — replace `sendSms` with a real SMS provider later.
+ * `otp:<phone>` with a short TTL; verification is attempt-limited. Delivery
+ * goes through the chain in `otp-sender.ts` (Telegram bot DM → Nikita SMS).
  */
 const redis = makeRedis();
 
@@ -17,21 +18,6 @@ const codeKey = (phone: string) => `otp:${phone}`;
 const attemptsKey = (phone: string) => `otp:att:${phone}`;
 const cooldownKey = (phone: string) => `otp:cool:${phone}`;
 
-/**
- * Mock SMS sender — the future integration seam. No real delivery yet: it logs a
- * clearly-labelled line so codes can be read from the API logs in dev/demo.
- * TODO: replace the body with a real SMS provider (e.g. Twilio / SMSC.ru / Nikita.kg).
- */
-async function sendSms(phone: string, text: string): Promise<void> {
-  // eslint-disable-next-line no-console
-  console.info(`[SMS mock] → ${phone}: ${text}`);
-}
-
-/** Send the OTP code to the phone over SMS (mocked for now). */
-async function sendOtp(phone: string, code: string): Promise<void> {
-  await sendSms(phone, `EasyGo: ваш код для входа — ${code}. Никому его не сообщайте.`);
-}
-
 export async function issueOtp(phone: string): Promise<{ code: string; expiresIn: number }> {
   if (await redis.exists(cooldownKey(phone))) {
     throw new AppError(429, 'OTP_COOLDOWN', 'Подождите перед повторной отправкой кода');
@@ -39,8 +25,14 @@ export async function issueOtp(phone: string): Promise<{ code: string; expiresIn
   const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
   await redis.set(codeKey(phone), code, 'EX', TTL_SECONDS);
   await redis.del(attemptsKey(phone));
+  try {
+    await sendOtpCode(phone, code);
+  } catch (err) {
+    // Failed delivery must not lock the user out: drop the code, skip cooldown.
+    await redis.del(codeKey(phone));
+    throw err;
+  }
   await redis.set(cooldownKey(phone), '1', 'EX', RESEND_COOLDOWN);
-  await sendOtp(phone, code);
   return { code, expiresIn: TTL_SECONDS };
 }
 

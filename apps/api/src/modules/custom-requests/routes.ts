@@ -4,15 +4,18 @@ import { prisma } from '../../lib/prisma.js';
 import { Errors } from '../../lib/errors.js';
 import { normalizePhone } from '../../lib/phone.js';
 import { parse } from '../../lib/validate.js';
+import { enqueueCustomRequestNotification } from '../../lib/queue.js';
 
 const routes: FastifyPluginAsync = async (app) => {
   // Public: client leaves a request when no suitable flight is found
   app.post('/', { config: { idempotent: true } }, async (request, reply) => {
     const input = parse(CreateCustomRequestInput, request.body);
     reply.code(201);
-    return prisma.customRequest.create({
+    const created = await prisma.customRequest.create({
       data: { ...input, phone: normalizePhone(input.phone) },
     });
+    await enqueueCustomRequestNotification(created.id).catch(() => undefined);
+    return created;
   });
 
   // Admin: list custom requests

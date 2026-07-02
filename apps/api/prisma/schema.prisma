@@ -92,13 +92,15 @@ enum CurrencyCode {
 
 /// Back-office users (operator / admin / owner).
 model User {
-  id           String   @id @default(uuid())
-  name         String
-  phone        String   @unique
-  role         UserRole @default(operator)
-  passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id               String   @id @default(uuid())
+  name             String
+  phone            String   @unique
+  role             UserRole @default(operator)
+  telegramId       String?  @unique // linked Telegram account: bot login + booking notifications
+  telegramUsername String?
+  passwordHash     String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 /// Booking customer. Upserted by phone from the public booking flow, or created
@@ -313,10 +315,11 @@ model IdempotencyKey {
 
 /// Singleton system settings (id is always "singleton").
 model SystemConfig {
-  id            String       @id @default("singleton")
-  currency      CurrencyCode @default(KGS)
-  companyName   String       @default("EasyGo")
-  whatsappPhone String       @default("996700123456")
-  locale        String       @default("ru-RU")
-  updatedAt     DateTime     @updatedAt
+  id                   String       @id @default("singleton")
+  currency             CurrencyCode @default(KGS)
+  companyName          String       @default("EasyGo")
+  whatsappPhone        String       @default("996700123456")
+  locale               String       @default("ru-RU")
+  telegramNotifyChatId String? // group chat for booking notifications (captured when bot is added)
+  updatedAt            DateTime     @updatedAt
 }

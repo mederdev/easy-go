@@ -131,8 +131,6 @@ const {
           </svg>
           Войти через Telegram
         </button>
-
-        <div class="hint">Демо-доступ: +996700000001 · easygo123</div>
       </template>
     </div>
   </div>
@@ -329,12 +327,6 @@ input:focus {
   border: 2px solid rgba(255, 255, 255, 0.5);
   border-top-color: #fff;
   animation: spin 0.7s linear infinite;
-}
-.hint {
-  margin-top: 18px;
-  text-align: center;
-  font: 500 12px var(--eg-font);
-  color: var(--eg-hint);
 }
 @keyframes spin {
   to {

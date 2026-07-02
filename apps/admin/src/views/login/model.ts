@@ -16,8 +16,8 @@ export function useLoginModel() {
   const route = useRoute();
 
   const mode = ref<Mode>('password');
-  const phone = ref('+996700000001');
-  const password = ref('easygo123');
+  const phone = ref('');
+  const password = ref('');
   const loading = ref(false);
   const error = ref<string | null>(null);
 

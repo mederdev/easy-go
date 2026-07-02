@@ -6,31 +6,34 @@ import { useLoginModel } from './model';
 
 const {
   mode,
-  clientMode,
-  step,
+  screen,
   phone,
-  code,
   name,
   password,
-  devCode,
+  password2,
   busy,
   error,
-  resendIn,
+  errorCode,
+  notice,
   phoneValid,
-  codeValid,
+  nameValid,
   passwordValid,
+  passwordsMismatch,
+  passwordPairValid,
   switchMode,
-  switchToOtp,
-  switchToPassword,
+  goTo,
   goBack,
   clientLogin,
-  sendCode,
-  confirm,
-  telegramLogin,
+  continueRegister,
+  registerWithPassword,
+  saveNewPassword,
+  skipNewPassword,
+  telegramStart,
   telegramDevConfirm,
   cancelTelegram,
   tgWaiting,
   tgDeepLink,
+  tgButtonLabel,
   driverLogin,
   showTelegram,
   isDev,
@@ -55,11 +58,11 @@ const {
         <!-- ── CLIENT MODE ── -->
         <template v-if="mode === 'client'">
 
-          <!-- CLIENT: PASSWORD LOGIN (default) -->
-          <template v-if="clientMode === 'password'">
+          <!-- LOGIN -->
+          <template v-if="screen === 'login'">
             <div class="icon-badge"><span class="ms">lock</span></div>
             <h1 class="title">Вход в EasyGo</h1>
-            <p class="subtitle">Введите номер телефона и пароль для входа.</p>
+            <p class="subtitle">Введите номер телефона и пароль или войдите через Telegram.</p>
 
             <div class="field">
               <div class="field-label">Номер телефона</div>
@@ -78,70 +81,115 @@ const {
             </button>
 
             <div class="forgot-row">
-              <span class="forgot-text">Забыли пароль?</span>
-              <button class="otp-link" @click="switchToOtp">Войти по номеру</button>
+              <span class="muted-text">Забыли пароль?</span>
+              <button class="link-btn" @click="goTo('forgot')">Восстановить</button>
+            </div>
+            <div class="forgot-row" style="margin-top: 8px">
+              <span class="muted-text">Нет аккаунта?</span>
+              <button class="link-btn" @click="goTo('register-info')">Зарегистрироваться</button>
             </div>
           </template>
 
-          <!-- CLIENT: OTP FLOW -->
-          <template v-else>
-            <!-- STEP: PHONE -->
-            <template v-if="step === 'phone'">
-              <div class="icon-badge"><span class="ms">smartphone</span></div>
-              <h1 class="title">Войти по номеру</h1>
-              <p class="subtitle">Введите номер телефона — пришлём одноразовый код в Telegram.</p>
+          <!-- REGISTER: STEP 1 — PHONE + NAME -->
+          <template v-else-if="screen === 'register-info'">
+            <div class="icon-badge"><span class="ms">person_add</span></div>
+            <h1 class="title">Регистрация</h1>
+            <p class="subtitle">Укажите номер телефона и имя — они понадобятся для бронирований.</p>
 
-              <div class="field">
-                <div class="field-label">Номер телефона</div>
-                <input v-model="phone" class="input" type="tel" inputmode="tel" autocomplete="tel" placeholder="+996 700 000 000" />
-              </div>
-              <div class="field">
-                <div class="field-label">Имя <span class="opt">(для первого входа)</span></div>
-                <input v-model="name" class="input" type="text" autocomplete="name" placeholder="Ваше имя" />
-              </div>
+            <div v-if="notice" class="notice-banner">
+              <span class="ms" style="font-size: 18px">info</span>
+              {{ notice }}
+            </div>
 
-              <ErrorBanner v-if="error" :message="error" style="margin-top: 12px" />
+            <div class="field">
+              <div class="field-label">Номер телефона</div>
+              <input v-model="phone" class="input" type="tel" inputmode="tel" autocomplete="tel" placeholder="+996 700 000 000" />
+            </div>
+            <div class="field">
+              <div class="field-label">Имя</div>
+              <input v-model="name" class="input" type="text" autocomplete="name" placeholder="Ваше имя" @keyup.enter="continueRegister" />
+            </div>
 
-              <button class="primary" :disabled="!phoneValid || busy" @click="sendCode">
-                {{ busy ? 'Отправка…' : 'Получить код' }}
-                <span class="ms">arrow_forward</span>
-              </button>
-              <p class="legal">Нажимая «Получить код», вы соглашаетесь с условиями сервиса и политикой конфиденциальности.</p>
-            </template>
+            <ErrorBanner v-if="error" :message="error" style="margin-top: 12px" />
 
-            <!-- STEP: OTP -->
-            <template v-else>
-              <div class="icon-badge"><span class="ms">password</span></div>
-              <h1 class="title">Введите код</h1>
-              <p class="subtitle">Код отправлен в Telegram на <b>{{ phone }}</b>.</p>
+            <button class="primary" :disabled="!phoneValid || !nameValid" @click="continueRegister">
+              Продолжить
+              <span class="ms">arrow_forward</span>
+            </button>
 
-              <input
-                v-model="code"
-                class="code-input"
-                type="text"
-                inputmode="numeric"
-                maxlength="6"
-                placeholder="——————"
-                @keyup.enter="confirm"
-              />
-              <div v-if="devCode" class="dev-hint">Код для разработки: <b>{{ devCode }}</b></div>
-
-              <ErrorBanner v-if="error" :message="error" style="margin-top: 12px" />
-
-              <button class="primary" :disabled="!codeValid || busy" @click="confirm">
-                {{ busy ? 'Проверка…' : 'Подтвердить' }}
-              </button>
-
-              <button class="resend" :disabled="resendIn > 0 || busy" @click="sendCode">
-                <span class="ms" style="font-size: 18px">schedule</span>
-                {{ resendIn > 0 ? `Отправить повторно через 0:${String(resendIn).padStart(2, '0')}` : 'Отправить код повторно' }}
-              </button>
-            </template>
+            <div class="forgot-row">
+              <span class="muted-text">Уже есть аккаунт?</span>
+              <button class="link-btn" @click="goTo('login')">Войти</button>
+            </div>
+            <p class="legal">Нажимая «Продолжить», вы соглашаетесь с условиями сервиса и политикой конфиденциальности.</p>
           </template>
 
-          <!-- Telegram login (shown on entry screens, not while entering the code) -->
-          <template v-if="showTelegram && !(clientMode === 'otp' && step === 'otp')">
-            <div class="or-divider"><span>или войти через</span></div>
+          <!-- REGISTER: STEP 2 — TELEGRAM OR PASSWORD -->
+          <template v-else-if="screen === 'register-method'">
+            <div class="icon-badge"><span class="ms">key</span></div>
+            <h1 class="title">Почти готово</h1>
+            <p class="subtitle">Привяжите Telegram или придумайте пароль для входа.</p>
+
+            <div class="field">
+              <div class="field-label">Пароль</div>
+              <input v-model="password" class="input" type="password" autocomplete="new-password" placeholder="Минимум 6 символов" />
+            </div>
+            <div class="field">
+              <div class="field-label">Повторите пароль</div>
+              <input v-model="password2" class="input" type="password" autocomplete="new-password" placeholder="Ещё раз" @keyup.enter="registerWithPassword" />
+            </div>
+            <div v-if="passwordsMismatch" class="mismatch">Пароли не совпадают</div>
+
+            <ErrorBanner v-if="error" :message="error" style="margin-top: 12px" />
+            <div v-if="errorCode === 'PHONE_TAKEN'" class="forgot-row">
+              <span class="muted-text">Уже есть аккаунт?</span>
+              <button class="link-btn" @click="goTo('login')">Войти</button>
+            </div>
+
+            <button class="primary" :disabled="!passwordPairValid || busy" @click="registerWithPassword">
+              {{ busy ? 'Регистрация…' : 'Зарегистрироваться' }}
+              <span class="ms">arrow_forward</span>
+            </button>
+          </template>
+
+          <!-- FORGOT PASSWORD -->
+          <template v-else-if="screen === 'forgot'">
+            <div class="icon-badge"><span class="ms">lock_reset</span></div>
+            <h1 class="title">Восстановление пароля</h1>
+            <p class="subtitle">Если к аккаунту привязан Telegram, войдите через него и задайте новый пароль.</p>
+
+            <ErrorBanner v-if="error" :message="error" style="margin-top: 12px" />
+          </template>
+
+          <!-- NEW PASSWORD (after Telegram reset) -->
+          <template v-else-if="screen === 'reset-password'">
+            <div class="icon-badge"><span class="ms">password</span></div>
+            <h1 class="title">Новый пароль</h1>
+            <p class="subtitle">Вы вошли через Telegram. Задайте новый пароль для входа по номеру телефона.</p>
+
+            <div class="field">
+              <div class="field-label">Новый пароль</div>
+              <input v-model="password" class="input" type="password" autocomplete="new-password" placeholder="Минимум 6 символов" />
+            </div>
+            <div class="field">
+              <div class="field-label">Повторите пароль</div>
+              <input v-model="password2" class="input" type="password" autocomplete="new-password" placeholder="Ещё раз" @keyup.enter="saveNewPassword" />
+            </div>
+            <div v-if="passwordsMismatch" class="mismatch">Пароли не совпадают</div>
+
+            <ErrorBanner v-if="error" :message="error" style="margin-top: 12px" />
+
+            <button class="primary" :disabled="!passwordPairValid || busy" @click="saveNewPassword">
+              {{ busy ? 'Сохраняем…' : 'Сохранить пароль' }}
+            </button>
+            <button class="secondary" @click="skipNewPassword">Пропустить</button>
+          </template>
+
+          <!-- Telegram deep-link (login / registration / password reset) -->
+          <template v-if="showTelegram && (screen === 'login' || screen === 'register-method' || screen === 'forgot')">
+            <div v-if="screen !== 'forgot'" class="or-divider">
+              <span>{{ screen === 'login' ? 'или войти через' : 'или' }}</span>
+            </div>
             <div v-if="tgWaiting" class="tg-wait">
               <div class="tg-wait-text">Подтвердите вход в открывшемся окне Telegram — оно закроется автоматически.</div>
               <a v-if="tgDeepLink" class="tg-wait-link" :href="tgDeepLink" target="_blank" rel="noopener">
@@ -152,7 +200,10 @@ const {
               </button>
               <button class="tg-cancel" type="button" @click="cancelTelegram">Отмена</button>
             </div>
-            <TelegramLoginButton v-else :busy="busy" @click="telegramLogin" />
+            <TelegramLoginButton v-else :busy="busy" :label="tgButtonLabel" @click="telegramStart" />
+            <p v-if="screen === 'forgot'" class="admin-hint">
+              Нет привязанного Telegram? Обратитесь к администратору, чтобы сбросить пароль.
+            </p>
           </template>
         </template>
 
@@ -209,21 +260,17 @@ const {
 .subtitle { margin: 8px 0 0; font: 500 14px/1.5 'Manrope', sans-serif; color: var(--eg-muted); }
 .field { margin-top: 18px; }
 .field-label { font: 600 12px 'Manrope', sans-serif; color: var(--eg-muted-light); margin-bottom: 6px; }
-.opt { color: #c4c8c0; }
 .input {
   width: 100%; height: 56px; padding: 0 14px; border: 1px solid #e2e5df; border-radius: 14px;
   font: 600 16px 'Manrope', sans-serif; color: var(--eg-ink); outline: none; background: #fff;
   box-sizing: border-box;
 }
 .input:focus { border-color: var(--eg-green); }
-.code-input {
-  width: 100%; height: 64px; margin-top: 26px; text-align: center;
-  font: 800 28px 'Manrope', sans-serif; letter-spacing: 12px; color: var(--eg-ink);
-  border: 2px solid var(--eg-green); border-radius: 16px; outline: none; background: #fff;
-}
-.dev-hint {
-  margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: var(--eg-green-light);
-  color: var(--eg-green-accent); font: 600 13px 'Manrope', sans-serif; text-align: center;
+.mismatch { margin-top: 8px; font: 600 12px 'Manrope', sans-serif; color: #c0392b; }
+.notice-banner {
+  margin-top: 14px; padding: 12px 14px; border-radius: 13px; background: var(--eg-green-light);
+  color: var(--eg-green-accent); font: 600 13px/1.4 'Manrope', sans-serif;
+  display: flex; align-items: flex-start; gap: 8px;
 }
 .primary {
   width: 100%; margin-top: 18px; height: 54px; border: none; border-radius: 15px;
@@ -231,18 +278,16 @@ const {
   display: flex; align-items: center; justify-content: center; gap: 8px;
 }
 .primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.resend {
-  width: 100%; margin-top: 16px; background: none; border: none; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  font: 600 13px 'Manrope', sans-serif; color: var(--eg-muted-light);
+.secondary {
+  width: 100%; margin-top: 12px; height: 48px; border: 1px solid #e2e5df; border-radius: 15px;
+  background: #fff; color: var(--eg-muted); font: 700 14px 'Manrope', sans-serif; cursor: pointer;
 }
-.resend:disabled { cursor: default; }
 .legal { margin: 16px 2px 0; font: 500 12px/1.5 'Manrope', sans-serif; color: var(--eg-muted-light); }
 .forgot-row {
   margin-top: 16px; display: flex; align-items: center; justify-content: center; gap: 6px;
 }
-.forgot-text { font: 500 13px 'Manrope', sans-serif; color: var(--eg-muted-light); }
-.otp-link {
+.muted-text { font: 500 13px 'Manrope', sans-serif; color: var(--eg-muted-light); }
+.link-btn {
   background: none; border: none; cursor: pointer; padding: 0;
   font: 600 13px 'Manrope', sans-serif; color: var(--eg-green); text-decoration: underline;
   text-underline-offset: 2px;
@@ -268,4 +313,5 @@ const {
   background: none; border: none; cursor: pointer;
   font: 600 13px 'Manrope', sans-serif; color: var(--eg-muted-light);
 }
+.admin-hint { margin: 16px 2px 0; font: 500 13px/1.5 'Manrope', sans-serif; color: var(--eg-muted-light); text-align: center; }
 </style>

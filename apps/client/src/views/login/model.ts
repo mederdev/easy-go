@@ -1,10 +1,17 @@
 import { ref, computed, onBeforeUnmount } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ApiError } from '@easygo/api-client';
+import type { ClientTelegramPollResponse } from '@easygo/shared';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 
-/** Phone + OTP login (clients) and phone+password login (drivers). */
+/**
+ * Client auth: phone+password login, registration (phone+name → Telegram or
+ * password), forgot-password (Telegram → new password, else "ask the admin"),
+ * plus the phone+password driver login.
+ */
+export type ClientScreen = 'login' | 'register-info' | 'register-method' | 'forgot' | 'reset-password';
+
 export function useLoginModel() {
   const router = useRouter();
   const route = useRoute();
@@ -28,63 +35,48 @@ export function useLoginModel() {
   const isDev = import.meta.env.DEV;
 
   const mode = ref<'client' | 'driver'>('client');
-  // client sub-mode: password by default, otp as fallback for forgotten password
-  const clientMode = ref<'password' | 'otp'>('password');
-  const step = ref<'phone' | 'otp'>('phone');
+  const screen = ref<ClientScreen>('login');
   const phone = ref('+996 ');
-  const code = ref('');
   const name = ref('');
   const password = ref('');
-  const devCode = ref<string | null>(null);
+  const password2 = ref('');
   const busy = ref(false);
   const error = ref<string | null>(null);
-
-  // Resend cooldown timer (client OTP only)
-  const resendIn = ref(0);
-  let timer: ReturnType<typeof setInterval> | undefined;
-  function startCooldown(seconds: number): void {
-    resendIn.value = seconds;
-    clearInterval(timer);
-    timer = setInterval(() => {
-      resendIn.value -= 1;
-      if (resendIn.value <= 0) clearInterval(timer);
-    }, 1000);
-  }
-  onBeforeUnmount(() => clearInterval(timer));
+  const errorCode = ref<string | null>(null);
+  /** Neutral banner (e.g. «Аккаунт не найден…» after a Telegram login attempt). */
+  const notice = ref<string | null>(null);
 
   const phoneValid = computed(() => phone.value.replace(/\D/g, '').length >= 9);
-  const codeValid = computed(() => code.value.replace(/\D/g, '').length >= 4);
+  const nameValid = computed(() => name.value.trim().length >= 1);
   const passwordValid = computed(() => password.value.length >= 6);
+  const passwordsMismatch = computed(() => password2.value.length > 0 && password2.value !== password.value);
+  const passwordPairValid = computed(() => passwordValid.value && password2.value === password.value);
+
+  function resetFeedback(): void {
+    error.value = null;
+    errorCode.value = null;
+    notice.value = null;
+  }
+
+  function goTo(next: ClientScreen): void {
+    cancelTelegram();
+    resetFeedback();
+    password.value = '';
+    password2.value = '';
+    screen.value = next;
+  }
 
   function switchMode(m: 'client' | 'driver'): void {
+    cancelTelegram();
+    resetFeedback();
     mode.value = m;
-    clientMode.value = 'password';
-    step.value = 'phone';
-    error.value = null;
-    code.value = '';
+    screen.value = 'login';
     password.value = '';
-    devCode.value = null;
-  }
-
-  function switchToOtp(): void {
-    clientMode.value = 'otp';
-    step.value = 'phone';
-    error.value = null;
-    code.value = '';
-    password.value = '';
-    devCode.value = null;
-  }
-
-  function switchToPassword(): void {
-    clientMode.value = 'password';
-    step.value = 'phone';
-    error.value = null;
-    code.value = '';
-    devCode.value = null;
+    password2.value = '';
   }
 
   /**
-   * Top-left back arrow. Within the OTP flow it steps back one screen; at the
+   * Top-left back arrow. Inner screens step back through the flow; at the
    * entry screen it returns to the page we came from (e.g. the booking flow) —
    * but only if that's an in-app page. Vue Router records the previous path in
    * `history.state.back`; when it's absent (login was the first page, or the
@@ -92,13 +84,11 @@ export function useLoginModel() {
    * home instead of router.back(), which would otherwise escape the app.
    */
   function goBack(): void {
-    if (step.value === 'otp') {
-      step.value = 'phone';
-      return;
-    }
-    if (clientMode.value === 'otp') {
-      switchToPassword();
-      return;
+    if (mode.value === 'client' && screen.value !== 'login') {
+      if (screen.value === 'register-method') return goTo('register-info');
+      // reset-password: the user is already authenticated — leaving is a skip.
+      if (screen.value === 'reset-password') return finishLogin();
+      return goTo('login');
     }
     const prev = window.history.state?.back;
     if (typeof prev === 'string' && prev.startsWith('/') && !prev.startsWith('//')) {
@@ -108,12 +98,12 @@ export function useLoginModel() {
     }
   }
 
-  // ── Client password login ──
+  // ── Client: password login ──
 
   async function clientLogin(): Promise<void> {
     if (!phoneValid.value || !passwordValid.value || busy.value) return;
     busy.value = true;
-    error.value = null;
+    resetFeedback();
     try {
       await auth.clientLogin(phone.value, password.value);
       finishLogin();
@@ -124,40 +114,54 @@ export function useLoginModel() {
     }
   }
 
-  // ── Client OTP flow ──
+  // ── Client: registration ──
 
-  async function sendCode(): Promise<void> {
-    if (!phoneValid.value || busy.value) return;
-    busy.value = true;
-    error.value = null;
-    try {
-      const res = await auth.requestOtp(phone.value);
-      devCode.value = res.devCode ?? null;
-      if (res.devCode) code.value = res.devCode;
-      step.value = 'otp';
-      startCooldown(30);
-    } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Не удалось отправить код';
-    } finally {
-      busy.value = false;
-    }
+  function continueRegister(): void {
+    if (!phoneValid.value || !nameValid.value) return;
+    goTo('register-method');
   }
 
-  async function confirm(): Promise<void> {
-    if (!codeValid.value || busy.value) return;
+  async function registerWithPassword(): Promise<void> {
+    if (!passwordPairValid.value || busy.value) return;
     busy.value = true;
-    error.value = null;
+    resetFeedback();
     try {
-      await auth.verify(phone.value, code.value, name.value.trim() || undefined);
+      await auth.register(phone.value, name.value.trim(), password.value);
       finishLogin();
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Неверный код';
+      if (e instanceof ApiError) {
+        error.value = e.message;
+        errorCode.value = e.code;
+      } else {
+        error.value = 'Не удалось зарегистрироваться';
+      }
     } finally {
       busy.value = false;
     }
   }
 
-  // ── Telegram deep-link login ──
+  // ── Client: new password after a Telegram reset ──
+
+  async function saveNewPassword(): Promise<void> {
+    if (!passwordPairValid.value || busy.value) return;
+    busy.value = true;
+    resetFeedback();
+    try {
+      await api.me.setPassword({ password: password.value });
+      finishLogin();
+    } catch (e) {
+      error.value = e instanceof ApiError ? e.message : 'Не удалось сохранить пароль';
+    } finally {
+      busy.value = false;
+    }
+  }
+
+  /** «Пропустить» on the reset screen — the Telegram session is already active. */
+  function skipNewPassword(): void {
+    finishLogin();
+  }
+
+  // ── Telegram deep-link (shared by login / registration / forgot) ──
   // Start → open t.me/<bot>?start=<nonce> → poll until the bot confirms.
 
   const tgWaiting = ref(false);
@@ -168,15 +172,24 @@ export function useLoginModel() {
   // refocus this window) the moment the bot confirms, sparing the user a
   // manual tab switch back to the site.
   let tgPopup: Window | null = null;
+  // Which screen started the flow — decides what a confirmation means.
+  let tgOrigin: ClientScreen = 'login';
 
-  async function telegramLogin(): Promise<void> {
+  const tgButtonLabel = computed(() =>
+    screen.value === 'register-method' ? 'Продолжить с Telegram' : 'Войти через Telegram',
+  );
+
+  async function telegramStart(): Promise<void> {
     if (busy.value) return;
-    error.value = null;
+    resetFeedback();
+    tgOrigin = screen.value;
     // Open the popup synchronously inside the click gesture — opening it after
     // the await below would trip popup blockers.
     tgPopup = window.open('', 'easygo_tg', 'width=520,height=700');
     try {
-      const res = await api.clientAuth.telegramStart();
+      const res = await api.clientAuth.telegramStart(
+        tgOrigin === 'register-method' ? { phone: phone.value, name: name.value.trim() } : undefined,
+      );
       tgNonce.value = res.nonce;
       tgDeepLink.value = res.deepLink;
       tgWaiting.value = true;
@@ -198,17 +211,34 @@ export function useLoginModel() {
       const res = await api.clientAuth.telegramPoll(tgNonce.value);
       if (res.status === 'pending') return;
       cancelTelegram();
-      if (res.status === 'confirmed') {
-        auth.setClientSession(res.token, res.client);
-        finishLogin();
-      } else if (res.status === 'error') {
-        error.value = res.message;
-      } else {
-        error.value = 'Время ожидания истекло, попробуйте ещё раз';
-      }
+      handleTgResult(res);
     } catch {
       // Network hiccup — keep polling until the nonce expires.
     }
+  }
+
+  function handleTgResult(res: Exclude<ClientTelegramPollResponse, { status: 'pending' }>): void {
+    if (res.status === 'confirmed') {
+      auth.setClientSession(res.token, res.client);
+      if (tgOrigin === 'forgot') {
+        password.value = '';
+        password2.value = '';
+        screen.value = 'reset-password';
+      } else {
+        finishLogin();
+      }
+      return;
+    }
+    if (res.status === 'not_registered') {
+      if (tgOrigin === 'forgot') {
+        error.value = 'Аккаунт с таким Telegram не найден. Зарегистрируйтесь или обратитесь к администратору.';
+      } else {
+        screen.value = 'register-info';
+        notice.value = 'Аккаунт не найден — зарегистрируйтесь, это займёт меньше минуты.';
+      }
+      return;
+    }
+    error.value = res.status === 'error' ? res.message : 'Время ожидания истекло, попробуйте ещё раз';
   }
 
   /** Dev-only: confirm the nonce without a real bot (backend dev endpoint). */
@@ -231,14 +261,17 @@ export function useLoginModel() {
     tgNonce.value = null;
   }
 
-  onBeforeUnmount(() => clearInterval(tgPollTimer));
+  onBeforeUnmount(() => {
+    clearInterval(tgPollTimer);
+    tgPopup?.close();
+  });
 
   // ── Driver (password) flow ──
 
   async function driverLogin(): Promise<void> {
     if (!phoneValid.value || !passwordValid.value || busy.value) return;
     busy.value = true;
-    error.value = null;
+    resetFeedback();
     try {
       await auth.driverLogin(phone.value, password.value);
       finishLogin();
@@ -252,31 +285,34 @@ export function useLoginModel() {
   return {
     router,
     mode,
-    clientMode,
-    step,
+    screen,
     phone,
-    code,
     name,
     password,
-    devCode,
+    password2,
     busy,
     error,
-    resendIn,
+    errorCode,
+    notice,
     phoneValid,
-    codeValid,
+    nameValid,
     passwordValid,
+    passwordsMismatch,
+    passwordPairValid,
     switchMode,
-    switchToOtp,
-    switchToPassword,
+    goTo,
     goBack,
     clientLogin,
-    sendCode,
-    confirm,
-    telegramLogin,
+    continueRegister,
+    registerWithPassword,
+    saveNewPassword,
+    skipNewPassword,
+    telegramStart,
     telegramDevConfirm,
     cancelTelegram,
     tgWaiting,
     tgDeepLink,
+    tgButtonLabel,
     driverLogin,
     showTelegram,
     isDev,

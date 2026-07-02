@@ -7,6 +7,8 @@ import { dateLabel, dateTimeLabel, initials } from '@/lib/format';
 
 type ClientDetail = Client & {
   bookings: Array<Booking & { flight?: { route?: { fromCity: string; toCity: string } | null; departAt: string } | null }>;
+  passwordHash?: string | null;
+  passwordRaw?: string | null;
 };
 
 /** Clients directory: paginated list with debounced name/phone search. */
@@ -43,6 +45,42 @@ export function useClientsModel() {
 
   function closeModal(): void {
     modalOpen.value = false;
+    pwOpen.value = false;
+    pwValue.value = '';
+    pwError.value = null;
+    pwSuccess.value = false;
+  }
+
+  // Password form («Забыли пароль» без Telegram решается сбросом здесь)
+  const pwOpen = ref(false);
+  const pwValue = ref('');
+  const pwSaving = ref(false);
+  const pwError = ref<string | null>(null);
+  const pwSuccess = ref(false);
+
+  function openPw(): void {
+    pwOpen.value = true;
+    pwValue.value = '';
+    pwError.value = null;
+    pwSuccess.value = false;
+  }
+
+  async function savePassword(): Promise<void> {
+    if (!modalClient.value || pwValue.value.length < 6 || pwSaving.value) return;
+    pwSaving.value = true;
+    pwError.value = null;
+    pwSuccess.value = false;
+    try {
+      await api.clients.setPassword(modalClient.value.id, { password: pwValue.value });
+      pwSuccess.value = true;
+      pwOpen.value = false;
+      // Re-fetch so the access chip + password reveal reflect the change.
+      await selectClient(modalClient.value.id);
+    } catch (e) {
+      pwError.value = errorMessage(e);
+    } finally {
+      pwSaving.value = false;
+    }
   }
 
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
@@ -119,5 +157,12 @@ export function useClientsModel() {
     modalError,
     selectClient,
     closeModal,
+    pwOpen,
+    pwValue,
+    pwSaving,
+    pwError,
+    pwSuccess,
+    openPw,
+    savePassword,
   };
 }

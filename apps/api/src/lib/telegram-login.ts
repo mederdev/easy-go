@@ -35,16 +35,23 @@ export interface TgNonceRecord {
   /** Russian message shown to the polling frontend when status = 'error'. */
   error?: string;
   tg?: TgUser;
+  /** For 'client-login': registration payload captured at /telegram/start (phone already normalized). */
+  reg?: { phone: string; name: string };
 }
 
 const key = (nonce: string) => `tg:nonce:${nonce}`;
 
 export async function createLoginNonce(
   aud: TgAudience,
-  userId?: string,
+  opts?: { userId?: string; reg?: { phone: string; name: string } },
 ): Promise<{ nonce: string; deepLink: string | null; expiresIn: number }> {
   const nonce = randomBytes(16).toString('hex'); // 32 chars — fits the 64-char /start payload limit
-  const record: TgNonceRecord = { aud, status: 'pending', ...(userId ? { userId } : {}) };
+  const record: TgNonceRecord = {
+    aud,
+    status: 'pending',
+    ...(opts?.userId ? { userId: opts.userId } : {}),
+    ...(opts?.reg ? { reg: opts.reg } : {}),
+  };
   await redis.set(key(nonce), JSON.stringify(record), 'EX', TTL_SECONDS);
   const deepLink = env.TELEGRAM_BOT_USERNAME
     ? `https://t.me/${env.TELEGRAM_BOT_USERNAME}?start=${nonce}`

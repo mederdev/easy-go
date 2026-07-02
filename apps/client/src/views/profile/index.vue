@@ -68,7 +68,7 @@ async function save(): Promise<void> {
         <!-- Avatar -->
         <div class="avatar-row">
           <div class="avatar">{{ initials(name) }}</div>
-          <div class="avatar-sub">{{ phone }}</div>
+          <div class="avatar-sub">{{ phone || 'Номер не указан' }}</div>
         </div>
 
         <!-- Fields -->
@@ -82,7 +82,7 @@ async function save(): Promise<void> {
         <div class="field">
           <div class="field-label">Номер телефона</div>
           <div class="input input--readonly">
-            <span>{{ phone }}</span>
+            <span>{{ phone || 'Номер не указан' }}</span>
             <span class="ms" style="font-size:18px;color:#c4c8c0">lock</span>
           </div>
         </div>

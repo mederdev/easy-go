@@ -2,7 +2,7 @@
 // Plain deep-link button (replaces the Login Widget): the parent starts the
 // t.me/<bot>?start=<nonce> flow and polls for confirmation. Works on any
 // domain and inside the Capacitor shell, where the widget iframe does not.
-defineProps<{ busy?: boolean }>();
+withDefaults(defineProps<{ busy?: boolean; label?: string }>(), { label: 'Войти через Telegram' });
 const emit = defineEmits<{ (e: 'click'): void }>();
 </script>
 
@@ -10,7 +10,7 @@ const emit = defineEmits<{ (e: 'click'): void }>();
   <div class="tg-login">
     <button class="tg-btn" type="button" :disabled="busy" @click="emit('click')">
       <span class="ms">send</span>
-      Войти через Telegram
+      {{ label }}
     </button>
   </div>
 </template>

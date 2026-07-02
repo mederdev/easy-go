@@ -31,13 +31,11 @@ import type {
   LoginInput,
   ClientAuthResponse,
   ClientLoginInput,
+  ClientRegisterInput,
+  ClientTelegramStartInput,
   SetClientPasswordInput,
   MyBookingsQuery,
-  OtpRequestInput,
-  OtpRequestResponse,
-  OtpVerifyInput,
   TelegramLinkPollResponse,
-  TelegramLoginInput,
   TelegramStartResponse,
   Paginated,
   PartnerApplication,
@@ -135,9 +133,6 @@ export function createApiClient(opts: ApiClientOptions) {
     auth: {
       login: (input: LoginInput) => request<AuthResponse>('POST', '/auth/login', input),
       me: () => request<AuthUser>('GET', '/auth/me'),
-      // Back-office phone+OTP (the user must already exist).
-      requestOtp: (input: OtpRequestInput) => request<OtpRequestResponse>('POST', '/auth/request-otp', input),
-      verifyOtp: (input: OtpVerifyInput) => request<AuthResponse>('POST', '/auth/verify-otp', input),
       // Telegram deep-link login + account linking.
       telegramStart: () => request<TelegramStartResponse>('POST', '/auth/telegram/start'),
       telegramPoll: (nonce: string) => request<AdminTelegramPollResponse>('POST', '/auth/telegram/poll', { nonce }),
@@ -148,13 +143,13 @@ export function createApiClient(opts: ApiClientOptions) {
       telegramDevConfirm: (nonce: string) => request<{ ok: true }>('POST', '/auth/telegram/dev-confirm', { nonce }),
     },
 
-    // Customer phone+OTP auth.
+    // Customer auth: phone+password or Telegram deep-link.
     clientAuth: {
-      requestOtp: (input: OtpRequestInput) => request<OtpRequestResponse>('POST', '/client-auth/request-otp', input),
-      verify: (input: OtpVerifyInput) => request<ClientAuthResponse>('POST', '/client-auth/verify', input),
+      register: (input: ClientRegisterInput) => request<ClientAuthResponse>('POST', '/client-auth/register', input),
       login: (input: ClientLoginInput) => request<ClientAuthResponse>('POST', '/client-auth/login', input),
-      telegram: (input: TelegramLoginInput) => request<ClientAuthResponse>('POST', '/client-auth/telegram', input),
-      telegramStart: () => request<TelegramStartResponse>('POST', '/client-auth/telegram/start'),
+      /** Pass phone+name to register the confirmed Telegram identity with them. */
+      telegramStart: (input?: ClientTelegramStartInput) =>
+        request<TelegramStartResponse>('POST', '/client-auth/telegram/start', input),
       telegramPoll: (nonce: string) => request<ClientTelegramPollResponse>('POST', '/client-auth/telegram/poll', { nonce }),
     },
 
@@ -213,6 +208,7 @@ export function createApiClient(opts: ApiClientOptions) {
     clients: {
       list: (query?: ListClientsQuery) => request<Paginated<Client>>('GET', '/clients', undefined, { query: query as unknown as Query }),
       get: (id: string) => request<Client>('GET', `/clients/${id}`),
+      setPassword: (id: string, input: SetClientPasswordInput) => request<null>('POST', `/clients/${id}/set-password`, input),
     },
 
     drivers: {

@@ -15,18 +15,12 @@ const EnvSchema = z.object({
   JWT_SECRET: z.string().min(8, 'JWT_SECRET must be at least 8 chars'),
   JWT_EXPIRES_IN: z.string().default('7d'),
 
-  // Telegram bot (deep-link login on both domains, OTP delivery to linked
-  // accounts, booking notifications; also verifies legacy Login Widget hashes).
-  // Both optional — without a token the bot poller doesn't start and all
-  // Telegram sends are console-mocked, so every flow is testable locally.
+  // Telegram bot (deep-link login/registration on both domains, booking
+  // notifications). Both optional — without a token the bot poller doesn't
+  // start and all Telegram sends are console-mocked, so every flow is
+  // testable locally.
   TELEGRAM_BOT_TOKEN: z.string().optional(),
   TELEGRAM_BOT_USERNAME: z.string().optional(),
-
-  // Nikita KG SMS gateway (smspro.nikita.kg) — OTP fallback for +996 numbers
-  // without a linked Telegram. Optional: unset → dev mock / prod error.
-  NIKITA_LOGIN: z.string().optional(),
-  NIKITA_PASSWORD: z.string().optional(),
-  NIKITA_SENDER: z.string().optional(),
 
   CORS_ORIGINS: z.string().default('http://localhost:5173,http://localhost:5174,http://localhost:8100'),
 

@@ -2,6 +2,7 @@ import type { MyBookingsQuery, UpdateMyProfileInput } from '@easygo/shared';
 import { prisma } from '../../lib/prisma.js';
 import { Errors } from '../../lib/errors.js';
 import { setBookingStatus } from '../bookings/service.js';
+import { toClientView } from '../client-auth/service.js';
 
 const bookingInclude = {
   flight: { include: { route: true, car: { include: { driver: true } } } },
@@ -10,7 +11,7 @@ const bookingInclude = {
 export async function getProfile(clientId: string) {
   const client = await prisma.client.findUnique({ where: { id: clientId } });
   if (!client) throw Errors.notFound('Клиент');
-  return client;
+  return toClientView(client);
 }
 
 export async function myBookings(clientId: string, q: MyBookingsQuery) {
@@ -63,8 +64,10 @@ export async function cancelMyBooking(clientId: string, id: string) {
 
 export async function updateMyProfile(clientId: string, input: UpdateMyProfileInput) {
   await getProfile(clientId);
-  return prisma.client.update({
-    where: { id: clientId },
-    data: { name: input.name, whatsapp: input.whatsapp },
-  });
+  return toClientView(
+    await prisma.client.update({
+      where: { id: clientId },
+      data: { name: input.name, whatsapp: input.whatsapp },
+    }),
+  );
 }

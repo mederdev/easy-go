@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { Client, DriverProfile, TelegramLoginInput } from '@easygo/shared';
+import type { Client, DriverProfile } from '@easygo/shared';
 import { api, driverApi, TOKEN_KEY, DRIVER_KEY } from '../lib/api.js';
 
 export const useAuthStore = defineStore('auth', () => {
@@ -27,30 +27,17 @@ export const useAuthStore = defineStore('auth', () => {
     else localStorage.removeItem(DRIVER_KEY);
   }
 
-  /** Step 1 — request an OTP for a phone (dev returns the code). */
-  function requestOtp(phone: string) {
-    return api.clientAuth.requestOtp({ phone });
-  }
-
-  /** Step 2 — verify the code, store the token + profile. */
-  async function verify(phone: string, code: string, name?: string): Promise<Client> {
-    const res = await api.clientAuth.verify({ phone, code, name });
+  /** Register with phone + name + password, store the token + profile. */
+  async function register(phone: string, name: string, password: string): Promise<Client> {
+    const res = await api.clientAuth.register({ phone, name, password });
     setToken(res.token);
     client.value = res.client;
     return res.client;
   }
 
-  /** Client login with phone + password (after password has been set). */
+  /** Client login with phone + password. */
   async function clientLogin(phone: string, password: string): Promise<Client> {
     const res = await api.clientAuth.login({ phone, password });
-    setToken(res.token);
-    client.value = res.client;
-    return res.client;
-  }
-
-  /** Login via the Telegram Login Widget payload (creates the client on first login). */
-  async function telegramLogin(payload: TelegramLoginInput): Promise<Client> {
-    const res = await api.clientAuth.telegram(payload);
     setToken(res.token);
     client.value = res.client;
     return res.client;
@@ -124,10 +111,8 @@ export const useAuthStore = defineStore('auth', () => {
     driver,
     isAuthenticated,
     isDriver,
-    requestOtp,
-    verify,
+    register,
     clientLogin,
-    telegramLogin,
     setClientSession,
     driverLogin,
     fetchMe,

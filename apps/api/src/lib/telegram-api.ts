@@ -3,7 +3,7 @@ import { env } from '../env.js';
 /**
  * Minimal Telegram Bot API client (no SDK dependency — we only need a handful
  * of methods: getUpdates / sendMessage / deleteWebhook). Used by the deep-link
- * login bot, OTP delivery to linked accounts, and booking notifications.
+ * login bot and booking notifications.
  */
 
 export function isBotConfigured(): boolean {
@@ -44,7 +44,7 @@ export async function botApi<T>(
 
 /**
  * Send an HTML-formatted message. Without a configured bot the message is
- * console-logged instead (mirrors the OTP mock), so dev flows stay observable.
+ * console-logged instead, so dev flows stay observable.
  */
 export async function sendTelegramMessage(chatId: string | number, html: string): Promise<void> {
   if (!isBotConfigured()) {

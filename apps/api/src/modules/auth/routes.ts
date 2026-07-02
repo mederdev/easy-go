@@ -1,8 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import {
   LoginInput,
-  OtpRequestInput,
-  OtpVerifyInput,
   TelegramPollInput,
   type AdminTelegramPollResponse,
   type AuthResponse,
@@ -15,15 +13,7 @@ import { parse } from '../../lib/validate.js';
 import { confirmLoginNonce, createLoginNonce, peekLoginNonce } from '../../lib/telegram-login.js';
 import { Errors } from '../../lib/errors.js';
 import { isProd } from '../../env.js';
-import {
-  getMe,
-  login,
-  pollAdminTelegramLogin,
-  pollTelegramLink,
-  requestUserOtp,
-  unlinkTelegram,
-  verifyUserOtp,
-} from './service.js';
+import { getMe, login, pollAdminTelegramLogin, pollTelegramLink, unlinkTelegram } from './service.js';
 
 const routes: FastifyPluginAsync = async (app) => {
   const signFor = (user: AuthUser): string => {
@@ -39,19 +29,6 @@ const routes: FastifyPluginAsync = async (app) => {
 
   app.get('/me', { preHandler: [app.authenticate] }, async (request): Promise<AuthResponse['user']> => {
     return getMe(request.auth!.sub);
-  });
-
-  // ── Phone + OTP (staff must already exist) ──
-
-  app.post('/request-otp', async (request) => {
-    const { phone } = parse(OtpRequestInput, request.body);
-    return requestUserOtp(phone);
-  });
-
-  app.post('/verify-otp', async (request): Promise<AuthResponse> => {
-    const input = parse(OtpVerifyInput, request.body);
-    const user = await verifyUserOtp(input);
-    return { token: signFor(user), user };
   });
 
   // ── Telegram deep-link login ──
@@ -70,7 +47,7 @@ const routes: FastifyPluginAsync = async (app) => {
   // ── Linking the current user's Telegram (from admin settings) ──
 
   app.post('/telegram/link/start', { preHandler: [app.authenticate] }, async (request): Promise<TelegramStartResponse> => {
-    return createLoginNonce('admin-link', request.auth!.sub);
+    return createLoginNonce('admin-link', { userId: request.auth!.sub });
   });
 
   app.post('/telegram/link/poll', { preHandler: [app.authenticate] }, async (request): Promise<TelegramLinkPollResponse> => {
@@ -83,7 +60,7 @@ const routes: FastifyPluginAsync = async (app) => {
   });
 
   // Dev-only: confirm any nonce without a real bot (both frontends use this to
-  // exercise the deep-link flows locally — mirrors the OTP devCode stub).
+  // exercise the deep-link flows locally).
   if (!isProd) {
     app.post('/telegram/dev-confirm', async (request) => {
       const { nonce } = parse(TelegramPollInput, request.body);

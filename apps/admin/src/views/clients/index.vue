@@ -3,7 +3,10 @@ import StateBlock from '@/components/StateBlock.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import AppModal from '@/components/AppModal.vue';
 import StatusChip from '@/components/StatusChip.vue';
+import { useAuthStore } from '@/stores/auth';
 import { useClientsModel } from './model';
+
+const auth = useAuthStore();
 
 const {
   loading,
@@ -28,6 +31,13 @@ const {
   modalError,
   selectClient,
   closeModal,
+  pwOpen,
+  pwValue,
+  pwSaving,
+  pwError,
+  pwSuccess,
+  openPw,
+  savePassword,
 } = useClientsModel();
 </script>
 
@@ -161,6 +171,40 @@ const {
               <span class="material-symbols-outlined">{{ modalClient.whatsapp ? 'check_circle' : 'cancel' }}</span>
             </span>
           </div>
+        </div>
+
+        <!-- Доступ к приложению: сброс пароля клиента (admin/owner) -->
+        <div v-if="auth.isAdmin" class="access-section">
+          <div class="access-head">
+            <div class="access-left">
+              <span class="section-title" style="margin-bottom: 0">Доступ к приложению</span>
+              <span class="access-chip" :class="modalClient.passwordHash ? 'access--on' : 'access--off'">
+                {{ modalClient.passwordHash ? 'Пароль задан' : 'Нет пароля' }}
+              </span>
+            </div>
+            <button class="btn-outline" type="button" @click="openPw">
+              <span class="material-symbols-outlined">key</span>
+              {{ modalClient.passwordHash ? 'Изменить пароль' : 'Задать пароль' }}
+            </button>
+          </div>
+          <div v-if="modalClient.passwordRaw" class="pw-reveal-row">
+            <span class="pw-reveal-label">Выданный пароль</span>
+            <span class="pw-reveal">{{ modalClient.passwordRaw }}</span>
+          </div>
+          <div v-if="pwOpen" class="pw-form">
+            <input
+              v-model="pwValue"
+              class="pw-input"
+              type="password"
+              placeholder="Новый пароль (мин. 6 символов)"
+              autocomplete="new-password"
+            />
+            <div v-if="pwError" class="pw-error">{{ pwError }}</div>
+            <button class="btn-primary" :disabled="pwValue.length < 6 || pwSaving" type="button" @click="savePassword">
+              {{ pwSaving ? 'Сохраняем…' : 'Сохранить пароль' }}
+            </button>
+          </div>
+          <div v-if="pwSuccess" class="pw-ok">Пароль успешно сохранён</div>
         </div>
 
         <div class="section-title">История поездок</div>
@@ -357,6 +401,55 @@ const {
   letter-spacing: 0.04em;
   margin-bottom: 10px;
 }
+/* Доступ к приложению (сброс пароля) — same look as the drivers modal. */
+.access-section {
+  border: 1px solid var(--eg-line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 22px;
+}
+.access-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.access-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.access-chip {
+  display: inline-block; padding: 3px 10px; border-radius: 20px; font: 700 11px var(--eg-font);
+}
+.access--on { background: #EEF6E6; color: #3E7C12; }
+.access--off { background: #FFF3E5; color: #B05000; }
+.btn-outline {
+  display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px;
+  border: 1px solid var(--eg-border); border-radius: 10px; background: #fff;
+  font: 700 13px var(--eg-font); cursor: pointer; color: var(--eg-ink);
+}
+.btn-outline .material-symbols-outlined { font-size: 18px; }
+.pw-reveal-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.pw-reveal-label { font: 600 12px var(--eg-font); color: var(--eg-hint); }
+.pw-reveal {
+  font: 700 14px var(--eg-font); letter-spacing: .04em;
+  background: #f5f6f3; border: 1px solid #e2e5df; border-radius: 8px;
+  padding: 4px 10px; color: var(--eg-ink); font-family: monospace;
+}
+.pw-form { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.pw-input {
+  height: 44px; padding: 0 12px; border: 1px solid #e2e5df; border-radius: 11px;
+  font: 500 14px var(--eg-font); outline: none;
+}
+.pw-input:focus { border-color: var(--eg-brand); }
+.pw-error { font: 500 12px var(--eg-font); color: #C0492E; }
+.pw-ok { margin-top: 10px; font: 500 12px var(--eg-font); color: #3E7C12; }
+.btn-primary {
+  height: 42px; border: none; border-radius: 11px; background: var(--eg-brand);
+  color: #fff; font: 700 14px var(--eg-font); cursor: pointer;
+}
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .no-bookings {
   display: flex;
   align-items: center;

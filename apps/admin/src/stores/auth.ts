@@ -56,7 +56,7 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    /** Adopt a session from any login flow (password / OTP / Telegram). */
+    /** Adopt a session from any login flow (password / Telegram). */
     setSession(res: AuthResponse): void {
       this.token = res.token;
       this.user = res.user;

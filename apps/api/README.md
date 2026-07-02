@@ -20,14 +20,27 @@ Public (no auth) — used by the client app:
 | POST   | `/applications/drivers`    | Driver application                   |
 | POST   | `/applications/partners`   | Partner application                  |
 
+Customer auth (`/client-auth`) + self-service (`/me`, client JWT):
+
+| Method | Path                          | Purpose                                    |
+|--------|-------------------------------|--------------------------------------------|
+| POST   | `/client-auth/register`       | Register: phone + name + password          |
+| POST   | `/client-auth/login`          | Login: phone + password                    |
+| POST   | `/client-auth/telegram/start` | Telegram deep-link nonce (body = register) |
+| POST   | `/client-auth/telegram/poll`  | Poll nonce → JWT / `not_registered`        |
+| GET/PATCH | `/me`                      | Profile (name, whatsapp)                   |
+| PATCH  | `/me/password`                | Set/change own password (hash-only)        |
+| GET    | `/me/bookings`, `/me/custom-requests` | Own bookings / requests            |
+
 Authenticated (JWT) — admin CRM. Roles: `operator` < `admin` < `owner`.
 
-- `POST /auth/login`, `GET /auth/me`
+- `POST /auth/login`, `GET /auth/me`, `POST /auth/telegram/{start,poll}`,
+  `POST /auth/telegram/link/{start,poll}`, `DELETE /auth/telegram/link`
 - `GET/POST/PATCH/DELETE /routes`
 - `GET/POST/PATCH /flights`
 - `GET /bookings`, `POST /bookings/admin`, `PATCH /bookings/:id/status`
-- `GET/POST/PATCH /clients`
-- `GET/POST/PATCH /drivers`
+- `GET/POST/PATCH /clients`, `POST /clients/:id/set-password` (admin/owner)
+- `GET/POST/PATCH /drivers`, `POST /drivers/:id/set-password` (admin/owner)
 - `GET/POST/PATCH /fleet`, `PATCH /fleet/:id/location`
 - `GET /applications/{drivers,partners}`, `PATCH .../:id/status`
 - `GET /analytics/dashboard`, `GET /analytics/series`

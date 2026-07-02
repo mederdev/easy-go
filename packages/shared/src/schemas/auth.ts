@@ -53,25 +53,13 @@ export type DriverJwtClaims = z.infer<typeof DriverJwtClaims>;
 export const JwtClaims = z.discriminatedUnion('kind', [UserJwtClaims, ClientJwtClaims, DriverJwtClaims]);
 export type JwtClaims = z.infer<typeof JwtClaims>;
 
-// ── Customer phone + OTP auth ──
-export const OtpRequestInput = z.object({ phone: Phone });
-export type OtpRequestInput = z.infer<typeof OtpRequestInput>;
-
-export const OtpRequestResponse = z.object({
-  ok: z.literal(true),
-  expiresIn: z.number().int(),
-  /** Only present outside production — lets the dev UI auto-fill the code. */
-  devCode: z.string().optional(),
-});
-export type OtpRequestResponse = z.infer<typeof OtpRequestResponse>;
-
-export const OtpVerifyInput = z.object({
+// ── Customer registration (phone + name, then password or Telegram) ──
+export const ClientRegisterInput = z.object({
   phone: Phone,
-  code: z.string().min(4).max(8),
-  /** Optional display name captured on first login. */
-  name: z.string().min(1).max(120).optional(),
+  name: z.string().min(1).max(120),
+  password: z.string().min(6).max(100),
 });
-export type OtpVerifyInput = z.infer<typeof OtpVerifyInput>;
+export type ClientRegisterInput = z.infer<typeof ClientRegisterInput>;
 
 export const ClientAuthResponse = z.object({
   token: z.string(),
@@ -86,26 +74,21 @@ export const ClientLoginInput = z.object({
 });
 export type ClientLoginInput = z.infer<typeof ClientLoginInput>;
 
-/**
- * Telegram Login Widget payload (https://core.telegram.org/widgets/login).
- * The widget never returns a phone — the customer is created without one and
- * asked for a number later (at booking). Verified server-side via the `hash`.
- */
-export const TelegramLoginInput = z.object({
-  id: z.number().int(),
-  first_name: z.string(),
-  last_name: z.string().optional(),
-  username: z.string().optional(),
-  photo_url: z.string().url().optional(),
-  auth_date: z.number().int(),
-  hash: z.string(),
-});
-export type TelegramLoginInput = z.infer<typeof TelegramLoginInput>;
-
 // ── Telegram deep-link login (t.me/<bot>?start=<nonce>) ──
-// Domain-independent (unlike the Login Widget): one bot serves both the client
-// site and the admin CRM. The API issues a one-time nonce, the user confirms it
-// in the bot chat, and the frontend polls until the nonce is confirmed.
+// Domain-independent: one bot serves both the client site and the admin CRM.
+// The API issues a one-time nonce, the user confirms it in the bot chat, and
+// the frontend polls until the nonce is confirmed.
+
+/**
+ * Optional body of POST /client-auth/telegram/start. Presence means
+ * registration: the confirmed Telegram identity is registered with this
+ * phone + name (the TG profile name may be hidden, so we never rely on it).
+ */
+export const ClientTelegramStartInput = z.object({
+  phone: Phone,
+  name: z.string().min(1).max(120),
+});
+export type ClientTelegramStartInput = z.infer<typeof ClientTelegramStartInput>;
 
 export const TelegramStartResponse = z.object({
   nonce: z.string(),
@@ -129,6 +112,8 @@ export type AdminTelegramPollResponse = z.infer<typeof AdminTelegramPollResponse
 export const ClientTelegramPollResponse = z.discriminatedUnion('status', [
   z.object({ status: z.literal('pending') }),
   z.object({ status: z.literal('confirmed'), token: z.string(), client: Client }),
+  /** Login-only nonce (no registration payload) whose Telegram is unknown. */
+  z.object({ status: z.literal('not_registered') }),
   z.object({ status: z.literal('error'), message: z.string() }),
   z.object({ status: z.literal('expired') }),
 ]);

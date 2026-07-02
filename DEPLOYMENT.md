@@ -230,9 +230,6 @@ deep-link flow (`t.me/<bot>?start=…`) is domain-independent, so **no
    Telegram» (needed for bot login and personal booking notifications).
 3. Add the bot to the ops group chat — it captures the chat id automatically
    and writes it to Настройки → «Уведомления в Telegram».
-4. OTP codes: numbers with a linked Telegram get the code from the bot for
-   free; other +996 numbers fall back to SMS via
-   [smspro.nikita.kg](https://smspro.nikita.kg) (`NIKITA_LOGIN` /
-   `NIKITA_PASSWORD` / `NIKITA_SENDER`). Without Nikita credentials such users
-   are asked to log in via the bot instead. KZ/UZ SMS providers can be added
-   later behind the same seam (`apps/api/src/lib/otp-sender.ts`).
+4. Customer auth needs no SMS provider: registration/login is phone+password
+   or the Telegram deep-link; forgotten passwords are reset via Telegram or
+   by an admin (карточка клиента → «Пароль для входа»).

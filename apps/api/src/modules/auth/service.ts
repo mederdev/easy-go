@@ -1,12 +1,10 @@
 import bcrypt from 'bcryptjs';
 import type { User } from '@prisma/client';
-import type { AuthUser, LoginInput, OtpRequestResponse } from '@easygo/shared';
+import type { AuthUser, LoginInput } from '@easygo/shared';
 import { prisma } from '../../lib/prisma.js';
-import { AppError, Errors } from '../../lib/errors.js';
+import { Errors } from '../../lib/errors.js';
 import { normalizePhone } from '../../lib/phone.js';
-import { issueOtp, verifyOtp } from '../../lib/otp.js';
 import { consumeLoginNonce, peekLoginNonce, type TgAudience } from '../../lib/telegram-login.js';
-import { isProd } from '../../env.js';
 
 function toAuthUser(user: User): AuthUser {
   return {
@@ -38,24 +36,6 @@ export async function getMe(userId: string): Promise<AuthUser> {
 
 export async function hashPassword(plain: string): Promise<string> {
   return bcrypt.hash(plain, 10);
-}
-
-// ── Phone + OTP (staff must pre-exist — never upserted, unlike customers) ──
-
-export async function requestUserOtp(rawPhone: string): Promise<OtpRequestResponse> {
-  const phone = normalizePhone(rawPhone);
-  const user = await prisma.user.findUnique({ where: { phone } });
-  if (!user) throw new AppError(404, 'USER_NOT_FOUND', 'Сотрудник с таким номером не найден');
-  const { code, expiresIn } = await issueOtp(phone);
-  return { ok: true as const, expiresIn, ...(isProd ? {} : { devCode: code }) };
-}
-
-export async function verifyUserOtp(input: { phone: string; code: string }): Promise<AuthUser> {
-  const phone = normalizePhone(input.phone);
-  await verifyOtp(phone, input.code);
-  const user = await prisma.user.findUnique({ where: { phone } });
-  if (!user) throw Errors.unauthorized('Сотрудник с таким номером не найден');
-  return toAuthUser(user);
 }
 
 // ── Telegram deep-link login / account linking ──

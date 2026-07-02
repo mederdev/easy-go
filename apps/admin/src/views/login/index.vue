@@ -2,18 +2,11 @@
 import { useLoginModel } from './model';
 
 const {
-  mode,
-  setMode,
   phone,
   password,
   loading,
   error,
   submit,
-  otpSent,
-  code,
-  cooldown,
-  requestOtp,
-  verifyOtp,
   tgWaiting,
   tgDeepLink,
   telegramLogin,
@@ -47,16 +40,7 @@ const {
       </div>
 
       <template v-else>
-        <div class="tabs">
-          <button type="button" :class="['tab', { active: mode === 'password' }]" @click="setMode('password')">
-            Пароль
-          </button>
-          <button type="button" :class="['tab', { active: mode === 'otp' }]" @click="setMode('otp')">
-            Код входа
-          </button>
-        </div>
-
-        <form v-if="mode === 'password'" class="form" @submit.prevent="submit">
+        <form class="form" @submit.prevent="submit">
           <label class="field">
             <span class="label">Телефон</span>
             <input
@@ -82,42 +66,6 @@ const {
           <button class="submit" type="submit" :disabled="loading">
             <span v-if="loading" class="spinner" />
             <span v-else>Войти</span>
-          </button>
-        </form>
-
-        <form v-else class="form" @submit.prevent="otpSent ? verifyOtp() : requestOtp()">
-          <label class="field">
-            <span class="label">Телефон</span>
-            <input
-              v-model="phone"
-              type="tel"
-              inputmode="tel"
-              placeholder="+996 700 00 00 01"
-              autocomplete="username"
-            />
-          </label>
-          <div class="hint-inline">Мы отправим код в Telegram на этот номер</div>
-
-          <label v-if="otpSent" class="field">
-            <span class="label">Код из Telegram</span>
-            <input v-model="code" inputmode="numeric" placeholder="000000" autocomplete="one-time-code" />
-          </label>
-
-          <div v-if="error" class="error">{{ error }}</div>
-
-          <button class="submit" type="submit" :disabled="loading">
-            <span v-if="loading" class="spinner" />
-            <span v-else>{{ otpSent ? 'Войти' : 'Получить код' }}</span>
-          </button>
-
-          <button
-            v-if="otpSent"
-            type="button"
-            class="ghost"
-            :disabled="cooldown > 0"
-            @click="requestOtp"
-          >
-            {{ cooldown > 0 ? `Отправить снова через ${cooldown} с` : 'Отправить код ещё раз' }}
           </button>
         </form>
 
@@ -170,31 +118,8 @@ const {
   color: var(--eg-hint);
   margin-top: 2px;
 }
-.tabs {
-  margin-top: 20px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  background: #f1f3ee;
-  border-radius: 12px;
-  padding: 4px;
-}
-.tab {
-  height: 38px;
-  border: none;
-  border-radius: 9px;
-  background: transparent;
-  font: 700 13px var(--eg-font);
-  color: var(--eg-hint);
-  cursor: pointer;
-}
-.tab.active {
-  background: #fff;
-  color: var(--eg-ink, #16181c);
-  box-shadow: 0 2px 8px -4px rgba(20, 30, 10, 0.25);
-}
 .form {
-  margin-top: 18px;
+  margin-top: 20px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -218,11 +143,6 @@ input {
 }
 input:focus {
   border-color: var(--eg-brand);
-}
-.hint-inline {
-  font: 500 12px var(--eg-font);
-  color: var(--eg-hint);
-  margin-top: -8px;
 }
 .error {
   background: #fbedea;

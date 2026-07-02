@@ -47,6 +47,7 @@ const {
   markBookingPaid,
   markFlightPaid,
   menuOpen,
+  menuWrapEl,
   toggleMenu,
   closeMenu,
 } = useCabinetModel();
@@ -61,7 +62,7 @@ const {
       <div v-if="!auth.isAuthenticated" class="guest">
         <div class="guest-icon"><span class="ms">account_circle</span></div>
         <h1 class="guest-title">Войдите в кабинет</h1>
-        <p class="guest-text">Авторизуйтесь по номеру телефона, чтобы видеть свои поездки, статусы броней и оформлять заявки в один тап.</p>
+        <p class="guest-text">Войдите или зарегистрируйтесь, чтобы видеть свои поездки, статусы броней и оформлять заявки в один тап.</p>
         <button class="primary" @click="router.push('/login')"><span class="ms">login</span>Войти</button>
         <div class="perks">
           <div class="perk"><span class="ms perk-ic">history</span>История и статусы всех поездок</div>
@@ -266,12 +267,12 @@ const {
           </div>
 
           <!-- Menu button + dropdown -->
-          <div class="menu-wrap">
+          <div ref="menuWrapEl" class="menu-wrap">
             <button class="menu-btn" @click.stop="toggleMenu">
               <span class="ms">more_vert</span>
             </button>
             <Transition name="drop">
-              <div v-if="menuOpen" class="dropdown" v-click-outside="closeMenu">
+              <div v-if="menuOpen" class="dropdown">
                 <button class="dd-item" @click="closeMenu(); router.push('/profile')">
                   <span class="ms dd-ic">manage_accounts</span>
                   Изменить профиль
@@ -354,9 +355,6 @@ const {
 
       <div style="height: 40px"></div>
       </div>
-
-      <!-- Close menu on backdrop tap -->
-      <div v-if="menuOpen" class="menu-backdrop" @click="closeMenu" />
     </IonContent>
   </IonPage>
 </template>
@@ -425,9 +423,6 @@ const {
   width: 38px; height: 38px; border-radius: 11px; border: 1px solid #e2e5df;
   background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 22px;
   color: var(--eg-ink);
-}
-.menu-backdrop {
-  position: fixed; inset: 0; z-index: 49;
 }
 .dropdown {
   position: absolute; top: calc(100% + 8px); right: 0; z-index: 50;

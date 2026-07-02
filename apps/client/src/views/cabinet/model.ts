@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import type { Booking, CustomRequest, DriverFlightView, PaymentStatus } from '@easygo/shared';
 import { APPLICATION_STATUS_LABEL, BOOKING_STATUS_LABEL, CAR_TYPE_LABEL, FLIGHT_STATUS_LABEL, PAYMENT_STATUS_LABEL, formatMoney } from '@easygo/shared';
@@ -237,9 +237,23 @@ export function useCabinetModel() {
   };
 
   // ── Profile dropdown menu ──
+  // Closed by a document-level listener instead of a fixed backdrop: on
+  // desktop `.pg` is transformed (centering), which traps the dropdown's
+  // z-index inside that stacking context — a sibling backdrop would paint
+  // above the menu and swallow its clicks.
   const menuOpen = ref(false);
+  const menuWrapEl = ref<HTMLElement | null>(null);
   function toggleMenu(): void { menuOpen.value = !menuOpen.value; }
   function closeMenu(): void { menuOpen.value = false; }
+
+  function onDocClick(e: MouseEvent): void {
+    if (!menuWrapEl.value?.contains(e.target as Node)) closeMenu();
+  }
+  watch(menuOpen, (open) => {
+    if (open) document.addEventListener('click', onDocClick, true);
+    else document.removeEventListener('click', onDocClick, true);
+  });
+  onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true));
 
   function logout(): void {
     auth.logout();
@@ -302,6 +316,7 @@ export function useCabinetModel() {
     markFlightPaid,
     // Menu
     menuOpen,
+    menuWrapEl,
     toggleMenu,
     closeMenu,
   };

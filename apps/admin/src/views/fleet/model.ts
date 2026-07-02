@@ -92,7 +92,7 @@ export function useFleetModel() {
       } else {
         await api.fleet.create(payload);
       }
-      form.open.value = false;
+      form.close(); // also clears the ?create=1 CTA flag from the URL
       await load();
     });
   }

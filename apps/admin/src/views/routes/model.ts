@@ -88,7 +88,7 @@ export function useRoutesModel() {
       } else {
         await api.routes.create(payload);
       }
-      form.open.value = false;
+      form.close(); // also clears the ?create=1 CTA flag from the URL
       await load();
     });
   }

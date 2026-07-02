@@ -1,5 +1,5 @@
 import { ref, computed, onBeforeUnmount } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { ApiError } from '@easygo/api-client';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
@@ -7,7 +7,19 @@ import { useAuthStore } from '@/stores/auth';
 /** Phone + OTP login (clients) and phone+password login (drivers). */
 export function useLoginModel() {
   const router = useRouter();
+  const route = useRoute();
   const auth = useAuthStore();
+
+  /**
+   * After a successful login, return to the action the guest was trying to do
+   * (the `redirect` query set by the auth guard / gated CTAs), else go home.
+   * Only same-origin paths are honoured — guards against open redirects.
+   */
+  function finishLogin(): void {
+    const r = route.query.redirect;
+    const target = typeof r === 'string' && r.startsWith('/') && !r.startsWith('//') ? r : '/tabs/home';
+    router.replace(target);
+  }
 
   // The API builds the t.me deep link from its own bot username, so the client
   // no longer needs the build-time VITE_TELEGRAM_BOT_USERNAME — always offer
@@ -73,8 +85,11 @@ export function useLoginModel() {
 
   /**
    * Top-left back arrow. Within the OTP flow it steps back one screen; at the
-   * entry screen it returns to the app (home) rather than router.back() — the
-   * latter could escape into unrelated browser history (e.g. the admin panel).
+   * entry screen it returns to the page we came from (e.g. the booking flow) —
+   * but only if that's an in-app page. Vue Router records the previous path in
+   * `history.state.back`; when it's absent (login was the first page, or the
+   * user arrived from an unrelated origin like the admin panel) we fall back to
+   * home instead of router.back(), which would otherwise escape the app.
    */
   function goBack(): void {
     if (step.value === 'otp') {
@@ -85,7 +100,12 @@ export function useLoginModel() {
       switchToPassword();
       return;
     }
-    router.replace('/tabs/home');
+    const prev = window.history.state?.back;
+    if (typeof prev === 'string' && prev.startsWith('/') && !prev.startsWith('//')) {
+      router.back();
+    } else {
+      router.replace('/tabs/home');
+    }
   }
 
   // ── Client password login ──
@@ -96,7 +116,7 @@ export function useLoginModel() {
     error.value = null;
     try {
       await auth.clientLogin(phone.value, password.value);
-      router.replace('/tabs/home');
+      finishLogin();
     } catch (e) {
       error.value = e instanceof ApiError ? e.message : 'Неверный телефон или пароль';
     } finally {
@@ -129,7 +149,7 @@ export function useLoginModel() {
     error.value = null;
     try {
       await auth.verify(phone.value, code.value, name.value.trim() || undefined);
-      router.replace('/tabs/home');
+      finishLogin();
     } catch (e) {
       error.value = e instanceof ApiError ? e.message : 'Неверный код';
     } finally {
@@ -169,7 +189,7 @@ export function useLoginModel() {
       cancelTelegram();
       if (res.status === 'confirmed') {
         auth.setClientSession(res.token, res.client);
-        router.replace('/tabs/home');
+        finishLogin();
       } else if (res.status === 'error') {
         error.value = res.message;
       } else {
@@ -206,7 +226,7 @@ export function useLoginModel() {
     error.value = null;
     try {
       await auth.driverLogin(phone.value, password.value);
-      router.replace('/tabs/home');
+      finishLogin();
     } catch (e) {
       error.value = e instanceof ApiError ? e.message : 'Неверный телефон или пароль';
     } finally {

@@ -1,5 +1,5 @@
 import { ref, computed, watch, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import type { CarType, FlightView } from '@easygo/shared';
 import { paxLabel, carTypeSeats, CAR_TYPE_LABEL, CAR_TYPE_SEAT_OPTIONS } from '@easygo/shared';
 import { ApiError } from '@easygo/api-client';
@@ -19,6 +19,7 @@ function isoDate(offsetDays = 0): string {
  *  The date strip shows the next 14 days; the calendar icon allows any date. */
 export function useResultsModel() {
   const router = useRouter();
+  const route = useRoute();
   const store = useBookingStore();
   const authStore = useAuthStore();
 
@@ -154,6 +155,12 @@ export function useResultsModel() {
   }
 
   function openCustomForm() {
+    // Leaving a request is a customer action — guests log in first, then return
+    // here to submit it.
+    if (!authStore.isAuthenticated) {
+      void router.push({ path: '/login', query: { redirect: route.fullPath } });
+      return;
+    }
     customPhone.value = authStore.client?.phone ?? '';
     customComment.value = '';
     customTime.value = '';

@@ -57,6 +57,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/trip/:id',
     component: () => import('../views/trip-detail/index.vue'),
+    meta: { requiresAuth: true },
   },
   {
     path: '/results',
@@ -84,10 +85,12 @@ const router = createRouter({
   routes,
 });
 
-// Booking requires an authorized customer — send guests to the cabinet (login).
+// Guarded routes require an authorized customer. Send guests to login with a
+// `redirect` back to the intended page, so after logging in they land on the
+// action they were trying to do ("log in, then continue").
 router.beforeEach((to) => {
   if (to.meta.requiresAuth && !useAuthStore().isAuthenticated) {
-    return '/tabs/cabinet';
+    return { path: '/login', query: { redirect: to.fullPath } };
   }
   return true;
 });

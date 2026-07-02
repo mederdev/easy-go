@@ -110,6 +110,9 @@ const {
             <option value="">— без водителя</option>
             <option v-for="d in drivers" :key="d.id" :value="d.id">{{ d.name }}</option>
           </select>
+          <router-link v-if="drivers.length === 0" class="hint-link" to="/drivers?create=1">
+            Водителей пока нет — добавить водителя
+          </router-link>
         </label>
         <div class="two">
           <label class="field">
@@ -250,6 +253,14 @@ select:focus {
   font: 600 13px var(--eg-font);
   padding: 10px 12px;
   border-radius: 10px;
+}
+.hint-link {
+  font: 600 12px var(--eg-font);
+  color: var(--eg-brand);
+  text-decoration: none;
+}
+.hint-link:hover {
+  text-decoration: underline;
 }
 .btn {
   height: 44px;

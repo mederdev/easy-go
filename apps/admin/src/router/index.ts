@@ -40,7 +40,7 @@ const routes: RouteRecordRaw[] = [
         path: 'drivers',
         name: 'drivers',
         component: () => import('@/views/drivers/index.vue'),
-        meta: { title: 'Водители', subtitle: 'Список и доступ', cta: null },
+        meta: { title: 'Водители', subtitle: 'Список и доступ', cta: 'Добавить водителя' },
       },
       {
         path: 'clients',

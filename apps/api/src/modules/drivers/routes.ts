@@ -20,8 +20,16 @@ const routes: FastifyPluginAsync = async (app) => {
 
   app.post('/', { preHandler: [app.authorize(['admin', 'owner'])] }, async (request, reply) => {
     const input = parse(CreateDriverInput, request.body);
-    reply.code(201);
-    return prisma.driver.create({ data: { ...input, phone: normalizePhone(input.phone) } });
+    try {
+      const driver = await prisma.driver.create({ data: { ...input, phone: normalizePhone(input.phone) } });
+      reply.code(201);
+      return driver;
+    } catch (err) {
+      if ((err as { code?: string }).code === 'P2002') {
+        throw Errors.conflict('Водитель с таким номером уже существует', 'DRIVER_PHONE_TAKEN');
+      }
+      throw err;
+    }
   });
 
   app.patch('/:id', { preHandler: [app.authorize(['admin', 'owner'])] }, async (request) => {
@@ -44,10 +52,17 @@ const routes: FastifyPluginAsync = async (app) => {
       }
     }
 
-    return prisma.driver.update({
-      where: { id: driverId },
-      data: { ...input, phone: input.phone ? normalizePhone(input.phone) : undefined },
-    });
+    try {
+      return await prisma.driver.update({
+        where: { id: driverId },
+        data: { ...input, phone: input.phone ? normalizePhone(input.phone) : undefined },
+      });
+    } catch (err) {
+      if ((err as { code?: string }).code === 'P2002') {
+        throw Errors.conflict('Водитель с таким номером уже существует', 'DRIVER_PHONE_TAKEN');
+      }
+      throw err;
+    }
   });
 
   app.post('/:id/set-password', { preHandler: [app.authorize(['admin', 'owner'])] }, async (request, reply) => {

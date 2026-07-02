@@ -10,6 +10,13 @@ const {
   loading,
   error,
   load,
+  createOpen,
+  createSaving,
+  createError,
+  createData,
+  openCreate,
+  closeCreate,
+  saveDriver,
   selected,
   driverFlights,
   flightsLoading,
@@ -41,8 +48,13 @@ const {
         v-if="drivers.length === 0"
         icon="person"
         title="Водителей нет"
-        description="Добавьте первого водителя в разделе «Автопарк»."
-      />
+        description="Нажмите «Добавить водителя», чтобы создать первого."
+      >
+        <button type="button" class="btn-primary empty-cta" @click="openCreate">
+          <span class="material-symbols-outlined">add</span>
+          Добавить водителя
+        </button>
+      </EmptyState>
       <div v-else class="table">
         <div class="row head-row">
           <span>Водитель</span>
@@ -118,6 +130,46 @@ const {
         </div>
       </div>
     </StateBlock>
+
+    <!-- Create driver modal -->
+    <AppModal
+      :open="createOpen"
+      title="Новый водитель"
+      subtitle="Контакты и доступ к приложению"
+      @close="closeCreate"
+    >
+      <form class="create-form" @submit.prevent="saveDriver">
+        <label class="field">
+          <span class="label">Имя</span>
+          <input v-model="createData.name" placeholder="Азамат Бекову" />
+        </label>
+        <label class="field">
+          <span class="label">Телефон</span>
+          <input v-model="createData.phone" inputmode="tel" placeholder="+996 700 000 000" />
+        </label>
+        <label class="field">
+          <span class="label">Стаж (необязательно)</span>
+          <input v-model="createData.experience" placeholder="Например: 8 лет" />
+        </label>
+        <label class="field">
+          <span class="label">Пароль для входа (необязательно)</span>
+          <input
+            v-model="createData.password"
+            type="password"
+            placeholder="Мин. 6 символов — доступ к приложению водителя"
+            autocomplete="new-password"
+          />
+        </label>
+        <div v-if="createError" class="form-error">{{ createError }}</div>
+      </form>
+
+      <template #footer>
+        <button type="button" class="btn-outline" @click="closeCreate">Отмена</button>
+        <button type="button" class="btn-primary btn-save" :disabled="createSaving" @click="saveDriver">
+          {{ createSaving ? 'Сохранение…' : 'Сохранить' }}
+        </button>
+      </template>
+    </AppModal>
 
     <!-- Driver detail modal -->
     <AppModal
@@ -297,6 +349,26 @@ const {
   color: #fff; font: 700 14px var(--eg-font); cursor: pointer;
 }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Create-driver form (styled to match the fleet modal) */
+.create-form { display: flex; flex-direction: column; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.label { font: 600 12px var(--eg-font); color: var(--eg-hint); }
+.create-form input {
+  height: 46px; padding: 0 12px; border: 1px solid var(--eg-border); border-radius: 11px;
+  font: 600 14px var(--eg-font); outline: none; background: #fff;
+}
+.create-form input:focus { border-color: var(--eg-brand); }
+.form-error {
+  background: #fbedea; color: #c0492e; font: 600 13px var(--eg-font);
+  padding: 10px 12px; border-radius: 10px;
+}
+.btn-save { padding: 0 20px; }
+.empty-cta {
+  margin-top: 12px; padding: 0 18px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.empty-cta .material-symbols-outlined { font-size: 18px; color: #fff; margin: 0; }
 .empty-text { font: 500 13px var(--eg-font); color: var(--eg-hint); padding: 8px 0; }
 .pw-reveal {
   font: 700 14px var(--eg-font); letter-spacing: .04em;

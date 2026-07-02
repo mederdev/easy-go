@@ -1,8 +1,9 @@
-import { ref, onMounted } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import type { Driver, FlightView } from '@easygo/shared';
 import { FLIGHT_STATUS_LABEL } from '@easygo/shared';
 import { api, errorMessage } from '@/lib/api';
 import { useCrudList } from '@/composables/useCrudList';
+import { useFormModel } from '@/composables/useFormModel';
 
 interface DriverWithCars extends Driver {
   cars: Array<{ id: string; model: string; plate: string; seats: number }>;
@@ -17,6 +18,49 @@ export function useDriversModel() {
   );
 
   onMounted(load);
+
+  // Create modal (opened by the topbar CTA via ?create=1)
+  const createForm = useFormModel();
+  const createData = reactive({ name: '', phone: '+996 ', experience: '', password: '' });
+
+  function openCreate(): void {
+    createData.name = '';
+    createData.phone = '+996 ';
+    createData.experience = '';
+    createData.password = '';
+    createForm.error.value = null;
+    createForm.open.value = true;
+  }
+
+  async function saveDriver(): Promise<void> {
+    createForm.error.value = null;
+    if (!createData.name.trim()) {
+      createForm.error.value = 'Укажите имя водителя.';
+      return;
+    }
+    if (createData.phone.replace(/\D/g, '').length < 9) {
+      createForm.error.value = 'Укажите номер телефона.';
+      return;
+    }
+    if (createData.password && createData.password.length < 6) {
+      createForm.error.value = 'Пароль должен быть не короче 6 символов.';
+      return;
+    }
+    await createForm.submit(async () => {
+      const created = await api.drivers.create({
+        name: createData.name.trim(),
+        phone: createData.phone.trim(),
+        experience: createData.experience.trim() || undefined,
+      });
+      if (createData.password) {
+        await api.drivers.setPassword(created.id, { password: createData.password });
+      }
+      createForm.open.value = false;
+      await load();
+    });
+  }
+
+  createForm.watchCreateCta(openCreate);
 
   // Detail modal
   const selected = ref<DriverWithCars | null>(null);
@@ -125,6 +169,13 @@ export function useDriversModel() {
     loading,
     error,
     load,
+    createOpen: createForm.open,
+    createSaving: createForm.saving,
+    createError: createForm.error,
+    createData,
+    openCreate,
+    closeCreate: createForm.close,
+    saveDriver,
     selected,
     driverFlights,
     flightsLoading,

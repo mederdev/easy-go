@@ -14,6 +14,7 @@ withDefaults(
     <span class="material-symbols-outlined">{{ icon }}</span>
     <div class="title">{{ title }}</div>
     <div v-if="description" class="desc">{{ description }}</div>
+    <slot />
   </div>
 </template>
 

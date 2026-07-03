@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { IonPage, IonContent } from '@ionic/vue';
 import ErrorBanner from '@/components/ErrorBanner.vue';
+import CustomRequestCta from '@/components/CustomRequestCta.vue';
 import { useBookingModel } from './model';
 
 const {
@@ -16,6 +17,7 @@ const {
   departDateLabel,
   departTime,
   totalLabel,
+  maxPax,
   submit,
 } = useBookingModel();
 </script>
@@ -67,12 +69,13 @@ const {
           <button
             class="pax-btn pax-btn--plus"
             @click="store.setPax(store.pax + 1)"
-            :disabled="store.pax >= 20"
+            :disabled="store.pax >= maxPax"
           >
             <span class="ms">add</span>
           </button>
         </div>
       </div>
+      <!-- <div class="booking-pax-hint">На этом рейсе осталось {{ maxPax }} мест</div> -->
 
       <!-- Contact Details -->
       <div class="booking-section-title">Контактные данные</div>
@@ -142,6 +145,12 @@ const {
           <span class="ms">arrow_forward</span>
         </button>
       </div>
+
+      <!-- Not enough seats / want another car or time? — individual request -->
+      <CustomRequestCta
+        label="Не хватает мест или нужна другая машина?"
+        hint="Оставьте индивидуальную заявку — подберём машину и время под вас"
+      />
 
       <div style="height: 32px"></div>
       </div>
@@ -233,6 +242,12 @@ const {
 .booking-pax__label {
   font: 600 14px 'Manrope', sans-serif;
   color: var(--eg-muted);
+}
+
+.booking-pax-hint {
+  margin: 6px 16px 0;
+  font: 600 12px 'Manrope', sans-serif;
+  color: #C0492E;
 }
 
 .pax-row {

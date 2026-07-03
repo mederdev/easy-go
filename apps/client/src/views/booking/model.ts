@@ -22,12 +22,17 @@ export function useBookingModel() {
       name.value = auth.client.name;
       phone.value = auth.client.phone ?? '';
     }
+    // Never let the requested seats exceed what the flight still has free.
+    store.setPax(Math.min(store.pax, maxPax.value));
   });
 
   const nameError = ref('');
   const phoneError = ref('');
 
   const flight = computed(() => store.selectedFlight);
+
+  // The seat stepper can't go past the flight's remaining free seats.
+  const maxPax = computed(() => Math.max(1, flight.value?.seatsLeft ?? 20));
 
   const routeTitle = computed(() => store.routeTitle);
 
@@ -96,6 +101,7 @@ export function useBookingModel() {
     departDateLabel,
     departTime,
     totalLabel,
+    maxPax,
     submit,
   };
 }

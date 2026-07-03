@@ -97,6 +97,22 @@ export function useFleetModel() {
     });
   }
 
+  /** Cars grouped by their location city, ordered by CITIES; cars without a
+   *  city fall into a trailing "Без города" group. */
+  const carsByCity = computed(() => {
+    const groups = new Map<string, Car[]>();
+    for (const c of cars.value) {
+      const key = c.locationCity ?? '';
+      const bucket = groups.get(key);
+      if (bucket) bucket.push(c);
+      else groups.set(key, [c]);
+    }
+    const order = [...cities, ''];
+    return [...groups.entries()]
+      .sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]))
+      .map(([city, list]) => ({ city: city || 'Без города', cars: list }));
+  });
+
   function driverName(c: Car): string {
     if (c.driver) return c.driver.name;
     const found = drivers.value.find((d) => d.id === c.driverId);
@@ -111,6 +127,7 @@ export function useFleetModel() {
     loading,
     error,
     cars,
+    carsByCity,
     drivers,
     load,
     modalOpen: form.open,

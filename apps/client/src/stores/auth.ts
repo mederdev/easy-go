@@ -27,9 +27,26 @@ export const useAuthStore = defineStore('auth', () => {
     else localStorage.removeItem(DRIVER_KEY);
   }
 
+  /**
+   * Drivers and clients are separate identities — only one may be active in the
+   * app at a time. Signing in as one drops any lingering session of the other,
+   * so `isDriver`/`fetchMe` (which prefer the driver token) can't resolve to a
+   * stale opposite session.
+   */
+  function clearClientSession(): void {
+    setToken(null);
+    client.value = null;
+  }
+
+  function clearDriverSession(): void {
+    setDriverToken(null);
+    driver.value = null;
+  }
+
   /** Register with phone + name + password, store the token + profile. */
   async function register(phone: string, name: string, password: string): Promise<Client> {
     const res = await api.clientAuth.register({ phone, name, password });
+    clearDriverSession();
     setToken(res.token);
     client.value = res.client;
     return res.client;
@@ -38,6 +55,7 @@ export const useAuthStore = defineStore('auth', () => {
   /** Client login with phone + password. */
   async function clientLogin(phone: string, password: string): Promise<Client> {
     const res = await api.clientAuth.login({ phone, password });
+    clearDriverSession();
     setToken(res.token);
     client.value = res.client;
     return res.client;
@@ -45,6 +63,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   /** Adopt a session confirmed through the Telegram deep-link poll. */
   function setClientSession(t: string, c: Client): void {
+    clearDriverSession();
     setToken(t);
     client.value = c;
   }
@@ -52,6 +71,7 @@ export const useAuthStore = defineStore('auth', () => {
   /** Driver login: phone + password. */
   async function driverLogin(phone: string, password: string): Promise<DriverProfile> {
     const res = await api.driverAuth.login({ phone, password });
+    clearClientSession();
     setDriverToken(res.token);
     driver.value = res.driver;
     return res.driver;

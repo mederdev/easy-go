@@ -5,6 +5,7 @@ import {
   UpdateCarLocationInput,
   ListCarsQuery,
   Id,
+  type CarStatus,
 } from '@easygo/shared';
 import { prisma } from '../../lib/prisma.js';
 import { Errors } from '../../lib/errors.js';
@@ -12,22 +13,48 @@ import { parse } from '../../lib/validate.js';
 
 const carInclude = { driver: true } as const;
 
+/** Ids of cars currently out on a departed (in-progress) flight. */
+async function carsOnTrip(ids: string[]): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const rows = await prisma.flight.findMany({
+    where: { status: 'DEPARTED', carId: { in: ids } },
+    select: { carId: true },
+  });
+  return new Set(rows.map((r) => r.carId).filter((id): id is string => id !== null));
+}
+
+/** Override the stored status with ON_TRIP for cars out on a departed flight,
+ *  so the fleet always reflects reality (a car on a live flight is never free). */
+function applyOnTrip<T extends { id: string; status: CarStatus }>(cars: T[], onTrip: Set<string>): T[] {
+  return cars.map((c) => (onTrip.has(c.id) ? { ...c, status: 'ON_TRIP' as CarStatus } : c));
+}
+
 const routes: FastifyPluginAsync = async (app) => {
   // Public: "Свободный транспорт сейчас" teaser on the client home/availability.
-  app.get('/available', async () =>
-    prisma.car.findMany({ where: { status: 'AVAILABLE' }, include: carInclude, orderBy: { locationCity: 'asc' } }),
-  );
+  // A car out on a departed flight is excluded even if its stored status is free.
+  app.get('/available', async () => {
+    const cars = await prisma.car.findMany({
+      where: { status: 'AVAILABLE' },
+      include: carInclude,
+      orderBy: { locationCity: 'asc' },
+    });
+    const onTrip = await carsOnTrip(cars.map((c) => c.id));
+    return cars.filter((c) => !onTrip.has(c.id));
+  });
 
   app.get('/', { preHandler: [app.authorize(['operator', 'admin', 'owner'])] }, async (request) => {
     const q = parse(ListCarsQuery, request.query);
-    return prisma.car.findMany({ where: { status: q.status }, include: carInclude, orderBy: { model: 'asc' } });
+    const cars = await prisma.car.findMany({ where: { status: q.status }, include: carInclude, orderBy: { model: 'asc' } });
+    const withStatus = applyOnTrip(cars, await carsOnTrip(cars.map((c) => c.id)));
+    // Keep an explicit status filter honest against the derived (real) status.
+    return q.status ? withStatus.filter((c) => c.status === q.status) : withStatus;
   });
 
   app.get('/:id', { preHandler: [app.authorize(['operator', 'admin', 'owner'])] }, async (request) => {
     const { id } = request.params as { id: string };
     const car = await prisma.car.findUnique({ where: { id: parse(Id, id) }, include: carInclude });
     if (!car) throw Errors.notFound('Авто');
-    return car;
+    return applyOnTrip([car], await carsOnTrip([car.id]))[0];
   });
 
   app.post('/', { preHandler: [app.authorize(['admin', 'owner'])] }, async (request, reply) => {

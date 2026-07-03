@@ -212,9 +212,10 @@ model Booking {
   flightId       String
   flight         Flight        @relation(fields: [flightId], references: [id], onDelete: Restrict)
   pax            Int
+  unitPrice      Int? // minor units, per-seat price override; null = use route.price
   discount       Int           @default(0) // minor units, amount off
   prepaid        Int           @default(0) // minor units, paid so far
-  total          Int // minor units = price * pax - discount
+  total          Int // minor units = (unitPrice ?? route.price) * pax - discount
   status         BookingStatus @default(NEW)
   paymentStatus  PaymentStatus @default(UNPAID)
   comment        String?

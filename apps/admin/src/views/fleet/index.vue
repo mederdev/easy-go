@@ -9,6 +9,7 @@ const {
   loading,
   error,
   cars,
+  carsByCity,
   drivers,
   load,
   modalOpen,
@@ -39,40 +40,49 @@ const {
         title="Автопарк пуст"
         description="Добавьте первый автомобиль."
       />
-      <div v-else class="grid">
-        <div v-for="c in cars" :key="c.id" class="card">
-          <div class="thumb material-symbols-outlined">directions_car</div>
-          <div class="body">
-            <div class="top">
-              <div class="model">{{ c.model }}</div>
-              <StatusChip kind="car" :status="c.status" />
+      <template v-else>
+        <section v-for="group in carsByCity" :key="group.city" class="city-group">
+          <h2 class="city-title">
+            <span class="material-symbols-outlined">location_on</span>
+            {{ group.city }}
+            <span class="city-count">{{ group.cars.length }}</span>
+          </h2>
+          <div class="grid">
+            <div v-for="c in group.cars" :key="c.id" class="card">
+              <div class="thumb material-symbols-outlined">directions_car</div>
+              <div class="body">
+                <div class="top">
+                  <div class="model">{{ c.model }}</div>
+                  <StatusChip kind="car" :status="c.status" />
+                </div>
+                <div class="plate">{{ c.plate }}</div>
+                <div class="facts">
+                  <div>
+                    <div class="cap">Тип</div>
+                    <div class="fact">{{ CAR_TYPE_LABEL[c.type] }}</div>
+                  </div>
+                  <div>
+                    <div class="cap">Водитель</div>
+                    <div class="fact">{{ driverName(c) }}</div>
+                  </div>
+                  <div>
+                    <div class="cap">Мест</div>
+                    <div class="fact">{{ c.seats }}</div>
+                  </div>
+                  <div>
+                    <div class="cap">Рейсов · мес</div>
+                    <div class="fact">{{ c.tripsMonth }}</div>
+                  </div>
+                </div>
+                <button type="button" class="edit" @click="openEdit(c)">
+                  <span class="material-symbols-outlined">edit</span>
+                  Изменить
+                </button>
+              </div>
             </div>
-            <div class="plate">{{ c.plate }}</div>
-            <div class="facts">
-              <div>
-                <div class="cap">Тип</div>
-                <div class="fact">{{ CAR_TYPE_LABEL[c.type] }}</div>
-              </div>
-              <div>
-                <div class="cap">Водитель</div>
-                <div class="fact">{{ driverName(c) }}</div>
-              </div>
-              <div>
-                <div class="cap">Мест</div>
-                <div class="fact">{{ c.seats }}</div>
-              </div>
-              <div>
-                <div class="cap">Рейсов · мес</div>
-                <div class="fact">{{ c.tripsMonth }}</div>
-              </div>
-            </div>
-            <button type="button" class="edit" @click="openEdit(c)">
-              <span class="material-symbols-outlined">edit</span>
-              Изменить
-            </button>
           </div>
-        </div>
-      </div>
+        </section>
+      </template>
     </StateBlock>
 
     <AppModal
@@ -142,6 +152,33 @@ const {
 </template>
 
 <style scoped>
+.city-group + .city-group {
+  margin-top: 26px;
+}
+.city-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 12px;
+  font: 800 14px var(--eg-font);
+  color: var(--eg-muted);
+}
+.city-title .material-symbols-outlined {
+  font-size: 18px;
+  color: var(--eg-brand);
+}
+.city-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 99px;
+  background: var(--eg-brand-light, #eef6e6);
+  color: var(--eg-brand-dark, #3e7c12);
+  font: 700 11px var(--eg-font);
+}
 .grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

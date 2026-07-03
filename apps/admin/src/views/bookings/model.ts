@@ -124,14 +124,127 @@ export function useBookingsModel() {
     void load();
   }
 
-  // ── Payment (discount / prepayment / status) — admin only ──
-  const paymentForm = reactive({ discount: 0, prepaid: 0 }); // major units, edited in the drawer
+  // ── Edit booking (departure time / passengers / price / discount / prepayment) — admin only ──
+  // The whole booking is read-only until the operator taps the pencil; `editing`
+  // then reveals a form populated from the booking. `unitPrice` is null when the
+  // booking follows the route price; set it to charge a custom per-seat price
+  // (e.g. splitting the salon fare across fewer passengers).
+  const editing = ref(false);
+  const editFlights = ref<FlightView[]>([]); // flights the booking can be moved to
+  const paymentForm = reactive({
+    flightId: '', // reassign the booking to another flight
+    date: '', // ISO YYYY-MM-DD — the selected flight's departure day
+    time: '09:00', // HH:mm — the selected flight's departure time
+    pax: 1,
+    unitPrice: null as number | null, // major units; null/empty = route price
+    discount: 0, // major units
+    prepaid: 0, // major units
+    comment: '',
+  });
   const paymentBusy = ref(false);
   const paymentError = ref<string | null>(null);
 
+  /** Route per-seat price in major units — the placeholder/fallback when no override is set. */
+  function routePriceMajor(b: Booking | null): number {
+    return toMajor(b?.flight?.route?.price ?? 0, config.currency);
+  }
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+  function toDateInput(iso?: string | null): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+  function toTimeInput(iso?: string | null): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? '' : `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  const selectedEditFlight = computed(() => editFlights.value.find((f) => f.id === paymentForm.flightId) ?? null);
+
+  /** Max passengers for the chosen flight: its free seats, plus this booking's own
+   *  seats when it already sits on that flight AND already holds them (only
+   *  CONFIRMED/COMPLETED bookings are counted in `seatsTaken`, so only they get
+   *  their own seats added back; a NEW booking reserves nothing). */
+  const maxEditPax = computed(() => {
+    const f = selectedEditFlight.value;
+    if (!f) return 20;
+    const b = selected.value;
+    const holds = b?.status === 'CONFIRMED' || b?.status === 'COMPLETED';
+    const own = b && holds && f.id === b.flightId ? b.pax : 0;
+    return Math.max(1, f.seatsLeft + own);
+  });
+
+  /** True when the entered passenger count exceeds the flight's available seats. */
+  const paxExceedsSeats = computed(() => (Number(paymentForm.pax) || 0) > maxEditPax.value);
+
+  function clampEditPax(): void {
+    const n = Number(paymentForm.pax) || 1;
+    paymentForm.pax = Math.min(Math.max(1, n), maxEditPax.value);
+  }
+
+  /** Picking a different flight snaps the date/time to it and re-clamps passengers. */
+  function onEditFlightChange(): void {
+    const f = selectedEditFlight.value;
+    if (f) {
+      paymentForm.date = toDateInput(f.departAt);
+      paymentForm.time = toTimeInput(f.departAt);
+    }
+    clampEditPax();
+  }
+
   function syncPaymentForm(b: Booking): void {
+    paymentForm.flightId = b.flightId;
+    paymentForm.date = toDateInput(b.flight?.departAt);
+    paymentForm.time = toTimeInput(b.flight?.departAt) || '09:00';
+    paymentForm.pax = b.pax;
+    paymentForm.unitPrice = b.unitPrice != null ? toMajor(b.unitPrice, config.currency) : null;
     paymentForm.discount = toMajor(b.discount, config.currency);
     paymentForm.prepaid = toMajor(b.prepaid, config.currency);
+    paymentForm.comment = b.comment ?? '';
+  }
+
+  /** A flight's departure day is before today → it's in the past. */
+  function isPastFlight(iso?: string | null): boolean {
+    const d = new Date(iso ?? '');
+    if (Number.isNaN(d.getTime())) return false;
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    return d.getTime() < startOfToday.getTime();
+  }
+
+  /** Load the flights this booking can move to: only active ones (scheduled,
+   *  upcoming, with free seats), plus its own current flight so it stays selected
+   *  even if it's now full/closed. */
+  async function loadEditFlights(b: Booking): Promise<void> {
+    let list: FlightView[] = [];
+    try {
+      const scheduled = await api.flights.list({ status: 'SCHEDULED' });
+      list = scheduled.filter((f) => !f.soldOut && !isPastFlight(f.departAt));
+    } catch {
+      list = [];
+    }
+    if (b.flight && !list.some((f) => f.id === b.flightId)) {
+      const cf = b.flight;
+      const seatsLeft = Math.max(0, cf.seatsTotal - cf.seatsTaken);
+      list = [{ ...cf, seatsLeft, fewSeats: seatsLeft > 0 && seatsLeft <= 3, soldOut: seatsLeft === 0 } as FlightView, ...list];
+    }
+    editFlights.value = list;
+  }
+
+  async function startEdit(): Promise<void> {
+    if (!selected.value) return;
+    paymentError.value = null;
+    editing.value = true;
+    await loadEditFlights(selected.value);
+    syncPaymentForm(selected.value);
+  }
+
+  function cancelEdit(): void {
+    if (selected.value) syncPaymentForm(selected.value);
+    paymentError.value = null;
+    editing.value = false;
   }
 
   function applyUpdated(updated: Booking): void {
@@ -144,15 +257,42 @@ export function useBookingsModel() {
 
   async function savePayment(): Promise<void> {
     if (!selected.value) return;
+    const booking = selected.value;
+
+    // Guard: passengers can't exceed the car's available seats on the chosen flight.
+    // The field-level error under the pax input explains it to the operator.
+    if (paxExceedsSeats.value) return;
+
     paymentBusy.value = true;
     paymentError.value = null;
     try {
-      const updated = await api.bookings.setPayment(selected.value.id, {
+      const flightChanged = !!paymentForm.flightId && paymentForm.flightId !== booking.flightId;
+      const targetFlightId = paymentForm.flightId || booking.flightId;
+
+      // Departure time belongs to the flight. When it changed (against the flight
+      // that will hold the booking), update it there — this shifts the whole flight
+      // and every booking on it, not just this one. The booking PATCH re-reads the
+      // flight afterwards, so the drawer reflects the new time.
+      const targetFlight = editFlights.value.find((f) => f.id === targetFlightId);
+      const desiredIso = paymentForm.date ? new Date(`${paymentForm.date}T${paymentForm.time || '00:00'}:00`).toISOString() : '';
+      const currentIso = targetFlight?.departAt ? new Date(targetFlight.departAt).toISOString() : '';
+      if (desiredIso && desiredIso !== currentIso) {
+        await api.flights.update(targetFlightId, { departAt: desiredIso });
+      }
+
+      const rawUnit = paymentForm.unitPrice;
+      const hasUnit = rawUnit !== null && String(rawUnit) !== '' && !Number.isNaN(Number(rawUnit));
+      const updated = await api.bookings.setPayment(booking.id, {
+        flightId: flightChanged ? targetFlightId : undefined,
+        pax: Number(paymentForm.pax) || booking.pax,
+        unitPrice: hasUnit ? toMinor(Number(rawUnit), config.currency) : null,
         discount: toMinor(Number(paymentForm.discount) || 0, config.currency),
         prepaid: toMinor(Number(paymentForm.prepaid) || 0, config.currency),
+        comment: paymentForm.comment.trim() || null,
       });
       applyUpdated(updated);
-      syncPaymentForm(updated);
+      syncPaymentForm(selected.value ?? updated);
+      editing.value = false;
     } catch (e) {
       paymentError.value = errorMessage(e);
     } finally {
@@ -179,6 +319,7 @@ export function useBookingsModel() {
     selected.value = b;
     statusError.value = null;
     paymentError.value = null;
+    editing.value = false;
     syncPaymentForm(b);
   }
   function closeDrawer(): void {
@@ -205,6 +346,17 @@ export function useBookingsModel() {
     CANCELLED_BY_CLIENT: ['NEW'],
     CANCELLED_BY_COMPANY: ['NEW'],
   };
+
+  // Status transitions available for the open booking. A booking is only
+  // completed as a consequence of its flight completing, so hide COMPLETED
+  // until the flight itself is finished (the API enforces the same rule).
+  const availableStatuses = computed<BookingStatus[]>(() => {
+    const b = selected.value;
+    if (!b) return [];
+    const next = nextStatuses[b.status];
+    if (b.flight?.status !== 'COMPLETED') return next.filter((s) => s !== 'COMPLETED');
+    return next;
+  });
 
   async function changeStatus(status: BookingStatus): Promise<void> {
     if (!selected.value) return;
@@ -294,13 +446,19 @@ export function useBookingsModel() {
     whatsapp: true,
     comment: '',
     status: 'NEW' as BookingStatus,
+    unitPrice: null as number | null, // major units; empty = use route price
     discount: 0, // major units
     prepaid: 0, // major units
   });
 
   const selectedFlight = computed(() => bookableFlights.value.find((f) => f.id === createForm.flightId) ?? null);
+  const createUnitPlaceholder = computed(() => toMajor(selectedFlight.value?.route?.price ?? 0, config.currency));
   const createTotalMinor = computed(() => {
-    const price = selectedFlight.value?.route?.price ?? 0;
+    const raw = createForm.unitPrice;
+    const price =
+      raw !== null && String(raw) !== '' && !Number.isNaN(Number(raw))
+        ? toMinor(Number(raw), config.currency)
+        : selectedFlight.value?.route?.price ?? 0;
     const gross = price * (Number(createForm.pax) || 0);
     const discount = toMinor(Number(createForm.discount) || 0, config.currency);
     return Math.max(0, gross - Math.min(discount, gross));
@@ -316,6 +474,7 @@ export function useBookingsModel() {
     createForm.whatsapp = true;
     createForm.comment = '';
     createForm.status = 'NEW';
+    createForm.unitPrice = null;
     createForm.discount = 0;
     createForm.prepaid = 0;
     clientSearch.value = '';
@@ -338,7 +497,7 @@ export function useBookingsModel() {
   }
 
   function flightOptionLabel(f: FlightView): string {
-    return `${flightRouteLabel(f)} · ${timeLabel(f.departAt)} · ${seatsLabel(f.seatsLeft)}`;
+    return `${flightRouteLabel(f)} · ${dateLabel(f.departAt)} ${timeLabel(f.departAt)} · ${seatsLabel(f.seatsLeft)}`;
   }
 
   async function submitCreate(): Promise<void> {
@@ -365,6 +524,10 @@ export function useBookingsModel() {
         whatsapp: createForm.whatsapp,
         comment: createForm.comment.trim() || undefined,
         status: createForm.status,
+        unitPrice:
+          createForm.unitPrice !== null && String(createForm.unitPrice) !== '' && !Number.isNaN(Number(createForm.unitPrice))
+            ? toMinor(Number(createForm.unitPrice), config.currency)
+            : undefined,
         discount: toMinor(Number(createForm.discount) || 0, config.currency),
         prepaid: toMinor(Number(createForm.prepaid) || 0, config.currency),
       };
@@ -652,16 +815,26 @@ export function useBookingsModel() {
     statusBusy,
     statusError,
     nextStatuses,
+    availableStatuses,
     open,
     closeDrawer,
     changeStatus,
     waLink,
-    // payment
+    // payment / edit
+    editing,
+    startEdit,
+    cancelEdit,
+    editFlights,
+    selectedEditFlight,
+    maxEditPax,
+    paxExceedsSeats,
+    onEditFlightChange,
     paymentForm,
     paymentBusy,
     paymentError,
     savePayment,
     setPaid,
+    routePriceMajor,
     // create
     createOpen,
     creating,
@@ -670,6 +843,7 @@ export function useBookingsModel() {
     createStatuses,
     createForm,
     createTotal,
+    createUnitPlaceholder,
     openCreate,
     closeCreate,
     flightOptionLabel,

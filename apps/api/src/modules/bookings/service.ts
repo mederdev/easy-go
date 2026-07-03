@@ -42,6 +42,8 @@ export async function createBooking(
   input: CreateBookingInput,
   opts: {
     status?: BookingStatus;
+    /** Per-seat price override (minor units); omit to use the route price. */
+    unitPrice?: number;
     discount?: number;
     prepaid?: number;
     idempotencyKey?: string;
@@ -90,9 +92,14 @@ export async function createBooking(
       });
     }
 
-    // Discount/prepayment are admin-only; the public flow leaves them at 0.
-    const discount = Math.min(opts.discount ?? 0, flight.route.price * input.pax);
-    const total = Math.max(0, flight.route.price * input.pax - discount);
+    // Price/discount/prepayment are admin-only; the public flow leaves the price
+    // at the route default and the rest at 0. A per-seat override lets operators
+    // split the salon price when a flight doesn't fill up.
+    const unitPrice = opts.unitPrice ?? null;
+    const effectiveUnit = unitPrice ?? flight.route.price;
+    const gross = effectiveUnit * input.pax;
+    const discount = Math.min(opts.discount ?? 0, gross);
+    const total = Math.max(0, gross - discount);
     const prepaid = Math.min(opts.prepaid ?? 0, total);
 
     // Create, then stamp a human code derived from the autoincrement seq.
@@ -102,6 +109,7 @@ export async function createBooking(
         clientId: client.id,
         flightId: flight.id,
         pax: input.pax,
+        unitPrice,
         discount,
         prepaid,
         total,
@@ -152,6 +160,7 @@ export async function createBooking(
 export async function adminCreateBooking(input: AdminCreateBookingInput, idempotencyKey?: string) {
   return createBooking(input, {
     status: input.status,
+    unitPrice: input.unitPrice,
     discount: input.discount,
     prepaid: input.prepaid,
     idempotencyKey,
@@ -218,6 +227,17 @@ export async function setBookingStatus(id: string, status: BookingStatus) {
     if (!booking) throw Errors.notFound('Бронирование');
     if (booking.status === status) return tx.booking.findUnique({ where: { id }, include: bookingInclude });
 
+    // A booking is only "completed" as a consequence of its flight completing
+    // (see `completeFlightBookings`). Block completing a booking whose flight
+    // hasn't finished yet.
+    if (status === 'COMPLETED') {
+      const flight = await tx.flight.findUnique({ where: { id: booking.flightId } });
+      if (!flight) throw Errors.notFound('Рейс');
+      if (flight.status !== 'COMPLETED') {
+        throw Errors.conflict('Рейс ещё не завершён', 'FLIGHT_NOT_COMPLETED');
+      }
+    }
+
     const wasHolding = holdsSeat(booking.status);
     const willHold = holdsSeat(status);
 
@@ -281,9 +301,13 @@ export async function completeFlightBookings(flightId: string): Promise<void> {
 }
 
 /**
- * Admin-only edit of the money fields. Recomputes `total` from the flight price
- * and the new discount, clamps prepaid, re-derives the booking payment status,
- * keeps the denormalized client total in sync, and re-aggregates the flight.
+ * Admin-only edit of a booking's mutable fields (flight, passengers, per-seat
+ * price, discount, prepayment, comment). Reconciles seat counters when the flight
+ * or passenger count changes on an attached booking (freeing the old flight and
+ * reserving on the new one), recomputes `total` from the effective per-seat price
+ * against the target flight's route, clamps prepaid, re-derives the payment
+ * status, keeps the denormalized client total in sync, and re-aggregates every
+ * affected flight.
  */
 export async function updateBookingPayment(id: string, input: UpdateBookingPaymentInput) {
   const result = await prisma.$transaction(async (tx) => {
@@ -293,32 +317,101 @@ export async function updateBookingPayment(id: string, input: UpdateBookingPayme
     });
     if (!booking) throw Errors.notFound('Бронирование');
 
-    const gross = booking.flight.route.price * booking.pax;
+    const pax = input.pax ?? booking.pax;
+    const held = holdsSeat(booking.status);
+    const flightChanged = input.flightId !== undefined && input.flightId !== booking.flightId;
+
+    // Resolve the flight the booking will belong to after this edit.
+    const target = flightChanged
+      ? await tx.flight.findUnique({ where: { id: input.flightId! }, include: { route: true } })
+      : booking.flight;
+    if (!target) throw Errors.notFound('Рейс');
+    if (flightChanged && target.status !== 'SCHEDULED') {
+      throw Errors.conflict('Рейс закрыт для бронирования', 'FLIGHT_CLOSED');
+    }
+
+    // Reconcile flight capacity. Only attached (seat-holding) bookings move seats;
+    // NEW/cancelled bookings hold nothing, so their pax/flight edits are free until
+    // confirmation re-checks availability.
+    if (held && flightChanged) {
+      // Free the whole booking off the old flight…
+      const oldTaken = Math.max(0, booking.flight.seatsTaken - booking.pax);
+      await tx.flight.update({
+        where: { id: booking.flightId },
+        data: {
+          seatsTaken: oldTaken,
+          status:
+            booking.flight.status === 'CLOSED' && oldTaken < booking.flight.seatsTotal
+              ? 'SCHEDULED'
+              : booking.flight.status,
+        },
+      });
+      // …and reserve it on the new one.
+      const seatsLeft = target.seatsTotal - target.seatsTaken;
+      if (seatsLeft < pax) {
+        throw Errors.conflict(`Недостаточно мест: осталось ${seatsLeft}`, 'NOT_ENOUGH_SEATS');
+      }
+      const newTaken = target.seatsTaken + pax;
+      await tx.flight.update({
+        where: { id: target.id },
+        data: { seatsTaken: newTaken, status: newTaken >= target.seatsTotal ? 'CLOSED' : target.status },
+      });
+    } else if (held && pax !== booking.pax) {
+      // Same flight, passenger count changed: adjust the delta only.
+      const paxDelta = pax - booking.pax;
+      if (paxDelta > 0) {
+        const seatsLeft = target.seatsTotal - target.seatsTaken;
+        if (seatsLeft < paxDelta) {
+          throw Errors.conflict(`Недостаточно мест: осталось ${seatsLeft}`, 'NOT_ENOUGH_SEATS');
+        }
+      }
+      const newTaken = Math.max(0, target.seatsTaken + paxDelta);
+      await tx.flight.update({
+        where: { id: target.id },
+        data: {
+          seatsTaken: newTaken,
+          status:
+            newTaken >= target.seatsTotal ? 'CLOSED' : target.status === 'CLOSED' ? 'SCHEDULED' : target.status,
+        },
+      });
+    }
+
+    // `unitPrice === undefined` keeps the stored override (or route default);
+    // an explicit `null` clears it back to the target flight's route price.
+    const unitPrice = input.unitPrice !== undefined ? input.unitPrice : booking.unitPrice;
+    const effectiveUnit = unitPrice ?? target.route.price;
+    const gross = effectiveUnit * pax;
     const discount = Math.min(Math.max(0, input.discount ?? booking.discount), gross);
     const total = Math.max(0, gross - discount);
     const prepaid = Math.min(Math.max(0, input.prepaid ?? booking.prepaid), total);
     const paymentStatus = derivePaymentStatus(prepaid, total);
+    const comment = input.comment !== undefined ? input.comment : booking.comment;
 
     const updated = await tx.booking.update({
       where: { id },
-      data: { discount, prepaid, total, paymentStatus },
+      data: { flightId: target.id, pax, unitPrice, discount, prepaid, total, paymentStatus, comment },
       include: bookingInclude,
     });
 
     // Only attached (confirmed) bookings contribute to the client's lifetime total.
     const delta = total - booking.total;
-    if (holdsSeat(booking.status) && delta !== 0) {
+    if (held && delta !== 0) {
       await tx.client.update({
         where: { id: booking.clientId },
         data: { totalSum: { increment: delta } },
       });
     }
 
-    await recomputeFlightPayment(tx, booking.flightId);
-    return { booking: updated, departAt: booking.flight.departAt };
+    // Re-aggregate every flight this edit touched.
+    await recomputeFlightPayment(tx, target.id);
+    if (flightChanged) await recomputeFlightPayment(tx, booking.flightId);
+    return { booking: updated, departAt: target.departAt, oldDepartAt: booking.flight.departAt };
   });
 
   await enqueueStatsRecompute(isoDay(result.departAt)).catch(() => undefined);
+  if (isoDay(result.oldDepartAt) !== isoDay(result.departAt)) {
+    await enqueueStatsRecompute(isoDay(result.oldDepartAt)).catch(() => undefined);
+  }
   return result.booking;
 }
 

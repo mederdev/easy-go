@@ -32,16 +32,25 @@ const {
   selected,
   statusBusy,
   statusError,
-  nextStatuses,
+  availableStatuses,
   open,
   closeDrawer,
   changeStatus,
   waLink,
+  editing,
+  startEdit,
+  cancelEdit,
+  editFlights,
+  selectedEditFlight,
+  maxEditPax,
+  paxExceedsSeats,
+  onEditFlightChange,
   paymentForm,
   paymentBusy,
   paymentError,
   savePayment,
   setPaid,
+  routePriceMajor,
   createOpen,
   creating,
   createError,
@@ -49,6 +58,7 @@ const {
   createStatuses,
   createForm,
   createTotal,
+  createUnitPlaceholder,
   closeCreate,
   flightOptionLabel,
   submitCreate,
@@ -252,9 +262,20 @@ const {
             <div class="drawer-code">Бронирование {{ selected.code }}</div>
             <div class="drawer-route">{{ bookingRouteLabel(selected) }}</div>
           </div>
-          <button class="drawer-close" type="button" @click="closeDrawer">
-            <span class="material-symbols-outlined">close</span>
-          </button>
+          <div class="drawer-head-actions">
+            <button
+              v-if="!editing"
+              class="drawer-edit"
+              type="button"
+              title="Редактировать"
+              @click="startEdit"
+            >
+              <span class="material-symbols-outlined">edit</span>
+            </button>
+            <button class="drawer-close" type="button" @click="closeDrawer">
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
         </div>
 
         <div class="drawer-body" data-scroll>
@@ -263,6 +284,81 @@ const {
             <StatusChip kind="payment" :status="selected.paymentStatus" />
           </div>
 
+          <!-- ═══ Edit mode ═══ -->
+          <form v-if="editing" class="form" @submit.prevent="savePayment">
+            <div v-if="paymentError" class="status-error">{{ paymentError }}</div>
+            <label class="field">
+              <span class="label">Рейс</span>
+              <select v-model="paymentForm.flightId" @change="onEditFlightChange">
+                <option v-for="f in editFlights" :key="f.id" :value="f.id">{{ flightOptionLabel(f) }}</option>
+              </select>
+            </label>
+            <div class="two">
+              <label class="field">
+                <span class="label">Дата</span>
+                <DatePicker
+                  class="form-date"
+                  :model-value="paymentForm.date"
+                  @update:model-value="paymentForm.date = $event"
+                />
+              </label>
+              <label class="field">
+                <span class="label">Время</span>
+                <input v-model="paymentForm.time" type="time" />
+              </label>
+            </div>
+            <label class="field">
+              <span class="label">Пассажиров <span class="opt">(свободно {{ selectedEditFlight ? maxEditPax : '—' }})</span></span>
+              <div class="stepper">
+                <button type="button" @click="paymentForm.pax = Math.max(1, Number(paymentForm.pax) - 1)">−</button>
+                <span class="stepper-val">{{ paymentForm.pax }}</span>
+                <button
+                  type="button"
+                  :disabled="paymentForm.pax >= maxEditPax"
+                  @click="paymentForm.pax = Math.min(maxEditPax, Number(paymentForm.pax) + 1)"
+                >+</button>
+              </div>
+              <span v-if="paxExceedsSeats" class="field-error">
+                Пассажиров больше, чем свободных мест ({{ maxEditPax }})
+              </span>
+            </label>
+            <label class="field">
+              <span class="label">Цена за место <span class="opt">(по умолчанию — цена маршрута)</span></span>
+              <input
+                v-model.number="paymentForm.unitPrice"
+                type="number"
+                min="0"
+                inputmode="numeric"
+                :placeholder="String(routePriceMajor(selected))"
+              />
+            </label>
+            <div class="two">
+              <label class="field">
+                <span class="label">Скидка</span>
+                <input v-model.number="paymentForm.discount" type="number" min="0" inputmode="numeric" />
+              </label>
+              <label class="field">
+                <span class="label">Предоплата</span>
+                <input v-model.number="paymentForm.prepaid" type="number" min="0" inputmode="numeric" />
+              </label>
+            </div>
+            <label class="field">
+              <span class="label">Комментарий <span class="opt">(необязательно)</span></span>
+              <textarea v-model="paymentForm.comment" rows="2" placeholder="Багаж, детское кресло, адрес подачи…" />
+            </label>
+            <div class="edit-hint">Изменение времени переносит весь рейс — всех пассажиров этого рейса.</div>
+            <div class="pay-actions">
+              <button type="submit" class="status-btn" :disabled="paymentBusy">
+                Сохранить
+              </button>
+              <button type="button" class="status-btn ghost" :disabled="paymentBusy" @click="cancelEdit">
+                Отмена
+              </button>
+            </div>
+          </form>
+
+          <!-- ═══ Read mode ═══ -->
+          <template v-else>
           <div class="grid">
             <div>
               <div class="cap">Дата · время</div>
@@ -312,17 +408,15 @@ const {
 
           <div class="section-title">Оплата</div>
           <div v-if="paymentError" class="status-error">{{ paymentError }}</div>
-          <div class="pay-grid">
-            <label class="field">
-              <span class="label">Скидка</span>
-              <input v-model.number="paymentForm.discount" type="number" min="0" inputmode="numeric" />
-            </label>
-            <label class="field">
-              <span class="label">Предоплата</span>
-              <input v-model.number="paymentForm.prepaid" type="number" min="0" inputmode="numeric" />
-            </label>
-          </div>
           <div class="pay-summary">
+            <div class="pay-line">
+              <span class="cap">Цена за место</span>
+              <span class="val">{{ money(selected.unitPrice ?? selected.flight?.route?.price ?? 0) }}</span>
+            </div>
+            <div v-if="selected.discount > 0" class="pay-line">
+              <span class="cap">Скидка</span>
+              <span class="val">−{{ money(selected.discount) }}</span>
+            </div>
             <div class="pay-line">
               <span class="cap">Предоплата</span>
               <span class="val">{{ money(selected.prepaid) }}</span>
@@ -331,15 +425,12 @@ const {
               <span class="cap">Остаток к оплате</span>
               <span class="val accent">{{ money(Math.max(0, selected.total - selected.prepaid)) }}</span>
             </div>
-                        <div class="pay-line">
+            <div class="pay-line">
               <span class="cap">Итого</span>
               <span class="val">{{ money(selected.total) }}</span>
             </div>
           </div>
           <div class="pay-actions">
-            <button type="button" class="status-btn" :disabled="paymentBusy" @click="savePayment">
-              Сохранить
-            </button>
             <button
               v-if="selected.paymentStatus !== 'PAID'"
               type="button"
@@ -356,7 +447,7 @@ const {
               :disabled="paymentBusy"
               @click="setPaid(false)"
             >
-              Снять оплату
+              Отменить оплату
             </button>
           </div>
 
@@ -365,9 +456,9 @@ const {
           <div class="section-title">Сменить статус</div>
           <div v-if="statusError" class="status-error">{{ statusError }}</div>
           <div class="status-actions">
-            <template v-if="nextStatuses[selected.status].length">
+            <template v-if="availableStatuses.length">
               <button
-                v-for="st in nextStatuses[selected.status]"
+                v-for="st in availableStatuses"
                 :key="st"
                 type="button"
                 class="status-btn"
@@ -380,6 +471,7 @@ const {
             </template>
             <div v-else class="status-final">Заявка завершена — изменений нет.</div>
           </div>
+          </template>
         </div>
 
         <div class="drawer-footer">
@@ -466,6 +558,16 @@ const {
             </select>
           </label>
         </div>
+        <label class="field">
+          <span class="label">Цена за место <span class="opt">(по умолчанию — цена маршрута)</span></span>
+          <input
+            v-model.number="createForm.unitPrice"
+            type="number"
+            min="0"
+            inputmode="numeric"
+            :placeholder="String(createUnitPlaceholder)"
+          />
+        </label>
         <div class="two">
           <label class="field">
             <span class="label">Скидка <span class="opt">(необязательно)</span></span>
@@ -968,7 +1070,13 @@ const {
   font: 800 20px var(--eg-font);
   margin-top: 2px;
 }
-.drawer-close {
+.drawer-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.drawer-close,
+.drawer-edit {
   width: 38px;
   height: 38px;
   border-radius: 11px;
@@ -978,6 +1086,12 @@ const {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.drawer-edit {
+  color: var(--eg-brand);
+}
+.drawer-edit:hover {
+  background: var(--eg-brand-light, #eef6e6);
 }
 .drawer-body {
   flex: 1;
@@ -1127,6 +1241,19 @@ const {
   border: 1px solid var(--eg-border);
   color: #c0492e;
 }
+.status-btn.ghost {
+  background: #fff;
+  border: 1px solid var(--eg-border);
+  color: var(--eg-ink, #16181c);
+}
+.edit-hint {
+  font: 600 12px var(--eg-font);
+  color: var(--eg-hint);
+  background: #f6f8f3;
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-top: 12px;
+}
 .status-btn:disabled {
   opacity: 0.6;
   cursor: default;
@@ -1142,6 +1269,11 @@ const {
   padding: 8px 12px;
   border-radius: 10px;
   margin-bottom: 12px;
+}
+.field-error {
+  color: #c0492e;
+  font: 600 12px var(--eg-font);
+  margin-top: 4px;
 }
 .drawer-footer {
   padding: 18px 24px;
@@ -1225,6 +1357,20 @@ const {
   border-radius: 11px;
   font: 800 18px var(--eg-font);
   cursor: pointer;
+}
+.stepper button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+/* Brand date picker sized to match sibling form inputs */
+.form-date {
+  display: block;
+}
+.form-date :deep(.trigger) {
+  width: 100%;
+  height: 46px;
+  border-radius: 11px;
+  padding: 0 12px;
 }
 .stepper-val {
   font: 800 18px var(--eg-font);

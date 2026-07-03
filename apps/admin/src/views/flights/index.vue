@@ -269,7 +269,7 @@ const {
               :disabled="detailPaymentSaving"
               @click="setFlightPaid(false)"
             >
-              {{ detailPaymentSaving ? 'Сохранение…' : 'Снять оплату со всех' }}
+              {{ detailPaymentSaving ? 'Сохранение…' : 'Отменить оплату у всех' }}
             </button>
           </div>
         </div>

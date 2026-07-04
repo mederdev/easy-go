@@ -62,6 +62,24 @@ const {
       </div>
 
       <div class="card">
+        <div class="card-title">Точки сбора и развоза</div>
+        <div class="fields two">
+          <label class="field">
+            <span class="label">Цена точки по городу</span>
+            <input v-model.number="form.stopPriceCity" type="number" min="0" inputmode="numeric" placeholder="0" />
+          </label>
+          <label class="field">
+            <span class="label">Цена точки за городом</span>
+            <input v-model.number="form.stopPriceOutside" type="number" min="0" inputmode="numeric" placeholder="0" />
+          </label>
+        </div>
+        <div class="note" style="margin-top: 10px">
+          Ориентир для клиентов при бронировании. Итоговая цена каждой точки подтверждается
+          оператором в самой брони. 0 — не показывать цену.
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-title">Уведомления в Telegram</div>
         <div class="fields">
           <label class="field">

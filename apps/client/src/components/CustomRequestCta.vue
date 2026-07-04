@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import type { CarType } from '@easygo/shared';
-import { paxLabel, carTypeSeats, CAR_TYPE_LABEL, CAR_TYPE_SEAT_OPTIONS } from '@easygo/shared';
+import type { CarType, CarFeature, StopKind } from '@easygo/shared';
+import { paxLabel, carTypeSeats, formatMoney, CAR_TYPE_LABEL, CAR_TYPE_SEAT_OPTIONS, CarFeature as CarFeatureEnum, CAR_FEATURE_LABEL } from '@easygo/shared';
 import { ApiError } from '@easygo/api-client';
 import { api } from '@/lib/api';
 import { useBookingStore } from '@/stores/booking';
 import { useAuthStore } from '@/stores/auth';
+import { useConfigStore } from '@/stores/config';
 
 /** Always-visible "leave an individual request" CTA + modal form. Used on the
  *  results and booking screens so a customer can ask an operator to arrange a
@@ -31,6 +32,7 @@ const authStore = useAuthStore();
 const paxLabelVal = computed(() => paxLabel(store.pax));
 
 const carTypes: CarType[] = ['SEDAN', 'MINIVAN', 'BUS'];
+const featureOptions = CarFeatureEnum.options.map((value) => ({ value, label: CAR_FEATURE_LABEL[value] }));
 const open = ref(false);
 const phone = ref(authStore.client?.phone ?? '');
 const comment = ref('');
@@ -38,6 +40,47 @@ const time = ref(''); // "HH:MM" desired departure time (empty = no preference)
 const carType = ref<CarType>('MINIVAN');
 const seats = ref<number>(CAR_TYPE_SEAT_OPTIONS.MINIVAN[0]);
 const wholeCabin = ref(false);
+const features = ref<CarFeature[]>([]);
+
+function toggleFeature(value: CarFeature) {
+  features.value = features.value.includes(value)
+    ? features.value.filter((f) => f !== value)
+    : [...features.value, value];
+}
+
+// ── Pickup/dropoff points: paid per point, price confirmed by the operator.
+// At most one point of each type (pickup / dropoff) per passenger. ──
+const configStore = useConfigStore();
+const stops = ref<Array<{ kind: StopKind; address: string }>>([]);
+const stopsError = ref('');
+
+// "Салон" books the whole car, so its capacity is the passenger count.
+const effectivePax = computed(() => (wholeCabin.value ? seats.value : store.pax));
+const pickupCount = computed(() => stops.value.filter((s) => s.kind === 'PICKUP').length);
+const dropoffCount = computed(() => stops.value.filter((s) => s.kind === 'DROPOFF').length);
+const canAddStop = computed(
+  () => pickupCount.value < effectivePax.value || dropoffCount.value < effectivePax.value,
+);
+
+function addStop() {
+  if (!canAddStop.value) return;
+  // Default the new row to whichever type still has room.
+  const kind: StopKind = pickupCount.value < effectivePax.value ? 'PICKUP' : 'DROPOFF';
+  stops.value.push({ kind, address: '' });
+}
+function removeStop(index: number) {
+  stops.value.splice(index, 1);
+  stopsError.value = '';
+}
+
+const stopPriceHint = computed(() => {
+  const c = configStore.config;
+  if (!c || (!c.stopPriceCity && !c.stopPriceOutside)) return '';
+  const parts: string[] = [];
+  if (c.stopPriceCity) parts.push(`по городу — от ${formatMoney(c.stopPriceCity, c.currency)}`);
+  if (c.stopPriceOutside) parts.push(`за городом — от ${formatMoney(c.stopPriceOutside, c.currency)}`);
+  return `Ориентировочно ${parts.join(', ')}.`;
+});
 const submitting = ref(false);
 const success = ref(false);
 const error = ref<string | null>(null);
@@ -65,16 +108,30 @@ function openForm() {
   carType.value = 'MINIVAN';
   seats.value = CAR_TYPE_SEAT_OPTIONS.MINIVAN[0];
   wholeCabin.value = false;
+  features.value = [];
+  stops.value = [];
+  stopsError.value = '';
   error.value = null;
   success.value = false;
   open.value = true;
+  void configStore.load();
 }
 
 async function submit() {
   error.value = null;
+  stopsError.value = '';
   const p = phone.value.trim();
   if (!p) {
     error.value = 'Укажите номер телефона';
+    return;
+  }
+  // Every added point needs an address; empty rows are rejected, not dropped.
+  if (stops.value.some((s) => !s.address.trim())) {
+    stopsError.value = 'Укажите адрес для каждой точки или удалите пустую';
+    return;
+  }
+  if (pickupCount.value > effectivePax.value || dropoffCount.value > effectivePax.value) {
+    stopsError.value = `Точек каждого типа не может быть больше, чем пассажиров (${effectivePax.value})`;
     return;
   }
   submitting.value = true;
@@ -88,7 +145,11 @@ async function submit() {
       time: time.value || undefined,
       pax,
       carType: carType.value,
+      features: features.value,
       wholeCabin: wholeCabin.value,
+      stops: stops.value
+        .filter((s) => s.address.trim())
+        .map((s) => ({ kind: s.kind, address: s.address.trim() })),
       phone: p,
       comment: comment.value.trim() || undefined,
     });
@@ -200,6 +261,69 @@ function closeForm() {
                   <span class="cabin-toggle__hint">Бронируются все {{ seats }} мест в машине</span>
                 </span>
               </button>
+
+              <!-- Desired car features -->
+              <div class="field">
+                <span class="field__label">Доп. оснащение (необязательно)</span>
+                <div class="type-chips">
+                  <button
+                    v-for="f in featureOptions"
+                    :key="f.value"
+                    type="button"
+                    :class="['feature-chip', features.includes(f.value) && 'feature-chip--active']"
+                    @click="toggleFeature(f.value)"
+                  >
+                    {{ f.label }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Pickup / dropoff points -->
+              <div class="field">
+                <span class="field__label">Точки сбора и развоза (необязательно)</span>
+                <div class="stops">
+                  <div
+                    v-for="(s, i) in stops"
+                    :key="i"
+                    class="stop-row"
+                    :class="{ 'stop-row--error': stopsError && !s.address.trim() }"
+                  >
+                    <div class="stop-kind">
+                      <button
+                        type="button"
+                        :class="['stop-kind-btn', s.kind === 'PICKUP' && 'stop-kind-btn--on']"
+                        @click="s.kind = 'PICKUP'"
+                      >Сбор</button>
+                      <button
+                        type="button"
+                        :class="['stop-kind-btn', s.kind === 'DROPOFF' && 'stop-kind-btn--on']"
+                        @click="s.kind = 'DROPOFF'"
+                      >Развоз</button>
+                    </div>
+                    <input
+                      v-model="s.address"
+                      class="field__input stop-address"
+                      type="text"
+                      :placeholder="s.kind === 'PICKUP' ? 'Адрес, откуда забрать' : 'Адрес, куда отвезти'"
+                    />
+                    <button type="button" class="stop-remove" @click="removeStop(i)">
+                      <span class="ms">delete</span>
+                    </button>
+                  </div>
+                  <button v-if="canAddStop" type="button" class="stop-add" @click="addStop">
+                    <span class="ms">add_location_alt</span>
+                    Добавить точку
+                  </button>
+                  <div v-else-if="stops.length" class="stop-limit">
+                    Максимум {{ effectivePax }} сбора и {{ effectivePax }} развоза — по одной каждого типа на пассажира.
+                  </div>
+                  <div v-if="stopsError" class="stop-err">{{ stopsError }}</div>
+                  <div v-if="stops.length" class="stop-note">
+                    За каждую точку взимается доплата — цену подтвердит оператор.
+                    <template v-if="stopPriceHint"> {{ stopPriceHint }}</template>
+                  </div>
+                </div>
+              </div>
 
               <label class="field">
                 <span class="field__label">Желаемое время (необязательно)</span>
@@ -433,6 +557,24 @@ function closeForm() {
   color: var(--eg-green);
 }
 
+/* ── Feature chips (multi-select, wrap by content) ── */
+.feature-chip {
+  padding: 9px 13px;
+  border-radius: 12px;
+  border: 1.5px solid #E7E9E5;
+  background: #fff;
+  cursor: pointer;
+  font: 700 13px 'Manrope', sans-serif;
+  color: var(--eg-muted);
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.feature-chip--active {
+  border-color: var(--eg-green);
+  background: #EEF6E6;
+  color: var(--eg-green);
+}
+
 /* ── "Салон" toggle ── */
 .cabin-toggle {
   display: flex;
@@ -473,6 +615,104 @@ function closeForm() {
   font: 500 12px 'Manrope', sans-serif;
   color: var(--eg-muted);
   margin-top: 2px;
+}
+
+/* ── Pickup/dropoff points ── */
+.stops {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stop-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stop-kind {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.stop-kind-btn {
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1.5px solid #E7E9E5;
+  background: #fff;
+  cursor: pointer;
+  font: 700 11px 'Manrope', sans-serif;
+  color: var(--eg-muted);
+}
+
+.stop-kind-btn--on {
+  border-color: var(--eg-green);
+  background: #EEF6E6;
+  color: var(--eg-green);
+}
+
+.stop-address {
+  flex: 1;
+  min-width: 0;
+}
+
+.stop-row--error .stop-address {
+  border-color: #E05252;
+}
+
+.stop-limit {
+  font: 600 12px 'Manrope', sans-serif;
+  color: var(--eg-muted);
+  text-align: center;
+  padding: 2px 0;
+}
+
+.stop-err {
+  font: 600 12px 'Manrope', sans-serif;
+  color: #E05252;
+}
+
+.stop-remove {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  border: 1px solid #E7E9E5;
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  color: #C0492E;
+  flex-shrink: 0;
+}
+
+.stop-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  border: 1.5px dashed #C9D6BC;
+  border-radius: 12px;
+  background: #F7FAF3;
+  color: var(--eg-green);
+  font: 700 13px 'Manrope', sans-serif;
+  cursor: pointer;
+}
+
+.stop-add .ms {
+  font-size: 19px;
+}
+
+.stop-note {
+  font: 500 12px/1.5 'Manrope', sans-serif;
+  color: var(--eg-muted);
+  background: #F5F6F3;
+  border-radius: 10px;
+  padding: 9px 12px;
 }
 
 .modal-error {

@@ -1,11 +1,13 @@
 import type {
   BookingStatus,
+  CarFeature,
   FlightStatus,
   RouteStatus,
   CarStatus,
   CarType,
   ApplicationStatus,
   PaymentStatus,
+  StopKind,
   UserRole,
 } from './enums.js';
 
@@ -20,6 +22,13 @@ export const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
   CANCELLED_BY_COMPANY: 'Отменён компанией',
 };
 
+export const CAR_FEATURE_LABEL: Record<CarFeature, string> = {
+  ROOF_RACK: 'Багажник на крыше',
+  CHILD_SEAT: 'Детское кресло',
+  EXTRA_LUGGAGE: 'Доп. багаж',
+  PET: 'Животное',
+};
+
 export const FLIGHT_STATUS_LABEL: Record<FlightStatus, string> = {
   SCHEDULED: 'Продажи открыты',
   CLOSED: 'Продажи закрыты',
@@ -28,6 +37,11 @@ export const FLIGHT_STATUS_LABEL: Record<FlightStatus, string> = {
   CANCELLED: 'Отменён',
   CANCELLED_BY_CLIENT: 'Отменён клиентом',
   CANCELLED_BY_COMPANY: 'Отменён компанией',
+};
+
+export const STOP_KIND_LABEL: Record<StopKind, string> = {
+  PICKUP: 'Сбор',
+  DROPOFF: 'Развоз',
 };
 
 export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {

@@ -1,11 +1,13 @@
 import type { FastifyPluginAsync } from 'fastify';
 import {
   AdminCreateBookingInput,
+  AdminStopInput,
   CreateBookingInput,
   ListBookingsQuery,
   SetPaymentStatusInput,
   UpdateBookingPaymentInput,
   UpdateBookingStatusInput,
+  UpdateStopInput,
   Id,
   IDEMPOTENCY_HEADER,
   type JwtClaims,
@@ -76,6 +78,37 @@ const routes: FastifyPluginAsync = async (app) => {
       const { id } = request.params as { id: string };
       const input = parse(UpdateBookingPaymentInput, request.body);
       return svc.updateBookingPayment(parse(Id, id), input);
+    },
+  );
+
+  // ── Pickup/dropoff points (admin manages addresses and confirms prices) ──
+  app.post(
+    '/:id/stops',
+    { preHandler: [app.authorize(['operator', 'admin', 'owner'])] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const input = parse(AdminStopInput, request.body);
+      reply.code(201);
+      return svc.addBookingStop(parse(Id, id), input, { role: 'admin' });
+    },
+  );
+
+  app.patch(
+    '/:id/stops/:stopId',
+    { preHandler: [app.authorize(['operator', 'admin', 'owner'])] },
+    async (request) => {
+      const { id, stopId } = request.params as { id: string; stopId: string };
+      const input = parse(UpdateStopInput, request.body);
+      return svc.updateBookingStop(parse(Id, id), parse(Id, stopId), input, { role: 'admin' });
+    },
+  );
+
+  app.delete(
+    '/:id/stops/:stopId',
+    { preHandler: [app.authorize(['operator', 'admin', 'owner'])] },
+    async (request) => {
+      const { id, stopId } = request.params as { id: string; stopId: string };
+      return svc.deleteBookingStop(parse(Id, id), parse(Id, stopId), { role: 'admin' });
     },
   );
 

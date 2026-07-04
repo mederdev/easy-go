@@ -19,6 +19,8 @@ const {
   cities,
   statuses,
   types,
+  featureOptions,
+  toggleFeature,
   seatOptions,
   onTypeChange,
   form,
@@ -28,6 +30,7 @@ const {
   driverName,
   CAR_STATUS_LABEL,
   CAR_TYPE_LABEL,
+  CAR_FEATURE_LABEL,
 } = useFleetModel();
 </script>
 
@@ -73,6 +76,9 @@ const {
                     <div class="cap">Рейсов · мес</div>
                     <div class="fact">{{ c.tripsMonth }}</div>
                   </div>
+                </div>
+                <div v-if="c.features.length" class="feature-tags">
+                  <span v-for="f in c.features" :key="f" class="feature-tag">{{ CAR_FEATURE_LABEL[f] }}</span>
                 </div>
                 <button type="button" class="edit" @click="openEdit(c)">
                   <span class="material-symbols-outlined">edit</span>
@@ -124,6 +130,20 @@ const {
             Водителей пока нет — добавить водителя
           </router-link>
         </label>
+        <div class="field">
+          <span class="label">Доп. оснащение</span>
+          <div class="feature-chips">
+            <button
+              v-for="f in featureOptions"
+              :key="f.value"
+              type="button"
+              :class="['feature-chip', form.features.includes(f.value) && 'is-active']"
+              @click="toggleFeature(f.value)"
+            >
+              {{ f.label }}
+            </button>
+          </div>
+        </div>
         <div class="two">
           <label class="field">
             <span class="label">Статус</span>
@@ -233,6 +253,39 @@ const {
 }
 .fact {
   font: 700 13px var(--eg-font);
+}
+.feature-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+.feature-tag {
+  padding: 3px 9px;
+  border-radius: 8px;
+  background: var(--eg-brand-light, #eef6e6);
+  color: var(--eg-brand-dark, #3e7c12);
+  font: 700 11px var(--eg-font);
+}
+.feature-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.feature-chip {
+  padding: 9px 13px;
+  border: 1px solid var(--eg-border);
+  border-radius: 11px;
+  background: #fff;
+  font: 700 12px var(--eg-font);
+  color: var(--eg-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.feature-chip.is-active {
+  border-color: var(--eg-brand);
+  background: var(--eg-brand-light, #eef6e6);
+  color: var(--eg-brand-dark, #3e7c12);
 }
 .edit {
   margin-top: 14px;

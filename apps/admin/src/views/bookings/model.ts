@@ -1,7 +1,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import type { AdminCreateBookingInput, ApplicationStatus, Booking, BookingStatus, Car, Client, CreateFlightInput, CustomRequest, FlightView, Route } from '@easygo/shared';
-import { APPLICATION_STATUS_LABEL, BOOKING_STATUS_LABEL, CAR_TYPE_LABEL, PAYMENT_STATUS_LABEL, formatMoney, paxLabel, seatsLabel, toMajor, toMinor } from '@easygo/shared';
+import type { AdminCreateBookingInput, ApplicationStatus, Booking, BookingStatus, BookingStop, Car, CarFeature, Client, CreateFlightInput, CustomRequest, FlightView, Route, StopKind } from '@easygo/shared';
+import { APPLICATION_STATUS_LABEL, BOOKING_STATUS_LABEL, CAR_FEATURE_LABEL, CAR_TYPE_LABEL, PAYMENT_STATUS_LABEL, STOP_KIND_LABEL, formatMoney, paxLabel, seatsLabel, toMajor, toMinor } from '@easygo/shared';
 import { api, errorMessage } from '@/lib/api';
 import { useConfigStore } from '@/stores/config';
 import { bookingRouteLabel, dateLabel, dateTimeLabel, flightRouteLabel, initials, timeLabel } from '@/lib/format';
@@ -300,6 +300,93 @@ export function useBookingsModel() {
     }
   }
 
+  // ── Pickup/dropoff points (точки сбора и развоза) ──
+  // The client lists addresses; the admin edits them and confirms the price of
+  // every point here. Confirmed prices are part of the booking total.
+  const stopBusy = ref(false);
+  const stopError = ref<string | null>(null);
+  const stopFormOpen = ref(false);
+  const stopForm = reactive({
+    id: null as string | null, // null = adding a new point
+    kind: 'PICKUP' as StopKind,
+    address: '',
+    note: '',
+    price: null as number | null, // major units; empty = не подтверждена
+  });
+
+  const bookingStops = computed<BookingStop[]>(() => selected.value?.stops ?? []);
+  // At most one point of each type (pickup / dropoff) per passenger.
+  const maxStops = computed(() => selected.value?.pax ?? 0);
+  const stopPickupCount = computed(() => bookingStops.value.filter((s) => s.kind === 'PICKUP').length);
+  const stopDropoffCount = computed(() => bookingStops.value.filter((s) => s.kind === 'DROPOFF').length);
+  const canAddStop = computed(
+    () => stopPickupCount.value < maxStops.value || stopDropoffCount.value < maxStops.value,
+  );
+
+  function openStopForm(s?: BookingStop): void {
+    stopForm.id = s?.id ?? null;
+    // A new point defaults to whichever type still has room.
+    stopForm.kind = s?.kind ?? (stopPickupCount.value < maxStops.value ? 'PICKUP' : 'DROPOFF');
+    stopForm.address = s?.address ?? '';
+    stopForm.note = s?.note ?? '';
+    stopForm.price = s?.price != null ? toMajor(s.price, config.currency) : null;
+    stopError.value = null;
+    stopFormOpen.value = true;
+  }
+
+  function closeStopForm(): void {
+    stopFormOpen.value = false;
+    stopError.value = null;
+  }
+
+  async function saveStop(): Promise<void> {
+    if (!selected.value) return;
+    const address = stopForm.address.trim();
+    if (!address) {
+      stopError.value = 'Укажите адрес точки.';
+      return;
+    }
+    const raw = stopForm.price;
+    const hasPrice = raw !== null && String(raw) !== '' && !Number.isNaN(Number(raw));
+    const price = hasPrice ? toMinor(Number(raw), config.currency) : null;
+    stopBusy.value = true;
+    stopError.value = null;
+    try {
+      const payload = { kind: stopForm.kind, address, note: stopForm.note.trim() || null, price };
+      const updated = stopForm.id
+        ? await api.bookings.updateStop(selected.value.id, stopForm.id, payload)
+        : await api.bookings.addStop(selected.value.id, { ...payload, note: payload.note ?? undefined });
+      applyUpdated(updated);
+      stopFormOpen.value = false;
+    } catch (e) {
+      stopError.value = errorMessage(e);
+    } finally {
+      stopBusy.value = false;
+    }
+  }
+
+  async function removeStop(s: BookingStop): Promise<void> {
+    if (!selected.value) return;
+    stopBusy.value = true;
+    stopError.value = null;
+    try {
+      applyUpdated(await api.bookings.deleteStop(selected.value.id, s.id));
+    } catch (e) {
+      stopError.value = errorMessage(e);
+    } finally {
+      stopBusy.value = false;
+    }
+  }
+
+  function stopPriceLabel(s: BookingStop): string {
+    return s.price != null ? money(s.price) : 'не подтверждена';
+  }
+
+  /** Confirmed stop prices already included in the booking total (minor units). */
+  const stopsTotalMinor = computed(() =>
+    bookingStops.value.reduce((sum, s) => sum + (s.price ?? 0), 0),
+  );
+
   async function setPaid(paid: boolean): Promise<void> {
     if (!selected.value) return;
     paymentBusy.value = true;
@@ -320,6 +407,8 @@ export function useBookingsModel() {
     statusError.value = null;
     paymentError.value = null;
     editing.value = false;
+    stopFormOpen.value = false;
+    stopError.value = null;
     syncPaymentForm(b);
   }
   function closeDrawer(): void {
@@ -530,6 +619,7 @@ export function useBookingsModel() {
             : undefined,
         discount: toMinor(Number(createForm.discount) || 0, config.currency),
         prepaid: toMinor(Number(createForm.prepaid) || 0, config.currency),
+        stops: [], // points are added in the booking drawer after creation
       };
       await api.bookings.adminCreate(payload);
       createOpen.value = false;
@@ -677,6 +767,25 @@ export function useBookingsModel() {
     },
   );
 
+  // Extra features the customer asked for on this individual request.
+  const requestedFeatures = computed<CarFeature[]>(() => customSelected.value?.features ?? []);
+
+  /** Requested features the given car doesn't provide. */
+  function missingCarFeatures(car: Car | undefined): CarFeature[] {
+    if (!car) return [];
+    return requestedFeatures.value.filter((f) => !car.features.includes(f));
+  }
+
+  /** True if the car can't satisfy every requested feature (for the dropdown). */
+  function carUnsuitable(car: Car): boolean {
+    return missingCarFeatures(car).length > 0;
+  }
+
+  /** Requested features missing on the currently selected car (live warning). */
+  const selectedCarMissingFeatures = computed(() =>
+    missingCarFeatures(approveCars.value.find((c) => c.id === approveForm.carId)),
+  );
+
   async function openApprove(): Promise<void> {
     const r = customSelected.value;
     if (!r) return;
@@ -730,6 +839,15 @@ export function useBookingsModel() {
       approveError.value = 'Укажите корректную дату и время.';
       return;
     }
+    // The customer asked for specific оснащение — the assigned car must have it all.
+    const missing = selectedCarMissingFeatures.value;
+    if (missing.length) {
+      const car = approveCars.value.find((c) => c.id === approveForm.carId);
+      approveError.value = `Автомобиль «${car?.model} · ${car?.plate}» нельзя выбрать: клиенту нужно ${missing
+        .map((f) => CAR_FEATURE_LABEL[f])
+        .join(', ')}, а в этой машине этого нет.`;
+      return;
+    }
     approving.value = true;
     try {
       const flightPayload: CreateFlightInput = {
@@ -750,6 +868,13 @@ export function useBookingsModel() {
         status: 'CONFIRMED',
         discount: toMinor(Number(approveForm.discount) || 0, config.currency),
         prepaid: toMinor(Number(approveForm.prepaid) || 0, config.currency),
+        // Carry the request's pickup/dropoff points onto the booking; prices
+        // are confirmed afterwards in the booking drawer.
+        stops: (customSelected.value.stops ?? []).map((s) => ({
+          kind: s.kind,
+          address: s.address,
+          note: s.note ?? undefined,
+        })),
       };
       await api.bookings.adminCreate(bookingPayload);
       const updated = await api.customRequests.setStatus(customSelected.value.id, 'ACCEPTED');
@@ -835,6 +960,20 @@ export function useBookingsModel() {
     savePayment,
     setPaid,
     routePriceMajor,
+    // pickup/dropoff points
+    bookingStops,
+    maxStops,
+    canAddStop,
+    stopBusy,
+    stopError,
+    stopFormOpen,
+    stopForm,
+    openStopForm,
+    closeStopForm,
+    saveStop,
+    removeStop,
+    stopPriceLabel,
+    stopsTotalMinor,
     // create
     createOpen,
     creating,
@@ -889,6 +1028,9 @@ export function useBookingsModel() {
     approveCars,
     approveForm,
     approveTotal,
+    requestedFeatures,
+    selectedCarMissingFeatures,
+    carUnsuitable,
     openApprove,
     closeApprove,
     submitApprove,
@@ -900,6 +1042,8 @@ export function useBookingsModel() {
     dateTimeLabel,
     initials,
     paxLabel,
+    featureLabel: (f: CarFeature) => CAR_FEATURE_LABEL[f],
+    STOP_KIND_LABEL,
     BOOKING_STATUS_LABEL,
     PAYMENT_STATUS_LABEL,
     CAR_TYPE_LABEL,

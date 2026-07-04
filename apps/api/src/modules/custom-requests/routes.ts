@@ -10,9 +10,22 @@ const routes: FastifyPluginAsync = async (app) => {
   // Public: client leaves a request when no suitable flight is found
   app.post('/', { config: { idempotent: true } }, async (request, reply) => {
     const input = parse(CreateCustomRequestInput, request.body);
+    // At most one point of each type per passenger (pickups and dropoffs apart).
+    const pickups = input.stops.filter((s) => s.kind === 'PICKUP').length;
+    const dropoffs = input.stops.filter((s) => s.kind === 'DROPOFF').length;
+    if (pickups > input.pax || dropoffs > input.pax) {
+      throw Errors.badRequest(
+        `Точек каждого типа не может быть больше, чем пассажиров (${input.pax})`,
+      );
+    }
     reply.code(201);
     const created = await prisma.customRequest.create({
-      data: { ...input, phone: normalizePhone(input.phone) },
+      data: {
+        ...input,
+        phone: normalizePhone(input.phone),
+        // Json column: normalize optional fields so the payload is plain JSON.
+        stops: input.stops.map((s) => ({ kind: s.kind, address: s.address, note: s.note ?? null })),
+      },
     });
     await enqueueCustomRequestNotification(created.id).catch(() => undefined);
     return created;

@@ -46,6 +46,11 @@ const {
   paymentError,
   markBookingPaid,
   markFlightPaid,
+  callPassenger,
+  whatsappPassenger,
+  stopBusy,
+  toggleStopPicked,
+  STOP_KIND_LABEL,
   menuOpen,
   menuWrapEl,
   toggleMenu,
@@ -185,9 +190,36 @@ const {
                     <div class="pass-row">
                       <span class="pass-avatar">{{ (p.name[0] ?? '?').toUpperCase() }}</span>
                       <span class="pass-name">{{ p.name }}</span>
+                      <button v-if="p.phone" class="pass-ic pass-ic--call" @click="callPassenger(p)" aria-label="Позвонить пассажиру">
+                        <span class="ms">call</span>
+                      </button>
+                      <button v-if="p.phone && p.whatsapp" class="pass-ic pass-ic--wa" @click="whatsappPassenger(p)" aria-label="Написать в WhatsApp">
+                        <span class="ms">chat</span>
+                      </button>
                       <span class="chip" :style="{ background: paymentStatusStyle(p.paymentStatus).bg, color: paymentStatusStyle(p.paymentStatus).color }">
                         {{ PAYMENT_STATUS_LABEL[p.paymentStatus] }}
                       </span>
+                    </div>
+                    <!-- Pickup/dropoff points: where to collect/drop this passenger -->
+                    <div v-if="p.stops?.length" class="stop-list">
+                      <button
+                        v-for="s in p.stops"
+                        :key="s.id"
+                        class="stop-item"
+                        :disabled="stopBusy === s.id"
+                        @click="toggleStopPicked(selectedFlight.id, p.bookingId, s)"
+                      >
+                        <span :class="['stop-check ms', s.pickedUp && 'stop-check--on']">
+                          {{ s.pickedUp ? 'check_box' : 'check_box_outline_blank' }}
+                        </span>
+                        <span class="stop-body">
+                          <span class="stop-addr" :class="s.pickedUp && 'stop-addr--done'">{{ s.address }}</span>
+                          <span class="stop-sub">
+                            {{ STOP_KIND_LABEL[s.kind] }}<template v-if="s.note"> · {{ s.note }}</template>
+                            <template v-if="s.price != null"> · {{ formatMoney(s.price) }}</template>
+                          </span>
+                        </span>
+                      </button>
                     </div>
                     <div class="pass-pay">
                       <span class="pass-sum">
@@ -532,7 +564,13 @@ const {
   width: 34px; height: 34px; border-radius: 50%; background: var(--eg-ink); color: var(--eg-green-bright);
   display: flex; align-items: center; justify-content: center; font: 800 13px 'Manrope', sans-serif; flex: none;
 }
-.pass-name { flex: 1; font: 600 14px 'Manrope', sans-serif; }
+.pass-name { flex: 1; font: 600 14px 'Manrope', sans-serif; min-width: 0; }
+.pass-ic {
+  width: 32px; height: 32px; border-radius: 9px; border: none; flex: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 17px;
+}
+.pass-ic--call { background: #EEF6E6; color: var(--eg-green); }
+.pass-ic--wa { background: var(--eg-whatsapp); color: #fff; }
 .pass-pay { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; padding-left: 44px; }
 .pass-sum { display: flex; gap: 18px; flex-wrap: wrap; }
 .pass-metric { display: flex; flex-direction: column; gap: 2px; }
@@ -541,6 +579,20 @@ const {
   color: var(--eg-muted-light);
 }
 .pass-metric-val { font: 700 14px 'Manrope', sans-serif; color: var(--eg-ink); }
+/* Pickup/dropoff points inside a passenger block */
+.stop-list { display: flex; flex-direction: column; gap: 6px; padding-left: 44px; }
+.stop-item {
+  display: flex; align-items: flex-start; gap: 8px; padding: 7px 10px; border: 1px solid #eceee9;
+  border-radius: 11px; background: #fafbf8; cursor: pointer; text-align: left; width: 100%;
+}
+.stop-item:disabled { opacity: 0.6; }
+.stop-check { font-size: 21px; color: #c4c8c0; flex: none; }
+.stop-check--on { color: var(--eg-green); }
+.stop-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.stop-addr { font: 600 13px 'Manrope', sans-serif; color: var(--eg-ink); }
+.stop-addr--done { text-decoration: line-through; color: var(--eg-muted-light); }
+.stop-sub { font: 500 11px 'Manrope', sans-serif; color: var(--eg-muted-light); }
+
 .pay-mini {
   height: 32px; padding: 0 14px; border: none; border-radius: 9px;
   background: var(--eg-green); color: #fff; font: 700 12px 'Manrope', sans-serif; cursor: pointer; flex: none;

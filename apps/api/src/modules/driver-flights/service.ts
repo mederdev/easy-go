@@ -24,11 +24,22 @@ function toDriverFlightView(flight: Awaited<ReturnType<typeof fetchFlight>>): Dr
       .map((b) => ({
         bookingId: b.id,
         name: b.client.name,
+        phone: b.client.phone ?? '', // Telegram signups may have no phone yet
+        whatsapp: b.client.whatsapp,
         pax: b.pax,
         total: b.total,
         prepaid: b.prepaid,
         discount: b.discount,
         paymentStatus: b.paymentStatus as DriverFlightView['paymentStatus'],
+        stops: b.stops.map((s) => ({
+          id: s.id,
+          kind: s.kind as 'PICKUP' | 'DROPOFF',
+          address: s.address,
+          note: s.note,
+          price: s.price,
+          pickedUp: s.pickedUp,
+          order: s.order,
+        })),
       })),
   };
 }
@@ -41,7 +52,7 @@ async function fetchFlight(flightId: string) {
       car: true,
       bookings: {
         where: { status: { in: ['NEW', 'CONFIRMED', 'COMPLETED'] } },
-        include: { client: { select: { name: true } } },
+        include: { client: { select: { name: true, phone: true, whatsapp: true } }, stops: { orderBy: { order: 'asc' } } },
         orderBy: { createdAt: 'asc' },
       },
     },
@@ -65,7 +76,7 @@ export async function listDriverFlights(driverId: string): Promise<DriverFlightV
       car: true,
       bookings: {
         where: { status: { in: ['NEW', 'CONFIRMED', 'COMPLETED'] } },
-        include: { client: { select: { name: true } } },
+        include: { client: { select: { name: true, phone: true, whatsapp: true } }, stops: { orderBy: { order: 'asc' } } },
         orderBy: { createdAt: 'asc' },
       },
     },
@@ -97,6 +108,10 @@ export async function setDriverFlightStatus(
     throw Errors.badRequest(`Нельзя перевести рейс из статуса «${flight.status}» в «${status}»`);
   }
 
+  if (status === 'DEPARTED' && new Date() < flight.departAt) {
+    throw Errors.badRequest('Нельзя отметить рейс как «Выехал» до времени отправления');
+  }
+
   await prisma.flight.update({ where: { id: flightId }, data: { status } });
   // Completing the flight completes its confirmed bookings so passengers see it
   // as finished on their side (they display booking status, not flight status).
@@ -117,6 +132,26 @@ export async function setDriverBookingPayment(
   if (!booking || booking.flightId !== flightId) throw Errors.notFound('Бронирование');
 
   await setBookingPaymentStatus(bookingId, status);
+  return getDriverFlight(driverId, flightId);
+}
+
+/** Driver ticks/unticks "collected the passenger at this stop" on their flight. */
+export async function setDriverStopPicked(
+  driverId: string,
+  flightId: string,
+  bookingId: string,
+  stopId: string,
+  pickedUp: boolean,
+): Promise<DriverFlightView> {
+  await assertDriverOwnsFlight(driverId, flightId);
+  const stop = await prisma.bookingStop.findUnique({
+    where: { id: stopId },
+    include: { booking: { select: { id: true, flightId: true } } },
+  });
+  if (!stop || stop.bookingId !== bookingId || stop.booking.flightId !== flightId) {
+    throw Errors.notFound('Точка');
+  }
+  await prisma.bookingStop.update({ where: { id: stopId }, data: { pickedUp } });
   return getDriverFlight(driverId, flightId);
 }
 

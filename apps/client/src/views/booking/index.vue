@@ -19,6 +19,12 @@ const {
   totalLabel,
   maxPax,
   submit,
+  stops,
+  stopsError,
+  addStop,
+  removeStop,
+  stopPriceHint,
+  canAddStop,
 } = useBookingModel();
 </script>
 
@@ -127,6 +133,50 @@ const {
         </div>
       </div>
 
+      <!-- Pickup / dropoff points -->
+      <div class="booking-section-title">Точки сбора и развоза</div>
+      <div class="stops">
+        <div v-for="(s, i) in stops" :key="i" class="stop-row"
+             :class="{ 'stop-row--error': stopsError && !s.address.trim() }">
+          <div class="stop-kind">
+            <button
+              type="button"
+              :class="['stop-kind-btn', s.kind === 'PICKUP' && 'stop-kind-btn--on']"
+              @click="s.kind = 'PICKUP'"
+            >Сбор</button>
+            <button
+              type="button"
+              :class="['stop-kind-btn', s.kind === 'DROPOFF' && 'stop-kind-btn--on']"
+              @click="s.kind = 'DROPOFF'"
+            >Развоз</button>
+          </div>
+          <input
+            v-model="s.address"
+            class="field-input stop-address"
+            type="text"
+            :placeholder="s.kind === 'PICKUP' ? 'Адрес, откуда забрать' : 'Адрес, куда отвезти'"
+          />
+          <button type="button" class="stop-remove" @click="removeStop(i)">
+            <span class="ms">delete</span>
+          </button>
+        </div>
+
+        <button v-if="canAddStop" type="button" class="stop-add" @click="addStop">
+          <span class="ms">add_location_alt</span>
+          Добавить точку
+        </button>
+        <div v-else-if="stops.length" class="stop-limit">
+          Максимум {{ store.pax }} точек сбора и {{ store.pax }} развоза — по одной каждого типа на пассажира.
+        </div>
+
+        <div v-if="stopsError" class="field-error">{{ stopsError }}</div>
+
+        <div class="stop-note">
+          За каждую точку взимается доплата — итоговую цену подтвердит оператор при связи с вами.
+          <template v-if="stopPriceHint"> {{ stopPriceHint }}</template>
+        </div>
+      </div>
+
       <!-- Error -->
       <ErrorBanner v-if="store.submitError" :message="store.submitError" style="margin-top: 12px" />
 
@@ -165,6 +215,101 @@ const {
   .booking-pax { margin: 0; }
   .booking-fields { padding: 0; }
   .booking-total { margin: 18px 0 0; }
+  .stops { padding: 0; }
+}
+
+/* ── Pickup/dropoff points ── */
+.stops {
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stop-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stop-kind {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.stop-kind-btn {
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1.5px solid #E7E9E5;
+  background: #fff;
+  cursor: pointer;
+  font: 700 11px 'Manrope', sans-serif;
+  color: var(--eg-muted);
+}
+
+.stop-kind-btn--on {
+  border-color: var(--eg-green);
+  background: #EEF6E6;
+  color: var(--eg-green);
+}
+
+.stop-address {
+  flex: 1;
+  min-width: 0;
+}
+
+.stop-row--error .stop-address {
+  border-color: #C0492E;
+}
+
+.stop-limit {
+  font: 600 12px 'Manrope', sans-serif;
+  color: var(--eg-muted-light);
+  text-align: center;
+  padding: 2px 0;
+}
+
+.stop-remove {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  border: 1px solid #E7E9E5;
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  color: #C0492E;
+  flex-shrink: 0;
+}
+
+.stop-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 46px;
+  border: 1.5px dashed #C9D6BC;
+  border-radius: 12px;
+  background: #F7FAF3;
+  color: var(--eg-green);
+  font: 700 14px 'Manrope', sans-serif;
+  cursor: pointer;
+}
+
+.stop-add .ms {
+  font-size: 20px;
+}
+
+.stop-note {
+  font: 500 12px/1.5 'Manrope', sans-serif;
+  color: var(--eg-muted);
+  background: var(--eg-bg-subtle);
+  border-radius: 12px;
+  padding: 10px 12px;
 }
 
 .booking-header {

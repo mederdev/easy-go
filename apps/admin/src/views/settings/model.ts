@@ -1,5 +1,6 @@
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import type { CurrencyCode, UpdateSystemConfigInput } from '@easygo/shared';
+import { toMajor, toMinor } from '@easygo/shared';
 import { api, errorMessage } from '@/lib/api';
 import { useConfigStore } from '@/stores/config';
 import { useAuthStore } from '@/stores/auth';
@@ -34,6 +35,10 @@ export function useSettingsModel() {
     currency: 'KGS' as CurrencyCode,
     locale: 'ru-RU',
     telegramNotifyChatId: '',
+    // Default per-stop prices (major units in the form, minor units in the API).
+    // Shown to clients as a guideline; each point is still confirmed per booking.
+    stopPriceCity: 0,
+    stopPriceOutside: 0,
   });
 
   async function load(): Promise<void> {
@@ -47,6 +52,8 @@ export function useSettingsModel() {
         form.currency = config.config.currency;
         form.locale = config.config.locale;
         form.telegramNotifyChatId = config.config.telegramNotifyChatId ?? '';
+        form.stopPriceCity = toMajor(config.config.stopPriceCity ?? 0, config.config.currency);
+        form.stopPriceOutside = toMajor(config.config.stopPriceOutside ?? 0, config.config.currency);
       }
     } catch (e) {
       error.value = errorMessage(e);
@@ -70,6 +77,8 @@ export function useSettingsModel() {
         currency: form.currency,
         locale: form.locale,
         telegramNotifyChatId: form.telegramNotifyChatId.trim() || null,
+        stopPriceCity: toMinor(Number(form.stopPriceCity) || 0, form.currency),
+        stopPriceOutside: toMinor(Number(form.stopPriceOutside) || 0, form.currency),
       };
       await config.update(payload);
       saved.value = true;

@@ -22,3 +22,9 @@ export async function openWhatsApp(phone: string, text?: string): Promise<void> 
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 }
+
+/** Start a phone call to the given number via the native dialer (`tel:` link). */
+export function callPhone(phone: string): void {
+  const tel = phone.replace(/[^\d+]/g, '');
+  window.open(`tel:${tel}`, '_self');
+}

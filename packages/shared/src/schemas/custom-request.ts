@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Phone } from './common.js';
-import { ApplicationStatus, CarType } from '../enums.js';
+import { ApplicationStatus, CarType, CarFeature } from '../enums.js';
+import { StopInput } from './stop.js';
 
 export const CustomRequest = z.object({
   id: z.string().uuid(),
@@ -10,7 +11,10 @@ export const CustomRequest = z.object({
   time: z.string().nullable(), // "HH:MM" desired departure time, null = no preference
   pax: z.number().int(),
   carType: CarType.nullable(),
+  features: CarFeature.array(), // add-ons the customer wants (roof rack, child seat…)
   wholeCabin: z.boolean(),
+  // Desired pickup/dropoff points; priced later when the booking is created.
+  stops: StopInput.array().catch([]),
   phone: z.string(),
   comment: z.string().nullable(),
   status: ApplicationStatus,
@@ -27,7 +31,9 @@ export const CreateCustomRequestInput = z.object({
   time: z.string().regex(/^\d{2}:\d{2}$/, 'Время в формате ЧЧ:ММ').optional(),
   pax: z.coerce.number().int().min(1).max(20),
   carType: CarType.optional(),
+  features: CarFeature.array().default([]),
   wholeCabin: z.coerce.boolean().default(false),
+  stops: StopInput.array().max(40).default([]),
   phone: Phone,
   comment: z.string().max(500).optional(),
 });

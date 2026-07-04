@@ -1,10 +1,12 @@
 import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
-import type { Booking, CustomRequest, DriverFlightView, PaymentStatus } from '@easygo/shared';
-import { APPLICATION_STATUS_LABEL, BOOKING_STATUS_LABEL, CAR_TYPE_LABEL, FLIGHT_STATUS_LABEL, PAYMENT_STATUS_LABEL, formatMoney } from '@easygo/shared';
+import type { Booking, BookingStop, CustomRequest, DriverFlightView, PaymentStatus } from '@easygo/shared';
+import { APPLICATION_STATUS_LABEL, BOOKING_STATUS_LABEL, CAR_TYPE_LABEL, FLIGHT_STATUS_LABEL, PAYMENT_STATUS_LABEL, STOP_KIND_LABEL, formatMoney } from '@easygo/shared';
 import { useAuthStore } from '@/stores/auth';
 import { api, driverApi } from '@/lib/api';
 import { useAsyncResource } from '@/composables/useAsyncResource';
+import { openWhatsApp, callPhone } from '@/lib/whatsapp';
+import type { DriverFlightPassenger } from '@easygo/shared';
 
 export function useCabinetModel() {
   const router = useRouter();
@@ -137,6 +139,31 @@ export function useCabinetModel() {
     } finally {
       paymentBusy.value = null;
     }
+  }
+
+  // ── Driver: tick off "collected the passenger at this stop" ──
+  const stopBusy = ref<string | null>(null); // stop id being saved
+
+  async function toggleStopPicked(flightId: string, bookingId: string, stop: BookingStop): Promise<void> {
+    stopBusy.value = stop.id;
+    paymentError.value = null;
+    try {
+      await driverApi.driverFlights.setStopPicked(flightId, bookingId, stop.id, !stop.pickedUp);
+      await syncSelectedFlight(flightId);
+    } catch (e: unknown) {
+      paymentError.value = (e as Error).message ?? 'Ошибка';
+    } finally {
+      stopBusy.value = null;
+    }
+  }
+
+  // ── Driver: reach a passenger by call or WhatsApp ──
+  function callPassenger(p: DriverFlightPassenger): void {
+    if (p.phone) callPhone(p.phone);
+  }
+  function whatsappPassenger(p: DriverFlightPassenger): void {
+    if (!p.phone) return;
+    void openWhatsApp(p.phone, `Здравствуйте, ${p.name}! Я ваш водитель EasyGo.`);
   }
 
   const PAYMENT_STATUS_STYLE: Record<PaymentStatus, { bg: string; color: string }> = {
@@ -309,11 +336,18 @@ export function useCabinetModel() {
     driverFlightTime,
     nextStatus,
     nextStatusLabel,
+    // Driver: passenger contact
+    callPassenger,
+    whatsappPassenger,
     // Driver payment
     paymentBusy,
     paymentError,
     markBookingPaid,
     markFlightPaid,
+    // Driver stops
+    stopBusy,
+    toggleStopPicked,
+    STOP_KIND_LABEL,
     // Menu
     menuOpen,
     menuWrapEl,

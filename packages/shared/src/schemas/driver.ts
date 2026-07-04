@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Id, Phone } from './common.js';
 import { FlightStatus, PaymentStatus } from '../enums.js';
+import { BookingStop } from './stop.js';
 
 export const Driver = z.object({
   id: Id,
@@ -60,17 +61,22 @@ export const DriverAuthResponse = z.object({
 export type DriverAuthResponse = z.infer<typeof DriverAuthResponse>;
 
 /**
- * Passenger info visible to driver — name + payment info, no phone.
- * Money fields are read-only for the driver (admin-only to edit).
+ * Passenger info visible to driver — name, contact phone and payment info so the
+ * driver can reach each passenger. Money fields are read-only for the driver
+ * (admin-only to edit).
  */
 export const DriverFlightPassenger = z.object({
   bookingId: Id,
   name: z.string(),
+  phone: z.string(), // contact number for call / WhatsApp
+  whatsapp: z.boolean(), // passenger reachable on WhatsApp
   pax: z.number().int(),
   total: z.number().int(), // minor units, amount due
   prepaid: z.number().int(), // minor units, paid so far
   discount: z.number().int(), // minor units
   paymentStatus: PaymentStatus,
+  /** Where to collect/drop this passenger; the driver checks off each point. */
+  stops: BookingStop.array(),
 });
 export type DriverFlightPassenger = z.infer<typeof DriverFlightPassenger>;
 
@@ -111,3 +117,9 @@ export const DriverSetFlightPaymentInput = z.object({
   status: PaymentStatus,
 });
 export type DriverSetFlightPaymentInput = z.infer<typeof DriverSetFlightPaymentInput>;
+
+/** Driver ticks/unticks "collected the passenger at this stop". */
+export const DriverSetStopPickedInput = z.object({
+  pickedUp: z.boolean(),
+});
+export type DriverSetStopPickedInput = z.infer<typeof DriverSetStopPickedInput>;

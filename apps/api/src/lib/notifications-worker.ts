@@ -1,5 +1,5 @@
 import { Worker } from 'bullmq';
-import { CAR_TYPE_LABEL, formatMoney, paxLabel } from '@easygo/shared';
+import { CAR_FEATURE_LABEL, CAR_TYPE_LABEL, formatMoney, paxLabel } from '@easygo/shared';
 import { makeRedis } from './queue.js';
 import { prisma } from './prisma.js';
 import { getConfig } from '../modules/config/service.js';
@@ -36,7 +36,7 @@ const formatDateTime = (d: Date) =>
 async function notifyBookingCreated(bookingId: string): Promise<void> {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    include: { client: true, flight: { include: { route: true } } },
+    include: { client: true, flight: { include: { route: true } }, stops: { orderBy: { order: 'asc' } } },
   });
   if (!booking) return; // deleted before the job ran — nothing to announce
 
@@ -49,6 +49,13 @@ async function notifyBookingCreated(bookingId: string): Promise<void> {
     `Клиент: ${escapeHtml(booking.client.name)}, ${booking.client.phone ?? 'телефон не указан'}`,
     `Сумма: ${formatMoney(booking.total, config.currency)}`,
   ];
+  if (booking.stops.length) {
+    lines.push(
+      `Точки (${booking.stops.length}, подтвердить цены): ${booking.stops
+        .map((s) => escapeHtml(s.address))
+        .join(' · ')}`,
+    );
+  }
   if (booking.comment) lines.push(`Комментарий: ${escapeHtml(booking.comment)}`);
 
   await broadcast(lines.join('\n'), config.telegramNotifyChatId);
@@ -71,6 +78,9 @@ async function notifyCustomRequestCreated(id: string): Promise<void> {
     details.join(' · '),
     `Телефон: ${req.phone}`,
   ];
+  if (req.features.length) {
+    lines.push(`Оснащение: ${req.features.map((f) => CAR_FEATURE_LABEL[f]).join(', ')}`);
+  }
   if (req.comment) lines.push(`Комментарий: ${escapeHtml(req.comment)}`);
 
   await broadcast(lines.join('\n'), config.telegramNotifyChatId);

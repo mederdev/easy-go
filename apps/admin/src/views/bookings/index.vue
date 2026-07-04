@@ -51,6 +51,20 @@ const {
   savePayment,
   setPaid,
   routePriceMajor,
+  bookingStops,
+  maxStops,
+  canAddStop,
+  stopBusy,
+  stopError,
+  stopFormOpen,
+  stopForm,
+  openStopForm,
+  closeStopForm,
+  saveStop,
+  removeStop,
+  stopPriceLabel,
+  stopsTotalMinor,
+  STOP_KIND_LABEL,
   createOpen,
   creating,
   createError,
@@ -100,6 +114,9 @@ const {
   approveCars,
   approveForm,
   approveTotal,
+  requestedFeatures,
+  selectedCarMissingFeatures,
+  carUnsuitable,
   openApprove,
   closeApprove,
   submitApprove,
@@ -110,6 +127,7 @@ const {
   dateTimeLabel,
   initials,
   paxLabel,
+  featureLabel,
   BOOKING_STATUS_LABEL,
   CAR_TYPE_LABEL,
   APPLICATION_STATUS_LABEL,
@@ -406,12 +424,85 @@ const {
 
           <div class="divider" />
 
+          <!-- Pickup/dropoff points: addresses from the client, prices confirmed here. -->
+          <div class="section-title">Точки сбора и развоза</div>
+          <div v-if="stopError" class="status-error">{{ stopError }}</div>
+          <div v-if="bookingStops.length === 0 && !stopFormOpen" class="stops-empty">
+            Точек нет — клиент может добавить их в приложении, либо добавьте вручную.
+          </div>
+          <div v-else class="stops-list">
+            <div v-for="s in bookingStops" :key="s.id" class="stop-row">
+              <span :class="['stop-tag', s.kind === 'DROPOFF' && 'stop-tag--drop']">{{ STOP_KIND_LABEL[s.kind] }}</span>
+              <span class="stop-addr">
+                {{ s.address }}
+                <span v-if="s.note" class="stop-note">{{ s.note }}</span>
+              </span>
+              <span :class="['stop-price', s.price == null && 'stop-price--pending']">{{ stopPriceLabel(s) }}</span>
+              <button type="button" class="stop-ic" title="Изменить / указать цену" :disabled="stopBusy" @click="openStopForm(s)">
+                <span class="material-symbols-outlined">edit</span>
+              </button>
+              <button type="button" class="stop-ic stop-ic--del" title="Удалить точку" :disabled="stopBusy" @click="removeStop(s)">
+                <span class="material-symbols-outlined">delete</span>
+              </button>
+            </div>
+          </div>
+
+          <div v-if="stopFormOpen" class="stop-form">
+            <div class="two">
+              <label class="field">
+                <span class="label">Тип точки</span>
+                <select v-model="stopForm.kind">
+                  <option value="PICKUP">{{ STOP_KIND_LABEL.PICKUP }}</option>
+                  <option value="DROPOFF">{{ STOP_KIND_LABEL.DROPOFF }}</option>
+                </select>
+              </label>
+              <label class="field">
+                <span class="label">Цена точки <span class="opt">(пусто — не подтверждена)</span></span>
+                <input v-model.number="stopForm.price" type="number" min="0" inputmode="numeric" placeholder="—" />
+              </label>
+            </div>
+            <label class="field">
+              <span class="label">Адрес</span>
+              <input v-model="stopForm.address" placeholder="Улица, дом, ориентир…" />
+            </label>
+            <label class="field">
+              <span class="label">Примечание <span class="opt">(необязательно)</span></span>
+              <input v-model="stopForm.note" placeholder="Подъезд, время, контакт…" />
+            </label>
+            <div class="pay-actions">
+              <button type="button" class="status-btn" :disabled="stopBusy" @click="saveStop">
+                {{ stopForm.id ? 'Сохранить точку' : 'Добавить точку' }}
+              </button>
+              <button type="button" class="status-btn ghost" :disabled="stopBusy" @click="closeStopForm">Отмена</button>
+            </div>
+          </div>
+          <div v-else class="pay-actions">
+            <button
+              v-if="canAddStop"
+              type="button"
+              class="status-btn ghost"
+              :disabled="stopBusy"
+              @click="openStopForm()"
+            >
+              + Добавить точку
+            </button>
+            <span v-else-if="bookingStops.length" class="stop-limit">
+              Максимум {{ maxStops }} точек сбора и {{ maxStops }} развоза — по одной каждого типа на пассажира.
+            </span>
+          </div>
+
+          <div class="divider" />
+
           <div class="section-title">Оплата</div>
           <div v-if="paymentError" class="status-error">{{ paymentError }}</div>
           <div class="pay-summary">
             <div class="pay-line">
               <span class="cap">Цена за место</span>
               <span class="val">{{ money(selected.unitPrice ?? selected.flight?.route?.price ?? 0) }}</span>
+            </div>
+            <div v-if="stopsTotalMinor > 0" class="pay-line">
+              <span class="cap">Доп. точки</span>
+              <span class="val">{{ money(stopsTotalMinor) }}</span>
             </div>
             <div v-if="selected.discount > 0" class="pay-line">
               <span class="cap">Скидка</span>
@@ -725,6 +816,23 @@ const {
             </div>
           </div>
 
+          <div v-if="customSelected.features?.length" class="features">
+            <div class="cap">Доп. оснащение</div>
+            <div class="features-list">
+              <span v-for="f in customSelected.features" :key="f" class="feature-tag">{{ featureLabel(f) }}</span>
+            </div>
+          </div>
+
+          <div v-if="customSelected.stops?.length" class="features">
+            <div class="cap">Точки сбора и развоза</div>
+            <div class="stops-list" style="margin-top: 6px">
+              <div v-for="(s, i) in customSelected.stops" :key="i" class="stop-row">
+                <span :class="['stop-tag', s.kind === 'DROPOFF' && 'stop-tag--drop']">{{ STOP_KIND_LABEL[s.kind] }}</span>
+                <span class="stop-addr">{{ s.address }}</span>
+              </div>
+            </div>
+          </div>
+
           <div v-if="customSelected.comment" class="comment">
             <div class="cap">Комментарий</div>
             <div class="comment-text">{{ customSelected.comment }}</div>
@@ -789,19 +897,26 @@ const {
             <input v-model="approveForm.time" type="time" />
           </label>
         </div>
-        <div class="two">
-          <label class="field">
-            <span class="label">Машина <span class="opt">(необязательно)</span></span>
-            <select v-model="approveForm.carId">
-              <option value="">Назначить позже</option>
-              <option v-for="c in approveCars" :key="c.id" :value="c.id">{{ c.model }} · {{ c.plate }}</option>
-            </select>
-          </label>
-          <label class="field">
-            <span class="label">Мест в рейсе</span>
-            <input v-model.number="approveForm.seatsTotal" type="number" min="1" inputmode="numeric" />
-          </label>
-        </div>
+        <label class="field">
+          <span class="label">Машина <span class="opt">(необязательно)</span></span>
+          <select v-model="approveForm.carId" :class="{ 'input-error': selectedCarMissingFeatures.length > 0 }">
+            <option value="">Назначить позже</option>
+            <option v-for="c in approveCars" :key="c.id" :value="c.id">
+              {{ c.model }} · {{ c.plate }}{{ carUnsuitable(c) ? ' — нет нужного оснащения' : '' }}
+            </option>
+          </select>
+          <div v-if="requestedFeatures.length" class="feature-hint">
+            Клиент просит: {{ requestedFeatures.map(featureLabel).join(', ') }}
+          </div>
+          <div v-if="selectedCarMissingFeatures.length" class="feature-warn">
+            <span class="material-symbols-outlined">warning</span>
+            В машине нет: {{ selectedCarMissingFeatures.map(featureLabel).join(', ') }}
+          </div>
+        </label>
+        <label class="field">
+          <span class="label">Мест в рейсе</span>
+          <input v-model.number="approveForm.seatsTotal" type="number" min="1" inputmode="numeric" />
+        </label>
         <div class="two">
           <label class="field">
             <span class="label">Имя клиента</span>
@@ -1117,6 +1232,22 @@ const {
   color: var(--eg-brand);
   font-weight: 800;
 }
+.features {
+  margin-top: 16px;
+}
+.features-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.feature-tag {
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--eg-brand-light, #eef6e6);
+  color: var(--eg-brand-accent, #3e7c12);
+  font: 700 12px var(--eg-font);
+}
 .comment {
   margin-top: 16px;
 }
@@ -1201,6 +1332,112 @@ const {
 .pay-grid input:focus {
   border-color: var(--eg-brand);
 }
+/* ── Pickup/dropoff points ── */
+.stops-empty {
+  font: 500 13px var(--eg-font);
+  color: var(--eg-hint);
+  margin-bottom: 12px;
+}
+.stop-limit {
+  font: 600 12px var(--eg-font);
+  color: var(--eg-hint);
+}
+.stops-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.stop-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--eg-surface-alt);
+  border-radius: 11px;
+}
+.stop-tag {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--eg-brand-light, #eef6e6);
+  color: var(--eg-brand-accent, #3e7c12);
+  font: 700 11px var(--eg-font);
+  flex: none;
+}
+.stop-tag--drop {
+  background: #eef0ff;
+  color: #5060c8;
+}
+.stop-addr {
+  flex: 1;
+  min-width: 0;
+  font: 600 13px var(--eg-font);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.stop-note {
+  font: 500 12px var(--eg-font);
+  color: var(--eg-hint);
+}
+.stop-price {
+  font: 700 13px var(--eg-font);
+  color: var(--eg-brand);
+  flex: none;
+}
+.stop-price--pending {
+  color: #c77a18;
+  font-weight: 600;
+  font-size: 12px;
+}
+.stop-ic {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  border: 1px solid var(--eg-border);
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: var(--eg-muted);
+}
+.stop-ic .material-symbols-outlined {
+  font-size: 17px;
+}
+.stop-ic--del {
+  color: #c0492e;
+}
+.stop-ic:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.stop-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--eg-border);
+  border-radius: 12px;
+  background: #fff;
+  margin-bottom: 4px;
+}
+.stop-form input,
+.stop-form select {
+  height: 46px;
+  padding: 0 12px;
+  border: 1px solid var(--eg-border);
+  border-radius: 11px;
+  font: 600 14px var(--eg-font);
+  outline: none;
+  background: #fff;
+}
+.stop-form input:focus,
+.stop-form select:focus {
+  border-color: var(--eg-brand);
+}
+
 .pay-summary {
   display: flex;
   flex-direction: column;
@@ -1519,6 +1756,25 @@ const {
   font: 600 13px var(--eg-font);
   padding: 10px 12px;
   border-radius: 10px;
+}
+.input-error {
+  border-color: #c0492e !important;
+}
+.feature-hint {
+  font: 600 11px var(--eg-font);
+  color: var(--eg-hint);
+  margin-top: 4px;
+}
+.feature-warn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font: 700 12px var(--eg-font);
+  color: #c0492e;
+  margin-top: 4px;
+}
+.feature-warn .material-symbols-outlined {
+  font-size: 16px;
 }
 .btn {
   height: 44px;

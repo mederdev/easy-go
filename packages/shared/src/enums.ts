@@ -12,9 +12,25 @@ export type UserRole = z.infer<typeof UserRole>;
 export const BookingStatus = z.enum(['NEW', 'CONFIRMED', 'COMPLETED', 'CANCELLED', 'CANCELLED_BY_CLIENT', 'CANCELLED_BY_COMPANY']);
 export type BookingStatus = z.infer<typeof BookingStatus>;
 
+/**
+ * Extra capabilities a car can have (e.g. a roof rack for oversized luggage).
+ * A car lists what it offers; a custom request lists what the customer wants,
+ * so an operator can pair the request with a suitable car. Stored as an array.
+ */
+export const CarFeature = z.enum(['ROOF_RACK', 'CHILD_SEAT', 'EXTRA_LUGGAGE', 'PET']);
+export type CarFeature = z.infer<typeof CarFeature>;
+
 /** Stored lifecycle. "few seats left" is derived, not stored. */
 export const FlightStatus = z.enum(['SCHEDULED', 'CLOSED', 'DEPARTED', 'COMPLETED', 'CANCELLED', 'CANCELLED_BY_CLIENT', 'CANCELLED_BY_COMPANY']);
 export type FlightStatus = z.infer<typeof FlightStatus>;
+
+/**
+ * Kind of an extra pickup/dropoff point on a booking: PICKUP — the driver
+ * collects the passenger there before departure, DROPOFF — drops them off
+ * along/after the route.
+ */
+export const StopKind = z.enum(['PICKUP', 'DROPOFF']);
+export type StopKind = z.infer<typeof StopKind>;
 
 /**
  * Payment state of a booking or a flight.

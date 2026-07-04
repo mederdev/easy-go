@@ -1,12 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import type {
   AdminCreateBookingInput,
+  AdminStopInput,
   BookingStatus,
   CreateBookingInput,
   ListBookingsQuery,
   PaymentStatus,
   UpdateBookingPaymentInput,
+  UpdateStopInput,
 } from '@easygo/shared';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { Errors } from '../../lib/errors.js';
 import { normalizePhone } from '../../lib/phone.js';
@@ -16,7 +19,27 @@ import { derivePaymentStatus, recomputeFlightPayment } from '../../lib/payment.j
 const bookingInclude = {
   client: true,
   flight: { include: { route: true, car: { include: { driver: true } } } },
+  stops: { orderBy: { order: 'asc' as const } },
 } as const;
+
+/** Sum of admin-confirmed stop prices on a booking (minor units). */
+async function stopsPriceSum(tx: Prisma.TransactionClient, bookingId: string): Promise<number> {
+  const agg = await tx.bookingStop.aggregate({ where: { bookingId }, _sum: { price: true } });
+  return agg._sum.price ?? 0;
+}
+
+/**
+ * A booking may hold at most one pickup point and one dropoff point per
+ * passenger, so pickups ≤ pax and dropoffs ≤ pax — counted independently
+ * (pax=2 → up to 2 pickups AND up to 2 dropoffs).
+ */
+function assertStopsWithinPax(stops: ReadonlyArray<{ kind: string }>, pax: number): void {
+  const pickups = stops.filter((s) => s.kind === 'PICKUP').length;
+  const dropoffs = stops.filter((s) => s.kind === 'DROPOFF').length;
+  if (pickups > pax || dropoffs > pax) {
+    throw Errors.badRequest(`Точек каждого типа не может быть больше, чем пассажиров (${pax})`);
+  }
+}
 
 function isoDay(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -95,9 +118,15 @@ export async function createBooking(
     // Price/discount/prepayment are admin-only; the public flow leaves the price
     // at the route default and the rest at 0. A per-seat override lets operators
     // split the salon price when a flight doesn't fill up.
+    // Stops from the public flow carry no price (an admin confirms each one
+    // later); operator-entered stops may be priced immediately and then count
+    // toward the total.
+    const stops = (input.stops ?? []) as AdminStopInput[];
+    assertStopsWithinPax(stops, input.pax);
+    const stopsSum = stops.reduce((sum, s) => sum + (s.price ?? 0), 0);
     const unitPrice = opts.unitPrice ?? null;
     const effectiveUnit = unitPrice ?? flight.route.price;
-    const gross = effectiveUnit * input.pax;
+    const gross = effectiveUnit * input.pax + stopsSum;
     const discount = Math.min(opts.discount ?? 0, gross);
     const total = Math.max(0, gross - discount);
     const prepaid = Math.min(opts.prepaid ?? 0, total);
@@ -119,6 +148,18 @@ export async function createBooking(
         idempotencyKey: opts.idempotencyKey ?? null,
       },
     });
+    if (stops.length) {
+      await tx.bookingStop.createMany({
+        data: stops.map((s, i) => ({
+          bookingId: created.id,
+          kind: s.kind ?? 'PICKUP',
+          address: s.address,
+          note: s.note ?? null,
+          price: s.price ?? null,
+          order: i,
+        })),
+      });
+    }
     const withCode = await tx.booking.update({
       where: { id: created.id },
       data: { code: `№${1000 + created.seq}` },
@@ -313,11 +354,23 @@ export async function updateBookingPayment(id: string, input: UpdateBookingPayme
   const result = await prisma.$transaction(async (tx) => {
     const booking = await tx.booking.findUnique({
       where: { id },
-      include: { flight: { include: { route: true } } },
+      include: { flight: { include: { route: true } }, stops: true },
     });
     if (!booking) throw Errors.notFound('Бронирование');
 
     const pax = input.pax ?? booking.pax;
+    // Points are capped per type at pax, so block shrinking pax below the
+    // busiest type's count (operator removes the extra points first).
+    if (input.pax !== undefined) {
+      const pickups = booking.stops.filter((s) => s.kind === 'PICKUP').length;
+      const dropoffs = booking.stops.filter((s) => s.kind === 'DROPOFF').length;
+      const busiest = Math.max(pickups, dropoffs);
+      if (pax < busiest) {
+        throw Errors.badRequest(
+          `Пассажиров меньше, чем точек одного типа (${busiest}). Сначала удалите лишние точки.`,
+        );
+      }
+    }
     const held = holdsSeat(booking.status);
     const flightChanged = input.flightId !== undefined && input.flightId !== booking.flightId;
 
@@ -378,9 +431,11 @@ export async function updateBookingPayment(id: string, input: UpdateBookingPayme
 
     // `unitPrice === undefined` keeps the stored override (or route default);
     // an explicit `null` clears it back to the target flight's route price.
+    // Confirmed stop prices are part of the total alongside the seats.
+    const stopsSum = booking.stops.reduce((sum, s) => sum + (s.price ?? 0), 0);
     const unitPrice = input.unitPrice !== undefined ? input.unitPrice : booking.unitPrice;
     const effectiveUnit = unitPrice ?? target.route.price;
-    const gross = effectiveUnit * pax;
+    const gross = effectiveUnit * pax + stopsSum;
     const discount = Math.min(Math.max(0, input.discount ?? booking.discount), gross);
     const total = Math.max(0, gross - discount);
     const prepaid = Math.min(Math.max(0, input.prepaid ?? booking.prepaid), total);
@@ -413,6 +468,157 @@ export async function updateBookingPayment(id: string, input: UpdateBookingPayme
     await enqueueStatsRecompute(isoDay(result.oldDepartAt)).catch(() => undefined);
   }
   return result.booking;
+}
+
+// ── Pickup/dropoff points (точки сбора и развоза) ──
+
+/** Who is editing a stop: the CRM, or the booking's own client (restricted). */
+export type StopActor = { role: 'admin' } | { role: 'client'; clientId: string };
+
+/**
+ * Load the booking a stop operation targets, enforcing the actor's rights: a
+ * client may only touch their own booking while it's still active (NEW or
+ * CONFIRMED) and the flight hasn't departed. Admins are unrestricted.
+ */
+async function getStopBooking(tx: Prisma.TransactionClient, bookingId: string, actor: StopActor) {
+  const booking = await tx.booking.findUnique({
+    where: { id: bookingId },
+    include: { flight: true, stops: true },
+  });
+  if (!booking) throw Errors.notFound('Бронирование');
+  if (actor.role === 'client') {
+    if (booking.clientId !== actor.clientId) throw Errors.notFound('Бронирование');
+    if (booking.status !== 'NEW' && booking.status !== 'CONFIRMED') {
+      throw Errors.conflict('Точки можно менять только в активной брони', 'STOPS_LOCKED');
+    }
+    if (booking.flight.departAt.getTime() <= Date.now()) {
+      throw Errors.conflict('Поездка уже началась — изменение точек недоступно', 'TOO_LATE');
+    }
+  }
+  return booking;
+}
+
+/**
+ * Re-derive a booking's money after a stop change: confirmed stop prices are
+ * part of the total, so total/prepaid/paymentStatus, the client's lifetime sum
+ * and the flight's payment aggregate all follow.
+ */
+async function recomputeBookingMoney(tx: Prisma.TransactionClient, bookingId: string) {
+  const booking = await tx.booking.findUnique({
+    where: { id: bookingId },
+    include: { flight: { include: { route: true } } },
+  });
+  if (!booking) throw Errors.notFound('Бронирование');
+
+  const stopsSum = await stopsPriceSum(tx, bookingId);
+  const effectiveUnit = booking.unitPrice ?? booking.flight.route.price;
+  const gross = effectiveUnit * booking.pax + stopsSum;
+  const discount = Math.min(booking.discount, gross);
+  const total = Math.max(0, gross - discount);
+  const prepaid = Math.min(booking.prepaid, total);
+
+  const updated = await tx.booking.update({
+    where: { id: bookingId },
+    data: { discount, total, prepaid, paymentStatus: derivePaymentStatus(prepaid, total) },
+    include: bookingInclude,
+  });
+  // Only attached (confirmed) bookings contribute to the client's lifetime total.
+  if (holdsSeat(booking.status) && total !== booking.total) {
+    await tx.client.update({
+      where: { id: booking.clientId },
+      data: { totalSum: { increment: total - booking.total } },
+    });
+  }
+  await recomputeFlightPayment(tx, booking.flightId);
+  return updated;
+}
+
+/** Add a pickup/dropoff point. Only admins may set the price. */
+export async function addBookingStop(bookingId: string, input: AdminStopInput, actor: StopActor) {
+  return prisma.$transaction(async (tx) => {
+    const booking = await getStopBooking(tx, bookingId, actor);
+    // At most one point of each type per passenger (pickups and dropoffs counted apart).
+    const kind = input.kind ?? 'PICKUP';
+    if (booking.stops.filter((s) => s.kind === kind).length >= booking.pax) {
+      throw Errors.conflict(
+        `Точек этого типа не может быть больше, чем пассажиров (${booking.pax})`,
+        'TOO_MANY_STOPS',
+      );
+    }
+    const order = booking.stops.reduce((max, s) => Math.max(max, s.order), -1) + 1;
+    await tx.bookingStop.create({
+      data: {
+        bookingId,
+        kind,
+        address: input.address,
+        note: input.note ?? null,
+        price: actor.role === 'admin' ? (input.price ?? null) : null,
+        order,
+      },
+    });
+    return recomputeBookingMoney(tx, bookingId);
+  });
+}
+
+/**
+ * Edit a point. A client changing the address drops the confirmed price back
+ * to null — the admin re-confirms it on contact.
+ */
+export async function updateBookingStop(
+  bookingId: string,
+  stopId: string,
+  input: UpdateStopInput,
+  actor: StopActor,
+) {
+  return prisma.$transaction(async (tx) => {
+    const booking = await getStopBooking(tx, bookingId, actor);
+    const stop = booking.stops.find((s) => s.id === stopId);
+    if (!stop) throw Errors.notFound('Точка');
+
+    // Switching a point's type must respect that type's per-passenger cap.
+    const kind = input.kind ?? stop.kind;
+    if (
+      kind !== stop.kind &&
+      booking.stops.filter((s) => s.id !== stopId && s.kind === kind).length >= booking.pax
+    ) {
+      throw Errors.conflict(
+        `Точек этого типа не может быть больше, чем пассажиров (${booking.pax})`,
+        'TOO_MANY_STOPS',
+      );
+    }
+
+    const addressChanged = input.address !== undefined && input.address !== stop.address;
+    const price =
+      actor.role === 'admin'
+        ? input.price !== undefined
+          ? input.price
+          : stop.price
+        : addressChanged
+          ? null
+          : stop.price;
+
+    await tx.bookingStop.update({
+      where: { id: stopId },
+      data: {
+        kind,
+        address: input.address ?? stop.address,
+        note: input.note !== undefined ? input.note : stop.note,
+        price,
+      },
+    });
+    return recomputeBookingMoney(tx, bookingId);
+  });
+}
+
+/** Remove a point (its confirmed price leaves the total as well). */
+export async function deleteBookingStop(bookingId: string, stopId: string, actor: StopActor) {
+  return prisma.$transaction(async (tx) => {
+    const booking = await getStopBooking(tx, bookingId, actor);
+    const stop = booking.stops.find((s) => s.id === stopId);
+    if (!stop) throw Errors.notFound('Точка');
+    await tx.bookingStop.delete({ where: { id: stopId } });
+    return recomputeBookingMoney(tx, bookingId);
+  });
 }
 
 /**

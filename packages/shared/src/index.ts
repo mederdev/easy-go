@@ -7,6 +7,7 @@ export * from './labels.js';
 export * from './schemas/common.js';
 export * from './schemas/auth.js';
 export * from './schemas/route.js';
+export * from './schemas/stop.js';
 export * from './schemas/driver.js';
 export * from './schemas/car.js';
 export * from './schemas/flight.js';

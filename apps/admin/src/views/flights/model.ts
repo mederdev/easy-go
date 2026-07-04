@@ -166,12 +166,25 @@ export function useFlightsModel() {
     form.open.value = true;
   }
 
-  // Default seat count to the chosen car's capacity.
+  // The chosen car's capacity caps the seat count ('' = no car → no cap).
+  const maxSeats = computed(() => {
+    const car = cars.value.find((c) => c.id === formData.carId);
+    return car ? car.seats : null;
+  });
+
+  // Selecting a car defaults seats to its capacity; typing above the cap
+  // (or switching to a smaller car) clamps the value back down.
   watch(
     () => formData.carId,
     (id) => {
       const car = cars.value.find((c) => c.id === id);
       if (car) formData.seatsTotal = car.seats;
+    },
+  );
+  watch(
+    () => formData.seatsTotal,
+    (n) => {
+      if (maxSeats.value !== null && n > maxSeats.value) formData.seatsTotal = maxSeats.value;
     },
   );
 
@@ -378,6 +391,7 @@ export function useFlightsModel() {
     formError: form.error,
     statuses,
     form: formData,
+    maxSeats,
     openCreate,
     closeModal: form.close,
     save,

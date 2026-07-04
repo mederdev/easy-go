@@ -1,5 +1,8 @@
 import type {
   AdminCreateBookingInput,
+  AdminStopInput,
+  StopInput,
+  UpdateStopInput,
   AdminTelegramPollResponse,
   AnalyticsQuery,
   AnalyticsSeries,
@@ -162,6 +165,13 @@ export function createApiClient(opts: ApiClientOptions) {
         request<Paginated<Booking>>('GET', '/me/bookings', undefined, { query: query as unknown as Query }),
       booking: (id: string) => request<Booking>('GET', `/me/bookings/${id}`),
       cancelBooking: (id: string) => request<Booking>('PATCH', `/me/bookings/${id}/cancel`),
+      // Pickup/dropoff points on the client's own booking (prices are admin-confirmed).
+      addStop: (bookingId: string, input: StopInput) =>
+        request<Booking>('POST', `/me/bookings/${bookingId}/stops`, input),
+      updateStop: (bookingId: string, stopId: string, input: Omit<UpdateStopInput, 'price'>) =>
+        request<Booking>('PATCH', `/me/bookings/${bookingId}/stops/${stopId}`, input),
+      deleteStop: (bookingId: string, stopId: string) =>
+        request<Booking>('DELETE', `/me/bookings/${bookingId}/stops/${stopId}`),
       customRequests: () =>
         request<{ items: CustomRequest[]; total: number }>('GET', '/me/custom-requests'),
     },
@@ -203,6 +213,11 @@ export function createApiClient(opts: ApiClientOptions) {
       /** Admin-only edit of discount/prepayment amounts. */
       setPayment: (id: string, input: UpdateBookingPaymentInput) => request<Booking>('PATCH', `/bookings/${id}/payment`, input),
       setPaymentStatus: (id: string, input: SetPaymentStatusInput) => request<Booking>('PATCH', `/bookings/${id}/payment-status`, input),
+      // Pickup/dropoff points: admin manages addresses and confirms per-point prices.
+      addStop: (id: string, input: AdminStopInput) => request<Booking>('POST', `/bookings/${id}/stops`, input),
+      updateStop: (id: string, stopId: string, input: UpdateStopInput) =>
+        request<Booking>('PATCH', `/bookings/${id}/stops/${stopId}`, input),
+      deleteStop: (id: string, stopId: string) => request<Booking>('DELETE', `/bookings/${id}/stops/${stopId}`),
     },
 
     clients: {
@@ -236,6 +251,9 @@ export function createApiClient(opts: ApiClientOptions) {
         request<DriverFlightView>('PATCH', `/driver-flights/${id}/payment-status`, { status }),
       setBookingPayment: (flightId: string, bookingId: string, status: PaymentStatus) =>
         request<DriverFlightView>('PATCH', `/driver-flights/${flightId}/bookings/${bookingId}/payment-status`, { status }),
+      // "Collected the passenger at this stop" checkbox.
+      setStopPicked: (flightId: string, bookingId: string, stopId: string, pickedUp: boolean) =>
+        request<DriverFlightView>('PATCH', `/driver-flights/${flightId}/bookings/${bookingId}/stops/${stopId}/picked`, { pickedUp }),
     },
 
     fleet: {

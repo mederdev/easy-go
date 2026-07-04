@@ -92,7 +92,22 @@ export async function getFlight(id: string) {
   return toFlightView(flight);
 }
 
-export function createFlight(input: CreateFlightInput) {
+async function assertCarAvailable(carId: string, departAt: Date, excludeFlightId?: string) {
+  const { start, end } = dayRange(departAt.toISOString().slice(0, 10));
+  const conflict = await prisma.flight.findFirst({
+    where: {
+      carId,
+      departAt: { gte: start, lte: end },
+      status: { not: 'CANCELLED' },
+      ...(excludeFlightId ? { id: { not: excludeFlightId } } : {}),
+    },
+    select: { id: true },
+  });
+  if (conflict) throw Errors.conflict('Этот автомобиль уже занят в выбранный день');
+}
+
+export async function createFlight(input: CreateFlightInput) {
+  if (input.carId) await assertCarAvailable(input.carId, new Date(input.departAt));
   return prisma.flight.create({
     data: {
       routeId: input.routeId,
@@ -151,7 +166,10 @@ async function getFlightInTx(tx: Parameters<typeof recomputeFlightPayment>[0], i
 }
 
 export async function updateFlight(id: string, input: UpdateFlightInput) {
-  await getFlight(id);
+  const existing = await getFlight(id);
+  const carId = input.carId !== undefined ? input.carId : existing.carId;
+  const departAt = input.departAt ? new Date(input.departAt) : existing.departAt;
+  if (carId) await assertCarAvailable(carId, departAt, id);
   const updated = await prisma.flight.update({
     where: { id },
     data: {

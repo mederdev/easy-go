@@ -27,6 +27,7 @@ const {
   formError,
   statuses,
   form,
+  maxSeats,
   closeModal,
   save,
   pct,
@@ -151,7 +152,7 @@ const {
     <AppModal
       :open="detailOpen"
       :title="detailFlight ? flightRouteLabel(detailFlight) : ''"
-      :subtitle="detailFlight ? timeLabel(detailFlight.departAt) : ''"
+      :subtitle="detailFlight ? `${dateLabel(detailFlight.departAt)} · ${timeLabel(detailFlight.departAt)}` : ''"
       @close="closeDetail"
     >
       <div v-if="detailFlight" class="detail">
@@ -325,8 +326,11 @@ const {
             </select>
           </label>
           <label class="field">
-            <span class="label">Мест всего</span>
-            <input v-model.number="form.seatsTotal" type="number" min="1" />
+            <span class="label">
+              Мест всего
+              <span v-if="maxSeats" class="opt">(макс. {{ maxSeats }})</span>
+            </span>
+            <input v-model.number="form.seatsTotal" type="number" min="1" :max="maxSeats ?? undefined" />
           </label>
         </div>
         <label class="field">

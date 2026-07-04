@@ -1,6 +1,6 @@
 import { computed, onMounted, reactive, ref } from 'vue';
-import type { Car, CarStatus, CarType, CreateCarInput, Driver } from '@easygo/shared';
-import { CAR_STATUS_LABEL, CAR_TYPE_LABEL, CAR_TYPE_SEAT_OPTIONS, carTypeSeats, CITIES } from '@easygo/shared';
+import type { Car, CarFeature, CarStatus, CarType, CreateCarInput, Driver } from '@easygo/shared';
+import { CAR_FEATURE_LABEL, CAR_STATUS_LABEL, CAR_TYPE_LABEL, CAR_TYPE_SEAT_OPTIONS, CarFeature as CarFeatureEnum, carTypeSeats, CITIES } from '@easygo/shared';
 import { api } from '@/lib/api';
 import { useCrudList } from '@/composables/useCrudList';
 import { useFormModel } from '@/composables/useFormModel';
@@ -21,16 +21,24 @@ export function useFleetModel() {
   const cities = CITIES;
   const statuses: CarStatus[] = ['AVAILABLE', 'ON_TRIP', 'MAINTENANCE'];
   const types: CarType[] = ['SEDAN', 'MINIVAN', 'BUS'];
+  const featureOptions = CarFeatureEnum.options.map((value) => ({ value, label: CAR_FEATURE_LABEL[value] }));
 
   const formData = reactive({
     model: 'KIA Carnival',
     plate: '',
     type: 'MINIVAN' as CarType,
+    features: [] as CarFeature[],
     driverId: '' as string,
     seats: carTypeSeats('MINIVAN'),
     status: 'AVAILABLE' as CarStatus,
     locationCity: cities[0] as string,
   });
+
+  function toggleFeature(value: CarFeature): void {
+    formData.features = formData.features.includes(value)
+      ? formData.features.filter((f) => f !== value)
+      : [...formData.features, value];
+  }
 
   /** Allowed seat options for the currently selected type. */
   const seatOptions = computed(() => CAR_TYPE_SEAT_OPTIONS[formData.type]);
@@ -45,6 +53,7 @@ export function useFleetModel() {
     formData.model = 'KIA Carnival';
     formData.plate = '';
     formData.type = 'MINIVAN';
+    formData.features = [];
     formData.driverId = '';
     formData.seats = carTypeSeats('MINIVAN');
     formData.status = 'AVAILABLE';
@@ -63,6 +72,7 @@ export function useFleetModel() {
     formData.model = c.model;
     formData.plate = c.plate;
     formData.type = c.type;
+    formData.features = [...c.features];
     formData.driverId = c.driverId ?? '';
     formData.seats = c.seats;
     formData.status = c.status;
@@ -82,6 +92,7 @@ export function useFleetModel() {
         model: formData.model.trim(),
         plate: formData.plate.trim(),
         type: formData.type,
+        features: formData.features,
         driverId: formData.driverId || null,
         seats: Number(formData.seats) || carTypeSeats(formData.type),
         status: formData.status,
@@ -137,6 +148,8 @@ export function useFleetModel() {
     cities,
     statuses,
     types,
+    featureOptions,
+    toggleFeature,
     seatOptions,
     onTypeChange,
     form: formData,
@@ -147,5 +160,6 @@ export function useFleetModel() {
     driverName,
     CAR_STATUS_LABEL,
     CAR_TYPE_LABEL,
+    CAR_FEATURE_LABEL,
   };
 }

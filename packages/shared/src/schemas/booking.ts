@@ -3,6 +3,7 @@ import { Id, Phone, PaginationQuery } from './common.js';
 import { BookingStatus, PaymentStatus } from '../enums.js';
 import { Client } from './client.js';
 import { Flight } from './flight.js';
+import { AdminStopInput, BookingStop, StopInput } from './stop.js';
 
 export const Booking = z.object({
   id: Id,
@@ -19,6 +20,7 @@ export const Booking = z.object({
   status: BookingStatus,
   paymentStatus: PaymentStatus,
   comment: z.string().nullable(),
+  stops: BookingStop.array().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -35,12 +37,16 @@ export const CreateBookingInput = z.object({
   phone: Phone,
   whatsapp: z.boolean().default(true),
   comment: z.string().max(1000).optional(),
+  // Extra pickup/dropoff points, at most one of each type per passenger
+  // (enforced server-side). Priced per point by an admin after contact.
+  stops: StopInput.array().max(40).default([]),
 });
 export type CreateBookingInput = z.infer<typeof CreateBookingInput>;
 
 /** Operator-side manual booking (admin CRM). Discount/prepayment are admin-only. */
 export const AdminCreateBookingInput = CreateBookingInput.extend({
   status: BookingStatus.default('NEW'),
+  stops: AdminStopInput.array().max(40).default([]), // admin may price points immediately
   unitPrice: z.number().int().nonnegative().optional(), // minor units, per-seat override; omit to use route.price
   discount: z.number().int().nonnegative().default(0), // minor units
   prepaid: z.number().int().nonnegative().default(0), // minor units

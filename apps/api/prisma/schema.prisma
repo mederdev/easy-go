@@ -27,6 +27,13 @@ enum BookingStatus {
   CANCELLED_BY_COMPANY
 }
 
+enum CarFeature {
+  ROOF_RACK
+  CHILD_SEAT
+  EXTRA_LUGGAGE
+  PET
+}
+
 enum FlightStatus {
   SCHEDULED
   CLOSED
@@ -48,6 +55,12 @@ enum PaymentStatus {
   UNPAID
   PARTIAL
   PAID
+}
+
+/// A pickup/dropoff point on a booking: where the driver collects or drops a passenger.
+enum StopKind {
+  PICKUP
+  DROPOFF
 }
 
 enum CarType {
@@ -145,6 +158,7 @@ model Car {
   model        String
   plate        String    @unique
   type         CarType   @default(MINIVAN)
+  features     CarFeature[] // extra capabilities (roof rack, child seat…)
   driverId     String?
   driver       Driver?   @relation(fields: [driverId], references: [id], onDelete: SetNull)
   seats        Int       @default(11)
@@ -223,10 +237,31 @@ model Booking {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
+  stops BookingStop[]
+
   @@index([status])
   @@index([clientId])
   @@index([flightId])
   @@index([createdAt])
+}
+
+/// Extra pickup/dropoff point on a booking. The client adds/edits addresses;
+/// the price is per-point, set (confirmed) by an admin — null until then.
+/// `pickedUp` is the driver's "collected this passenger here" checkbox.
+model BookingStop {
+  id        String   @id @default(uuid())
+  bookingId String
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  kind      StopKind @default(PICKUP)
+  address   String
+  note      String?
+  price     Int? // minor units; null = not yet confirmed by admin
+  pickedUp  Boolean  @default(false)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([bookingId])
 }
 
 /// Precomputed per-route, per-day analytics (source for all dashboards).
@@ -294,7 +329,9 @@ model CustomRequest {
   time       String? // "HH:MM" desired departure time (null = no preference)
   pax        Int
   carType    CarType? // desired vehicle class (null = no preference)
+  features   CarFeature[] // desired add-ons (roof rack, child seat…)
   wholeCabin Boolean           @default(false) // "салон" — book the entire car
+  stops      Json              @default("[]") // [{kind, address, note}] — desired pickup/dropoff points
   phone      String
   comment    String?
   status     ApplicationStatus @default(NEW)
@@ -322,5 +359,9 @@ model SystemConfig {
   whatsappPhone        String       @default("996700123456")
   locale               String       @default("ru-RU")
   telegramNotifyChatId String? // group chat for booking notifications (captured when bot is added)
+  // Default per-stop prices shown to clients as a guideline (minor units).
+  // The final price of every stop is still confirmed per booking by an admin.
+  stopPriceCity        Int          @default(0) // точка в черте города
+  stopPriceOutside     Int          @default(0) // точка за городом
   updatedAt            DateTime     @updatedAt
 }

@@ -3,6 +3,7 @@ import {
   DriverSetBookingPaymentInput,
   DriverSetFlightPaymentInput,
   DriverSetFlightStatusInput,
+  DriverSetStopPickedInput,
   Id,
 } from '@easygo/shared';
 import { parse } from '../../lib/validate.js';
@@ -38,6 +39,13 @@ const routes: FastifyPluginAsync = async (app) => {
     const { id, bookingId } = request.params as { id: string; bookingId: string };
     const { status } = parse(DriverSetBookingPaymentInput, request.body);
     return svc.setDriverBookingPayment(request.driverId!, parse(Id, id), parse(Id, bookingId), status);
+  });
+
+  // Tick/untick "collected the passenger at this pickup/dropoff point".
+  app.patch('/:id/bookings/:bookingId/stops/:stopId/picked', async (request) => {
+    const { id, bookingId, stopId } = request.params as { id: string; bookingId: string; stopId: string };
+    const { pickedUp } = parse(DriverSetStopPickedInput, request.body);
+    return svc.setDriverStopPicked(request.driverId!, parse(Id, id), parse(Id, bookingId), parse(Id, stopId), pickedUp);
   });
 };
 

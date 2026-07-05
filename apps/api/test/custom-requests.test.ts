@@ -25,6 +25,25 @@ describe('POST /custom-requests (public, idempotent)', () => {
     expect(b.headers['idempotent-replay']).toBe('true');
     expect(b.json().id).toBe(a.json().id);
   });
+
+  it('accepts feature add-ons and pickup/dropoff points (their feature)', async () => {
+    const app = await getApp();
+    const res = await app.inject({ method: 'POST', url: '/custom-requests', payload: {
+      fromCity: 'Бишкек', toCity: 'Ош', date: '2026-08-15', pax: 2, phone: uniquePhone(),
+      features: ['CHILD_SEAT'], stops: [{ kind: 'PICKUP', address: 'Дом' }],
+    } });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().features).toContain('CHILD_SEAT');
+  });
+
+  it('rejects more points of one type than passengers → 400', async () => {
+    const app = await getApp();
+    const res = await app.inject({ method: 'POST', url: '/custom-requests', payload: {
+      fromCity: 'Бишкек', toCity: 'Ош', date: '2026-08-15', pax: 1, phone: uniquePhone(),
+      stops: [{ kind: 'PICKUP', address: 'A' }, { kind: 'PICKUP', address: 'B' }],
+    } });
+    expect(res.statusCode).toBe(400);
+  });
 });
 
 describe('GET /custom-requests (operator+)', () => {

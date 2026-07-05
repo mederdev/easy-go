@@ -160,3 +160,26 @@ describe('Bad references return 4xx, not 500 (fixed desync #7)', () => {
     expect(res.json().error.code).toBe('BAD_REQUEST');
   });
 });
+
+describe('Car availability — one flight per car per day (their feature)', () => {
+  it('a second flight for the same car on the same day → 409', async () => {
+    const app = await getApp();
+    const { headers } = await makeUser({ role: 'admin' });
+    const route = await makeRoute();
+    const car = await makeCar();
+    const { departAt } = futureDay();
+    await makeFlight({ routeId: route.id, carId: car.id, departAt });
+    const res = await app.inject({ method: 'POST', url: '/flights', headers, payload: { routeId: route.id, carId: car.id, departAt: departAt.toISOString() } });
+    expect(res.statusCode).toBe(409);
+  });
+
+  it('the same car on a different day is allowed', async () => {
+    const app = await getApp();
+    const { headers } = await makeUser({ role: 'admin' });
+    const route = await makeRoute();
+    const car = await makeCar();
+    await makeFlight({ routeId: route.id, carId: car.id, departAt: futureDay(1).departAt });
+    const res = await app.inject({ method: 'POST', url: '/flights', headers, payload: { routeId: route.id, carId: car.id, departAt: futureDay(3).departAt.toISOString() } });
+    expect(res.statusCode).toBe(201);
+  });
+});

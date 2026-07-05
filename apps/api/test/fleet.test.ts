@@ -59,6 +59,14 @@ describe('POST /fleet (admin/owner)', () => {
     const res = await app.inject({ method: 'POST', url: '/fleet', headers, payload: { model: 'KIA', plate } });
     expect(res.statusCode).toBe(409);
   });
+
+  it('creates a car with feature add-ons (their feature)', async () => {
+    const app = await getApp();
+    const { headers } = await makeUser({ role: 'admin' });
+    const res = await app.inject({ method: 'POST', url: '/fleet', headers, payload: { model: 'KIA', plate: uniquePlate(), features: ['ROOF_RACK', 'CHILD_SEAT'] } });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().features).toEqual(expect.arrayContaining(['ROOF_RACK', 'CHILD_SEAT']));
+  });
 });
 
 describe('PATCH /fleet/:id + /fleet/:id/location', () => {

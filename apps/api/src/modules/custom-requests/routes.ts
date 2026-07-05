@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { ApplicationStatus, CreateCustomRequestInput, ListCustomRequestsQuery } from '@easygo/shared';
+import { ApplicationStatus, CreateCustomRequestInput, Id, ListCustomRequestsQuery } from '@easygo/shared';
 import { prisma } from '../../lib/prisma.js';
 import { Errors } from '../../lib/errors.js';
 import { normalizePhone } from '../../lib/phone.js';
@@ -51,7 +51,7 @@ const routes: FastifyPluginAsync = async (app) => {
 
   // Admin: update status
   app.patch('/:id/status', { preHandler: [app.authorize(['operator', 'admin', 'owner'])] }, async (request) => {
-    const { id } = request.params as { id: string };
+    const id = parse(Id, (request.params as { id: string }).id);
     const status = parse(ApplicationStatus, (request.body as { status: unknown }).status);
     const found = await prisma.customRequest.findUnique({ where: { id } });
     if (!found) throw Errors.notFound('Заявка');

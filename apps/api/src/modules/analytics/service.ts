@@ -1,11 +1,14 @@
-import type { AnalyticsQuery } from '@easygo/shared';
+import type { AnalyticsQuery, BookingStatus } from '@easygo/shared';
 import { prisma } from '../../lib/prisma.js';
 
 function dayBounds(date: string) {
   return { start: new Date(`${date}T00:00:00.000Z`), end: new Date(`${date}T23:59:59.999Z`) };
 }
 
-const isCancelled = { not: 'CANCELLED' as const };
+// Exclude EVERY cancelled variant from revenue/orders — not just the exact
+// CANCELLED. A trip cancelled by the client or the company is not revenue.
+const CANCELLED_STATUSES: BookingStatus[] = ['CANCELLED', 'CANCELLED_BY_CLIENT', 'CANCELLED_BY_COMPANY'];
+const notCancelled = { notIn: CANCELLED_STATUSES };
 
 /**
  * Recompute DailyStat rows for one date (by flight departure day), grouped by
@@ -15,7 +18,7 @@ const isCancelled = { not: 'CANCELLED' as const };
 export async function recomputeDailyStats(date: string): Promise<void> {
   const { start, end } = dayBounds(date);
   const bookings = await prisma.booking.findMany({
-    where: { status: isCancelled, flight: { departAt: { gte: start, lte: end } } },
+    where: { status: notCancelled, flight: { departAt: { gte: start, lte: end } } },
     include: { flight: { select: { routeId: true } }, client: { select: { id: true, createdAt: true } } },
   });
 
@@ -59,7 +62,7 @@ export async function dashboardSummary() {
 
   const [todays, newBookings, activeFlights, availableCars] = await Promise.all([
     prisma.booking.findMany({
-      where: { status: isCancelled, flight: { departAt: { gte: start, lte: end } } },
+      where: { status: notCancelled, flight: { departAt: { gte: start, lte: end } } },
       select: { total: true, pax: true },
     }),
     prisma.booking.count({ where: { status: 'NEW' } }),

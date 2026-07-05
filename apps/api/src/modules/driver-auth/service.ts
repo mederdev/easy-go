@@ -32,6 +32,9 @@ export async function loginDriver(input: DriverLoginInput): Promise<DriverProfil
   const ok = await bcrypt.compare(input.password, driver.passwordHash);
   if (!ok) throw Errors.unauthorized('Неверный телефон или пароль');
 
+  // A deactivated driver keeps their credentials but must not get a session.
+  if (!driver.isActive) throw Errors.forbidden('Аккаунт водителя деактивирован');
+
   return toDriverProfile(driver);
 }
 

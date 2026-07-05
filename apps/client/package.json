@@ -21,7 +21,6 @@
     "@easygo/api-client": "workspace:*",
     "@easygo/shared": "workspace:*",
     "@easygo/ui-tokens": "workspace:*",
-    "ionicons": "^7.4.0",
     "pinia": "^2.2.0",
     "vue": "^3.4.38",
     "vue-router": "^4.4.0"

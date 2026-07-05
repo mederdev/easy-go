@@ -11,7 +11,7 @@ import type { Flight, Route, Car } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { Errors } from '../../lib/errors.js';
 import { derivePaymentStatus, recomputeFlightPayment } from '../../lib/payment.js';
-import { completeFlightBookings } from '../bookings/service.js';
+import { completeFlightBookings, cancelFlightBookings } from '../bookings/service.js';
 
 type FlightWithRel = Flight & { route?: Route | null; car?: Car | null };
 
@@ -136,8 +136,12 @@ export async function setFlightPayment(id: string, status: PaymentStatus) {
     const flight = await tx.flight.findUnique({ where: { id } });
     if (!flight) throw Errors.notFound('Рейс');
 
+    // Only bookings attached to the flight (holding a seat) count toward its
+    // payment. NEW requests aren't part of the trip yet, so a bulk "mark paid"
+    // must not touch them — otherwise the flight aggregate ignores them while
+    // the booking row shows PAID (desync #6).
     const active = await tx.booking.findMany({
-      where: { flightId: id, status: { in: ['NEW', 'CONFIRMED', 'COMPLETED'] } },
+      where: { flightId: id, status: { in: ['CONFIRMED', 'COMPLETED'] } },
       select: { id: true, prepaid: true, total: true },
     });
 
@@ -187,5 +191,10 @@ export async function updateFlight(id: string, input: UpdateFlightInput) {
   // Completing the flight completes its confirmed bookings so passengers see it
   // as finished on their side (they display booking status, not flight status).
   if (input.status === 'COMPLETED') await completeFlightBookings(id);
+  // Cancelling the flight cancels its bookings, frees the held seats and rolls
+  // back client trip counters (otherwise seatsTaken/counters go stale — desync #1).
+  else if (input.status === 'CANCELLED' || input.status === 'CANCELLED_BY_CLIENT' || input.status === 'CANCELLED_BY_COMPANY') {
+    await cancelFlightBookings(id, input.status);
+  }
   return updated;
 }

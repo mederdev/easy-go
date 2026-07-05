@@ -57,6 +57,23 @@ function holdsSeat(status: BookingStatus): boolean {
   return SEAT_HOLDING_STATUSES.includes(status);
 }
 
+const CANCELLED_STATUSES: BookingStatus[] = ['CANCELLED', 'CANCELLED_BY_CLIENT', 'CANCELLED_BY_COMPANY'];
+
+/**
+ * Allowed booking status transitions. Without this, `setBookingStatus` would let
+ * illegal jumps (e.g. COMPLETED→NEW, or reviving a cancelled booking) silently
+ * detach/attach seats and skew the client's trip counters. Cancelled states are
+ * terminal; a completed trip can only be force-cancelled by the company.
+ */
+const ALLOWED_TRANSITIONS: Record<BookingStatus, BookingStatus[]> = {
+  NEW: ['CONFIRMED', 'CANCELLED', 'CANCELLED_BY_CLIENT', 'CANCELLED_BY_COMPANY'],
+  CONFIRMED: ['COMPLETED', 'CANCELLED', 'CANCELLED_BY_CLIENT', 'CANCELLED_BY_COMPANY'],
+  COMPLETED: ['CANCELLED_BY_COMPANY'],
+  CANCELLED: [],
+  CANCELLED_BY_CLIENT: [],
+  CANCELLED_BY_COMPANY: [],
+};
+
 /**
  * Create a booking. Upserts the client by phone, reserves seats atomically, and
  * keeps denormalized counters in sync. Safe to retry behind an Idempotency-Key.
@@ -263,11 +280,14 @@ export async function getBooking(id: string) {
  * leave capacity untouched.
  */
 export async function setBookingStatus(id: string, status: BookingStatus) {
-  return prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
     const booking = await tx.booking.findUnique({ where: { id } });
     if (!booking) throw Errors.notFound('Бронирование');
     if (booking.status === status) return tx.booking.findUnique({ where: { id }, include: bookingInclude });
 
+    if (!ALLOWED_TRANSITIONS[booking.status].includes(status)) {
+      throw Errors.badRequest(`Нельзя перевести бронирование из статуса «${booking.status}» в «${status}»`);
+    }
     // A booking is only "completed" as a consequence of its flight completing
     // (see `completeFlightBookings`). Block completing a booking whose flight
     // hasn't finished yet.
@@ -326,6 +346,10 @@ export async function setBookingStatus(id: string, status: BookingStatus) {
     await recomputeFlightPayment(tx, booking.flightId);
     return updated;
   });
+  // A status change (especially a cancellation) changes which bookings count
+  // toward that day's DailyStat revenue/orders — recompute off-request (desync #5).
+  if (updated?.flight) await enqueueStatsRecompute(isoDay(updated.flight.departAt)).catch(() => undefined);
+  return updated;
 }
 
 /**
@@ -339,6 +363,45 @@ export async function completeFlightBookings(flightId: string): Promise<void> {
     where: { flightId, status: 'CONFIRMED' },
     data: { status: 'COMPLETED' },
   });
+}
+
+/**
+ * Cancel a whole flight's bookings (used when a flight itself is cancelled). Every
+ * not-already-cancelled booking moves to `status`; seat-holding ones additionally
+ * free their seats and roll back the client's trip counters, then the flight's
+ * seatsTaken and aggregated payment status are recomputed. Without this, cancelling
+ * a flight would leave stale seatsTaken / bookings / client totals (desync #1).
+ */
+export async function cancelFlightBookings(flightId: string, status: BookingStatus): Promise<void> {
+  const departAt = await prisma.$transaction(async (tx) => {
+    const flight = await tx.flight.findUnique({ where: { id: flightId } });
+    if (!flight) return null;
+    const bookings = await tx.booking.findMany({ where: { flightId } });
+
+    let freed = 0;
+    for (const b of bookings) {
+      if (CANCELLED_STATUSES.includes(b.status)) continue; // already cancelled
+      if (holdsSeat(b.status)) {
+        freed += b.pax;
+        await tx.client.update({
+          where: { id: b.clientId },
+          data: { tripsCount: { decrement: 1 }, totalSum: { decrement: b.total } },
+        });
+      }
+      await tx.booking.update({ where: { id: b.id }, data: { status } });
+    }
+
+    if (freed > 0) {
+      await tx.flight.update({
+        where: { id: flightId },
+        data: { seatsTaken: Math.max(0, flight.seatsTaken - freed) },
+      });
+    }
+    await recomputeFlightPayment(tx, flightId);
+    return flight.departAt;
+  });
+  // Cancelling bookings removes them from revenue/orders — recompute (desync #5).
+  if (departAt) await enqueueStatsRecompute(isoDay(departAt)).catch(() => undefined);
 }
 
 /**

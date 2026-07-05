@@ -29,6 +29,14 @@ export default fp(async (app) => {
       if (err.code === 'P2025') {
         return reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Запись не найдена' } });
       }
+      if (err.code === 'P2003') {
+        // FK violation — e.g. creating a flight with a routeId/carId that doesn't exist.
+        return reply.code(400).send({ error: { code: 'BAD_REQUEST', message: 'Ссылка на несуществующую связанную запись' } });
+      }
+      if (err.code === 'P2023') {
+        // Malformed id (e.g. a non-UUID that reached Prisma).
+        return reply.code(400).send({ error: { code: 'BAD_REQUEST', message: 'Некорректный идентификатор' } });
+      }
     }
 
     request.log.error({ err }, 'Unhandled error');

@@ -13,6 +13,15 @@ describe('GET /fleet/available (public)', () => {
     expect(res.json()).toHaveLength(1);
     expect(res.json()[0].status).toBe('AVAILABLE');
   });
+
+  it('does not expose driver details publicly', async () => {
+    const app = await getApp();
+    const { driver } = await makeDriver();
+    await makeCar({ status: 'AVAILABLE', driverId: driver.id });
+    const res = await app.inject({ method: 'GET', url: '/fleet/available' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()[0].driver).toBeUndefined();
+  });
 });
 
 describe('GET /fleet (operator+)', () => {

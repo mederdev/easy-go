@@ -312,7 +312,7 @@ html,body{margin:0}
           <div style="font:800 16px Manrope;margin-bottom:14px">Компания</div>
           <div style="display:flex;flex-direction:column;gap:12px">
             <div><div style="font:600 12px Manrope;color:#9AA0A6;margin-bottom:5px">Название</div><input value="EASY GO ТРАНСФЕР" style="width:100%;height:46px;padding:0 14px;border:1px solid #E2E5DF;border-radius:11px;font:600 14px Manrope;outline:none"/></div>
-            <div><div style="font:600 12px Manrope;color:#9AA0A6;margin-bottom:5px">WhatsApp для заявок</div><input value="+996 700 12 34 56" style="width:100%;height:46px;padding:0 14px;border:1px solid #E2E5DF;border-radius:11px;font:600 14px Manrope;outline:none"/></div>
+            <div><div style="font:600 12px Manrope;color:#9AA0A6;margin-bottom:5px">WhatsApp для заявок</div><input value="+996 708 33 00 03 56" style="width:100%;height:46px;padding:0 14px;border:1px solid #E2E5DF;border-radius:11px;font:600 14px Manrope;outline:none"/></div>
           </div>
         </div>
         <div style="background:#fff;border:1px solid #ECEEE9;border-radius:16px;padding:20px 22px">
@@ -377,7 +377,7 @@ class Component extends DCLogic {
     const t=titles[s.section]||titles.dashboard;
     const mk=(id,name,phone,route,date,pax,total,status,ctrips,csum,ini)=>{ const c=this.st(status); const o={id,name,phone,route,date,pax,total,status,bg:c[0],color:c[1],ctrips,csum,ini}; o.open=()=>this.setState({sel:o}); return o; };
     const bookings=[
-      mk('№1042','Айгуль Сапарова','+996 700 12 34 56','Бишкек → Алматы','25.06 · 14:00',2,'7 000 сом','Новая',12,'42 000 сом','АС'),
+      mk('№1042','Айгуль Сапарова','+996 708 33 00 03 56','Бишкек → Алматы','25.06 · 14:00',2,'7 000 сом','Новая',12,'42 000 сом','АС'),
       mk('№1041','Тимур Джапаров','+996 555 88 77 66','Алматы → Бишкек','25.06 · 17:00',1,'3 500 сом','Подтверждён',8,'28 000 сом','ТД'),
       mk('№1040','Нурлан Кадыров','+996 700 33 22 11','Бишкек → Иссык-Куль','26.06 · 08:00',4,'8 000 сом','Подтверждён',5,'18 500 сом','НК'),
       mk('№1039','Жанна Орозова','+996 770 11 99 88','Бишкек → Алматы','24.06 · 20:00',3,'10 500 сом','Завершён',3,'12 000 сом','ЖО'),
@@ -409,7 +409,7 @@ class Component extends DCLogic {
       cr('KIA Carnival','01 KG 111 JKL','—',11,19,'На обслуживании'),
     ];
     const clients=[
-      {ini:'АС',name:'Айгуль Сапарова',phone:'+996 700 12 34 56',trips:12,sum:'42 000 сом',last:'25.06.2026'},
+      {ini:'АС',name:'Айгуль Сапарова',phone:'+996 708 33 00 03 56',trips:12,sum:'42 000 сом',last:'25.06.2026'},
       {ini:'ТД',name:'Тимур Джапаров',phone:'+996 555 88 77 66',trips:8,sum:'28 000 сом',last:'25.06.2026'},
       {ini:'НК',name:'Нурлан Кадыров',phone:'+996 700 33 22 11',trips:5,sum:'18 500 сом',last:'26.06.2026'},
       {ini:'МБ',name:'Марат Бектуров',phone:'+996 700 45 67 89',trips:6,sum:'21 000 сом',last:'24.06.2026'},

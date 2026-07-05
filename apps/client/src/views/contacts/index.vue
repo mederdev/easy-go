@@ -10,8 +10,8 @@ const OFFICE = { lat: 42.8767, lng: 74.6055 };
 
 const configStore = useConfigStore();
 
-const phoneNumber = '+996 700 12 34 56';
-const email = 'info@easygo.kg';
+const phoneNumber = '+996 708 33 00 03';
+const email = 'h833mam@gmail.com';
 
 async function onWhatsApp() {
   const phone = configStore.config?.whatsappPhone ?? phoneNumber;

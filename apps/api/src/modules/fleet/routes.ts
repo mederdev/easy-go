@@ -32,10 +32,10 @@ function applyOnTrip<T extends { id: string; status: CarStatus }>(cars: T[], onT
 const routes: FastifyPluginAsync = async (app) => {
   // Public: "Свободный транспорт сейчас" teaser on the client home/availability.
   // A car out on a departed flight is excluded even if its stored status is free.
+  // No `driver` include: driver identity must not leak to unauthenticated clients.
   app.get('/available', async () => {
     const cars = await prisma.car.findMany({
       where: { status: 'AVAILABLE' },
-      include: carInclude,
       orderBy: { locationCity: 'asc' },
     });
     const onTrip = await carsOnTrip(cars.map((c) => c.id));

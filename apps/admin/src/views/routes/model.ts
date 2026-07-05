@@ -65,6 +65,16 @@ export function useRoutesModel() {
 
   async function save(): Promise<void> {
     form.error.value = null;
+    const fromCity = formData.fromCity.trim();
+    const toCity = formData.toCity.trim();
+    if (!fromCity || !toCity) {
+      form.error.value = 'Укажите города отправления и назначения.';
+      return;
+    }
+    if (fromCity === toCity) {
+      form.error.value = 'Города отправления и назначения должны различаться.';
+      return;
+    }
     if (!formData.durationLabel.trim()) {
       form.error.value = 'Укажите время в пути.';
       return;
@@ -76,8 +86,8 @@ export function useRoutesModel() {
     }
     await form.submit(async () => {
       const payload: CreateRouteInput = {
-        fromCity: formData.fromCity,
-        toCity: formData.toCity,
+        fromCity,
+        toCity,
         durationLabel: formData.durationLabel.trim(),
         price: toMinor(priceNum, config.currency),
         dailyTrips: Number(formData.dailyTrips) || 0,

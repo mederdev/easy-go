@@ -204,7 +204,7 @@ html,body{margin:0}
 </x-dc>
 <script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
-  state = { screen:'login_phone', cabTab:'upcoming', phone:'+996 700 12 34 56' };
+  state = { screen:'login_phone', cabTab:'upcoming', phone:'+996 708 33 00 03 56' };
   nav(s){ this.setState({screen:s}); this.toTop(); }
   toTop(){ requestAnimationFrame(()=>{const e=document.querySelector('[data-scroll]'); if(e) e.scrollTop=0;}); }
   navBtn(active){ return 'display:flex;align-items:center;gap:11px;width:100%;text-align:left;border:none;border-radius:11px;padding:10px 11px;cursor:pointer;font:700 13.5px Manrope;'+(active?'background:#EEF6E6;color:#3E7C12':'background:transparent;color:#5A6066'); }

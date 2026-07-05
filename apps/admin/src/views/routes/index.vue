@@ -3,6 +3,7 @@ import StatusChip from '@/components/StatusChip.vue';
 import StateBlock from '@/components/StateBlock.vue';
 import AppModal from '@/components/AppModal.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import CitySearchInput from '@/components/CitySearchInput.vue';
 import { useRoutesModel } from './model';
 
 const {
@@ -15,7 +16,6 @@ const {
   editing,
   saving,
   formError,
-  cities,
   statuses,
   form,
   openEdit,
@@ -118,15 +118,11 @@ const {
         <div class="two">
           <label class="field">
             <span class="label">Откуда</span>
-            <select v-model="form.fromCity">
-              <option v-for="c in cities" :key="c" :value="c">{{ c }}</option>
-            </select>
+            <CitySearchInput v-model="form.fromCity" placeholder="Город отправления" />
           </label>
           <label class="field">
             <span class="label">Куда</span>
-            <select v-model="form.toCity">
-              <option v-for="c in cities" :key="c" :value="c">{{ c }}</option>
-            </select>
+            <CitySearchInput v-model="form.toCity" placeholder="Город назначения" />
           </label>
         </div>
         <label class="field">

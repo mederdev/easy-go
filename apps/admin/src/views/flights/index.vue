@@ -117,7 +117,7 @@ const {
                 {{ flightRouteLabel(f) }}
               </div>
               <div class="meta">
-                {{ f.car?.model ?? 'Без авто' }}
+                {{ f.car ? `${f.car.model} · ${f.car.plate}` : 'Без авто' }}
                 <template v-if="f.car?.driver"> · водитель {{ f.car.driver.name }}</template>
               </div>
             </div>

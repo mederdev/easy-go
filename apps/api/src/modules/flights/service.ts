@@ -98,7 +98,7 @@ async function assertCarAvailable(carId: string, departAt: Date, excludeFlightId
     where: {
       carId,
       departAt: { gte: start, lte: end },
-      status: { not: 'CANCELLED' },
+      status: { notIn: ['CANCELLED', 'CANCELLED_BY_CLIENT', 'CANCELLED_BY_COMPANY'] },
       ...(excludeFlightId ? { id: { not: excludeFlightId } } : {}),
     },
     select: { id: true },
@@ -173,7 +173,11 @@ export async function updateFlight(id: string, input: UpdateFlightInput) {
   const existing = await getFlight(id);
   const carId = input.carId !== undefined ? input.carId : existing.carId;
   const departAt = input.departAt ? new Date(input.departAt) : existing.departAt;
-  if (carId) await assertCarAvailable(carId, departAt, id);
+  // Re-check availability only when the car or the day actually changes —
+  // a pure status change (cancel/complete) must not trip the busy-car guard.
+  const carChanged = input.carId !== undefined && input.carId !== existing.carId;
+  const dayChanged = departAt.getTime() !== existing.departAt.getTime();
+  if (carId && (carChanged || dayChanged)) await assertCarAvailable(carId, departAt, id);
   const updated = await prisma.flight.update({
     where: { id },
     data: {

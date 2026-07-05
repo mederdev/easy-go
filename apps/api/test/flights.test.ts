@@ -182,4 +182,35 @@ describe('Car availability — one flight per car per day (their feature)', () =
     const res = await app.inject({ method: 'POST', url: '/flights', headers, payload: { routeId: route.id, carId: car.id, departAt: futureDay(3).departAt.toISOString() } });
     expect(res.statusCode).toBe(201);
   });
+
+  it('a cancelled flight frees the car for that day', async () => {
+    const app = await getApp();
+    const { headers } = await makeUser({ role: 'admin' });
+    const route = await makeRoute();
+    const car = await makeCar();
+    const { departAt } = futureDay();
+    await makeFlight({ routeId: route.id, carId: car.id, departAt, status: 'CANCELLED_BY_COMPANY' });
+    const res = await app.inject({ method: 'POST', url: '/flights', headers, payload: { routeId: route.id, carId: car.id, departAt: departAt.toISOString() } });
+    expect(res.statusCode).toBe(201);
+  });
+
+  it('a status-only update (cancel/complete) does not trip the busy-car guard', async () => {
+    const app = await getApp();
+    const { headers } = await makeUser({ role: 'admin' });
+    const route = await makeRoute();
+    const car = await makeCar();
+    const { departAt } = futureDay();
+    // Two flights sharing car+day (pre-validation legacy data) — status changes
+    // must still go through.
+    const a = await makeFlight({ routeId: route.id, carId: car.id, departAt });
+    const b = await makeFlight({ routeId: route.id, carId: car.id, departAt });
+
+    const cancel = await app.inject({ method: 'PATCH', url: `/flights/${a.id}`, headers, payload: { status: 'CANCELLED' } });
+    expect(cancel.statusCode).toBe(200);
+    expect(cancel.json().status).toBe('CANCELLED');
+
+    const complete = await app.inject({ method: 'PATCH', url: `/flights/${b.id}`, headers, payload: { status: 'COMPLETED' } });
+    expect(complete.statusCode).toBe(200);
+    expect(complete.json().status).toBe('COMPLETED');
+  });
 });

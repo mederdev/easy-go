@@ -38,7 +38,7 @@ const {
           </label>
           <label class="field">
             <span class="label">WhatsApp для заявок</span>
-            <input v-model="form.whatsappPhone" placeholder="+996 700 12 34 56" />
+            <input v-model="form.whatsappPhone" placeholder="+996 700 33 00 03" />
           </label>
         </div>
       </div>

@@ -16,8 +16,11 @@ export default defineConfig({
     setupFiles: ['test/helpers/setup.ts'],
     env: {
       NODE_ENV: 'test',
-      DATABASE_URL: 'postgresql://easygo:easygo@localhost:55432/easygo_test?schema=public',
-      REDIS_URL: 'redis://localhost:56379',
+      // Override via TEST_DATABASE_URL / TEST_REDIS_URL when local ports differ.
+      DATABASE_URL:
+        process.env.TEST_DATABASE_URL ??
+        'postgresql://easygo:easygo@localhost:55432/easygo_test?schema=public',
+      REDIS_URL: process.env.TEST_REDIS_URL ?? 'redis://localhost:56379',
       JWT_SECRET: 'test-jwt-secret-0123456789',
       JWT_EXPIRES_IN: '7d',
       // Present so telegram deep-links render; no bot token → sends are mocked.

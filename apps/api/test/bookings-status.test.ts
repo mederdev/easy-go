@@ -70,6 +70,8 @@ describe('PATCH /bookings/:id/status — no boundary crossing', () => {
   it('CONFIRMED → COMPLETED leaves seats and counters untouched', async () => {
     const { app, headers, flight, phone, booking } = await arrange({ pax: 3, status: 'CONFIRMED' });
     const before = await flightOf(flight.id);
+    // a booking can only be completed once its flight has completed
+    await prisma.flight.update({ where: { id: flight.id }, data: { status: 'COMPLETED' } });
     const res = await app.inject({ method: 'PATCH', url: `/bookings/${booking.id}/status`, headers, payload: { status: 'COMPLETED' } });
     expect(res.statusCode).toBe(200);
     expect((await flightOf(flight.id))?.seatsTaken).toBe(before?.seatsTaken);
@@ -94,6 +96,7 @@ describe('PATCH /bookings/:id/status — no boundary crossing', () => {
 describe('Illegal transitions are rejected (fixed desync #3)', () => {
   it('COMPLETED → NEW is refused with 400 and leaves counters intact', async () => {
     const { app, headers, flight, phone, booking } = await arrange({ pax: 2, status: 'CONFIRMED' });
+    await prisma.flight.update({ where: { id: flight.id }, data: { status: 'COMPLETED' } });
     await app.inject({ method: 'PATCH', url: `/bookings/${booking.id}/status`, headers, payload: { status: 'COMPLETED' } });
     expect((await flightOf(flight.id))?.seatsTaken).toBe(2);
 

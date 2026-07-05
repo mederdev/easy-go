@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getApp } from './helpers/app.js';
-import { makeUser, makeDriver, makeRoute, makeFlight, uniquePhone } from './helpers/factories.js';
+import { makeUser, makeDriver, makeRoute, makeFlight, uniquePhone, hoursFromNow } from './helpers/factories.js';
 import { prisma } from './helpers/db.js';
 
 // ── Invariants that must hold no matter which role acted ──
@@ -43,7 +43,8 @@ describe('End-to-end lifecycle: client → admin → driver stays consistent', (
     const admin = await makeUser({ role: 'admin' });
     const { driver, car } = await makeDriver({ withCar: true });
     const route = await makeRoute({ price: 350_000 });
-    const flight = await makeFlight({ routeId: route.id, carId: car!.id, seatsTotal: 11 });
+    // depart time in the past so the driver can mark it DEPARTED
+    const flight = await makeFlight({ routeId: route.id, carId: car!.id, seatsTotal: 11, departAt: hoursFromNow(-1) });
     const driverToken = await (await import('./helpers/app.js')).driverToken(driver.id);
     const driverHeaders = { authorization: `Bearer ${driverToken}` };
     const phone = uniquePhone();

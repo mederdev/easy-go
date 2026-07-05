@@ -54,7 +54,8 @@ describe('GET /driver-flights/:id ownership', () => {
 describe('PATCH /driver-flights/:id/status (guarded state machine)', () => {
   it('SCHEDULED → DEPARTED → COMPLETED is allowed', async () => {
     const app = await getApp();
-    const { headers, flight } = await driverWithFlight({ status: 'SCHEDULED', departAt: hoursFromNow(1) });
+    // DEPARTED is only allowed once the departure time has passed
+    const { headers, flight } = await driverWithFlight({ status: 'SCHEDULED', departAt: hoursFromNow(-1) });
     const dep = await app.inject({ method: 'PATCH', url: `/driver-flights/${flight.id}/status`, headers, payload: { status: 'DEPARTED' } });
     expect(dep.statusCode).toBe(200);
     expect(dep.json().status).toBe('DEPARTED');
@@ -101,7 +102,7 @@ describe('PATCH /driver-flights/:id/status (guarded state machine)', () => {
 });
 
 describe('DriverFlightView passengers', () => {
-  it('shows active passengers, hides cancelled, and never leaks phone', async () => {
+  it('shows active passengers with contact, hides cancelled', async () => {
     const app = await getApp();
     const { headers, flight } = await driverWithFlight();
     const { client } = await makeClientRow({ name: 'Пассажир', phone: '+996700123456' });
@@ -112,7 +113,7 @@ describe('DriverFlightView passengers', () => {
     const passengers = res.json().passengers;
     expect(passengers).toHaveLength(1); // cancelled hidden
     expect(passengers[0].name).toBe('Пассажир');
-    expect(passengers[0].phone).toBeUndefined(); // no phone leak
+    expect(passengers[0].phone).toBe('+996700123456'); // driver sees the passenger's contact
     expect(passengers[0]).toHaveProperty('paymentStatus');
   });
 });

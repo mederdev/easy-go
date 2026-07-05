@@ -12,6 +12,7 @@ const {
   routes,
   routesLoading,
   staticRoutes,
+  fleetTeaser,
 } = useHomeModel();
 </script>
 
@@ -76,7 +77,7 @@ const {
           </span>
           <div class="home-avail-teaser__content">
             <div class="home-avail-teaser__title">Свободный транспорт сейчас</div>
-            <div class="home-avail-teaser__sub">Бишкек — 11 мест · Алматы — 8 мест</div>
+            <div class="home-avail-teaser__sub">{{ fleetTeaser ?? 'Посмотрите свободные машины онлайн' }}</div>
           </div>
           <span class="ms home-avail-teaser__arrow">chevron_right</span>
         </button>

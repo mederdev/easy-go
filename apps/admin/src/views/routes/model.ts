@@ -29,6 +29,7 @@ export function useRoutesModel() {
     priceMajor: '' as string,
     dailyTrips: 0,
     status: 'ACTIVE' as RouteStatus,
+    popular: false,
   });
 
   function money(minor: number): string {
@@ -42,6 +43,7 @@ export function useRoutesModel() {
     formData.priceMajor = '';
     formData.dailyTrips = 0;
     formData.status = 'ACTIVE';
+    formData.popular = false;
   }
 
   function openCreate(): void {
@@ -59,6 +61,7 @@ export function useRoutesModel() {
     formData.priceMajor = String(toMajor(r.price, config.currency));
     formData.dailyTrips = r.dailyTrips;
     formData.status = r.status;
+    formData.popular = r.popular;
     form.error.value = null;
     form.open.value = true;
   }
@@ -92,6 +95,7 @@ export function useRoutesModel() {
         price: toMinor(priceNum, config.currency),
         dailyTrips: Number(formData.dailyTrips) || 0,
         status: formData.status,
+        popular: formData.popular,
       };
       if (editing.value) {
         await api.routes.update(editing.value.id, payload);

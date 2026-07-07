@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { IonPage, IonContent } from '@ionic/vue';
 import ErrorBanner from '@/components/ErrorBanner.vue';
+import PasswordInput from '@/components/PasswordInput.vue';
 import TelegramLoginButton from '@/components/TelegramLoginButton.vue';
 import { useLoginModel } from './model';
 
@@ -70,7 +71,7 @@ const {
             </div>
             <div class="field">
               <div class="field-label">Пароль</div>
-              <input v-model="password" class="input" type="password" autocomplete="current-password" placeholder="Пароль" @keyup.enter="clientLogin" />
+              <PasswordInput v-model="password" autocomplete="current-password" placeholder="Пароль" @keyup.enter="clientLogin" />
             </div>
 
             <ErrorBanner v-if="error" :message="error" style="margin-top: 12px" />
@@ -132,11 +133,11 @@ const {
 
             <div class="field">
               <div class="field-label">Пароль</div>
-              <input v-model="password" class="input" type="password" autocomplete="new-password" placeholder="Минимум 6 символов" />
+              <PasswordInput v-model="password" autocomplete="new-password" placeholder="Минимум 6 символов" />
             </div>
             <div class="field">
               <div class="field-label">Повторите пароль</div>
-              <input v-model="password2" class="input" type="password" autocomplete="new-password" placeholder="Ещё раз" @keyup.enter="registerWithPassword" />
+              <PasswordInput v-model="password2" autocomplete="new-password" placeholder="Ещё раз" @keyup.enter="registerWithPassword" />
             </div>
             <div v-if="passwordsMismatch" class="mismatch">Пароли не совпадают</div>
 
@@ -169,11 +170,11 @@ const {
 
             <div class="field">
               <div class="field-label">Новый пароль</div>
-              <input v-model="password" class="input" type="password" autocomplete="new-password" placeholder="Минимум 6 символов" />
+              <PasswordInput v-model="password" autocomplete="new-password" placeholder="Минимум 6 символов" />
             </div>
             <div class="field">
               <div class="field-label">Повторите пароль</div>
-              <input v-model="password2" class="input" type="password" autocomplete="new-password" placeholder="Ещё раз" @keyup.enter="saveNewPassword" />
+              <PasswordInput v-model="password2" autocomplete="new-password" placeholder="Ещё раз" @keyup.enter="saveNewPassword" />
             </div>
             <div v-if="passwordsMismatch" class="mismatch">Пароли не совпадают</div>
 
@@ -219,7 +220,7 @@ const {
           </div>
           <div class="field">
             <div class="field-label">Пароль</div>
-            <input v-model="password" class="input" type="password" autocomplete="current-password" placeholder="Пароль" @keyup.enter="driverLogin" />
+            <PasswordInput v-model="password" autocomplete="current-password" placeholder="Пароль" @keyup.enter="driverLogin" />
           </div>
 
           <ErrorBanner v-if="error" :message="error" style="margin-top: 12px" />

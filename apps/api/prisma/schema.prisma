@@ -183,6 +183,7 @@ model Route {
   price         Int // minor units, per seat
   dailyTrips    Int         @default(0)
   status        RouteStatus @default(ACTIVE)
+  popular       Boolean     @default(false)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 

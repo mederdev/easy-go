@@ -65,9 +65,9 @@ async function main() {
   await prisma.car.create({ data: { model: 'Yutong Bus', plate: '01 KG 111 JKL', type: 'BUS', seats: 20, status: 'MAINTENANCE', locationCity: 'Бишкек' } });
 
   // Routes (price in minor units — сом × 100).
-  const rBA = await prisma.route.create({ data: { fromCity: 'Бишкек', toCity: 'Алматы', durationLabel: '~4 ч', price: 350000, dailyTrips: 3, status: 'ACTIVE' } });
-  const rAB = await prisma.route.create({ data: { fromCity: 'Алматы', toCity: 'Бишкек', durationLabel: '~4 ч', price: 350000, dailyTrips: 3, status: 'ACTIVE' } });
-  const rBI = await prisma.route.create({ data: { fromCity: 'Бишкек', toCity: 'Иссык-Куль', durationLabel: '~5 ч', price: 200000, dailyTrips: 2, status: 'ACTIVE' } });
+  const rBA = await prisma.route.create({ data: { fromCity: 'Бишкек', toCity: 'Алматы', durationLabel: '~4 ч', price: 350000, dailyTrips: 3, status: 'ACTIVE', popular: true } });
+  const rAB = await prisma.route.create({ data: { fromCity: 'Алматы', toCity: 'Бишкек', durationLabel: '~4 ч', price: 350000, dailyTrips: 3, status: 'ACTIVE', popular: true } });
+  const rBI = await prisma.route.create({ data: { fromCity: 'Бишкек', toCity: 'Иссык-Куль', durationLabel: '~5 ч', price: 200000, dailyTrips: 2, status: 'ACTIVE', popular: true } });
   await prisma.route.create({ data: { fromCity: 'Иссык-Куль', toCity: 'Бишкек', durationLabel: '~5 ч', price: 200000, dailyTrips: 2, status: 'ACTIVE' } });
   await prisma.route.create({ data: { fromCity: 'Бишкек', toCity: 'Каракол', durationLabel: '~6 ч', price: 250000, dailyTrips: 0, status: 'DRAFT' } });
 

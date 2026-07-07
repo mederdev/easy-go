@@ -52,7 +52,14 @@ const {
           description="Добавьте первое направление."
         />
         <div v-for="r in routes" :key="r.id" class="row data-row">
-          <span class="strong">{{ routeLabel(r) }}</span>
+          <span class="strong route-name">
+            {{ routeLabel(r) }}
+            <span
+              v-if="r.popular"
+              class="material-symbols-outlined pop-star"
+              title="Показывается в популярных"
+            >star</span>
+          </span>
           <span class="muted">{{ r.durationLabel }}</span>
           <span class="strong">{{ money(r.price) }}</span>
           <span class="muted">{{ r.dailyTrips }}</span>
@@ -78,7 +85,14 @@ const {
         />
         <div v-for="r in routes" :key="r.id" class="m-card">
           <div class="m-card-top">
-            <div class="m-title">{{ routeLabel(r) }}</div>
+            <div class="m-title">
+              {{ routeLabel(r) }}
+              <span
+                v-if="r.popular"
+                class="material-symbols-outlined pop-star"
+                title="Показывается в популярных"
+              >star</span>
+            </div>
             <StatusChip kind="route" :status="r.status" />
           </div>
           <div class="m-meta">
@@ -144,6 +158,13 @@ const {
           <select v-model="form.status">
             <option v-for="s in statuses" :key="s" :value="s">{{ ROUTE_STATUS_LABEL[s] }}</option>
           </select>
+        </label>
+        <label class="check">
+          <input v-model="form.popular" type="checkbox" />
+          <span class="check-body">
+            <span class="check-title">Показывать в «Популярных маршрутах»</span>
+            <span class="check-sub">Маршрут появится на главном экране приложения (только для активных).</span>
+          </span>
         </label>
         <div v-if="formError" class="form-error">{{ formError }}</div>
       </form>
@@ -255,6 +276,43 @@ select {
 input:focus,
 select:focus {
   border-color: var(--eg-brand);
+}
+.route-name,
+.m-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pop-star {
+  font-size: 18px;
+  color: #e0a500;
+  font-variation-settings: 'FILL' 1;
+}
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+.check input {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  accent-color: var(--eg-brand);
+}
+.check-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.check-title {
+  font: 600 13px var(--eg-font);
+  color: var(--eg-ink);
+}
+.check-sub {
+  font: 500 12px var(--eg-font);
+  color: var(--eg-hint);
 }
 .form-error {
   background: #fbedea;

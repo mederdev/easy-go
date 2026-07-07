@@ -4,6 +4,7 @@ import { IonPage, IonContent } from '@ionic/vue';
 import { useRouter } from 'vue-router';
 import { ApiError } from '@easygo/api-client';
 import ErrorBanner from '@/components/ErrorBanner.vue';
+import PasswordInput from '@/components/PasswordInput.vue';
 import { useAuthStore } from '@/stores/auth';
 import { api } from '@/lib/api';
 
@@ -91,10 +92,8 @@ async function save(): Promise<void> {
 
         <div class="field">
           <div class="field-label">Новый пароль <span class="opt">(оставьте пустым, чтобы не менять)</span></div>
-          <input
+          <PasswordInput
             v-model="newPassword"
-            class="input"
-            type="password"
             autocomplete="new-password"
             placeholder="Минимум 6 символов"
             @keyup.enter="save"

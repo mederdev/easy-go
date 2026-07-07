@@ -9,7 +9,7 @@ import { useHomeModel } from './model';
 
 const {
   router,
-  routes,
+  popularRoutes,
   routesLoading,
   staticRoutes,
   fleetTeaser,
@@ -48,9 +48,9 @@ const {
         <SectionHeader title="Популярные маршруты" />
         <div class="home-routes">
           <LoadingSpinner v-if="routesLoading" />
-          <template v-else-if="routes.length > 0">
+          <template v-else-if="popularRoutes.length > 0">
             <RouteCard
-              v-for="route in routes"
+              v-for="route in popularRoutes"
               :key="route.id"
               :from-city="route.fromCity"
               :to-city="route.toCity"

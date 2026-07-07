@@ -31,7 +31,7 @@ const emit = defineEmits<{ (e: 'close'): void }>();
   right: 0;
   bottom: 0;
   width: 420px;
-  max-width: 100vw;
+  max-width: 100%;
   background: #fff;
   z-index: 41;
   box-shadow: -12px 0 40px -16px rgba(20, 30, 10, 0.3);

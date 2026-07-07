@@ -34,6 +34,16 @@ body {
   margin: 0;
 }
 
+/* Never let anything scroll the page sideways. Modals / bottom sheets slide in
+   via transform (translateX/Y) and briefly sit off-screen; on iOS that leaks
+   into a horizontal page scroll ("scroll left/right"). Clip it at the root —
+   intentional horizontal scrollers (date strips) keep their own overflow-x. */
+html,
+body {
+  overflow-x: clip;
+  max-width: 100%;
+}
+
 /* Hide scrollbars app-wide */
 ion-content::part(scroll) {
   scrollbar-width: none;

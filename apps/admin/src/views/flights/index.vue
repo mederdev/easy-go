@@ -387,6 +387,16 @@ const {
   border: 1px solid var(--eg-line);
   border-radius: 16px;
   padding: 18px 20px;
+  min-width: 0;
+}
+/* Narrow phones: let the card and its route/text rows shrink, and let the
+   status row wrap, so a single-column card fits instead of overflowing. */
+.card-head,
+.route {
+  min-width: 0;
+}
+.card-foot {
+  flex-wrap: wrap;
 }
 .clickable {
   cursor: pointer;

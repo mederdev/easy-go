@@ -211,6 +211,7 @@ const {
   padding: 18px 20px;
   display: flex;
   gap: 16px;
+  min-width: 0;
 }
 .thumb {
   width: 64px;
@@ -232,6 +233,8 @@ const {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 .model {
   font: 800 16px var(--eg-font);
@@ -245,6 +248,8 @@ const {
   display: flex;
   gap: 18px;
   margin-top: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 .cap {
   font: 600 10px var(--eg-font);

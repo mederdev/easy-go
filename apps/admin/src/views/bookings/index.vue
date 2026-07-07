@@ -1066,6 +1066,7 @@ const {
 .chips {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 .search {
   display: flex;

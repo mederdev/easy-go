@@ -19,6 +19,7 @@ export function useCabinetModel() {
     data: bookings,
     loading: bookingsLoading,
     error: bookingsError,
+    reload: reloadBookings,
   } = useAsyncResource<Booking[]>(async () => {
     if (!auth.isAuthenticated || auth.isDriver) return [];
     if (!auth.client) await auth.fetchMe();
@@ -31,6 +32,7 @@ export function useCabinetModel() {
     data: customRequests,
     loading: customLoading,
     error: customError,
+    reload: reloadCustom,
   } = useAsyncResource<CustomRequest[]>(async () => {
     if (!auth.isAuthenticated || auth.isDriver) return [];
     if (!auth.client) await auth.fetchMe();
@@ -69,6 +71,15 @@ export function useCabinetModel() {
     if (!auth.isDriver) return [];
     return driverApi.driverFlights.list();
   }, []);
+
+  /** Re-fetch everything the cabinet shows. Called from `onIonViewWillEnter`
+   *  so status changes made elsewhere (e.g. an operator confirming a booking in
+   *  the CRM) surface when the user returns to the tab — the resources fetch
+   *  once on mount, and a tab is kept alive, so without this the view goes
+   *  stale until a full page reload. */
+  async function refresh(): Promise<void> {
+    await Promise.all([reloadBookings(), reloadCustom(), reloadDriverFlights()]);
+  }
 
   // Status change
   const statusChanging = ref<string | null>(null);
@@ -296,6 +307,7 @@ export function useCabinetModel() {
     bookings,
     loading,
     error,
+    refresh,
     initials,
     statusStyle,
     flightStatusStyle,

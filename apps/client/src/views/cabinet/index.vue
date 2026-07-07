@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IonPage, IonContent } from '@ionic/vue';
+import { IonPage, IonContent, onIonViewWillEnter } from '@ionic/vue';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
 import ErrorBanner from '@/components/ErrorBanner.vue';
 import { useCabinetModel } from './model';
@@ -55,7 +55,12 @@ const {
   menuWrapEl,
   toggleMenu,
   closeMenu,
+  refresh,
 } = useCabinetModel();
+
+// Re-fetch bookings/requests each time the tab is shown, so a status change
+// made in the CRM (e.g. NEW → CONFIRMED) appears without a full page reload.
+onIonViewWillEnter(refresh);
 </script>
 
 <template>

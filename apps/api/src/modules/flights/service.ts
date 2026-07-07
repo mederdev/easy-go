@@ -178,7 +178,7 @@ export async function updateFlight(id: string, input: UpdateFlightInput) {
   const carChanged = input.carId !== undefined && input.carId !== existing.carId;
   const dayChanged = departAt.getTime() !== existing.departAt.getTime();
   if (carId && (carChanged || dayChanged)) await assertCarAvailable(carId, departAt, id);
-  const updated = await prisma.flight.update({
+  await prisma.flight.update({
     where: { id },
     data: {
       routeId: input.routeId,
@@ -190,7 +190,6 @@ export async function updateFlight(id: string, input: UpdateFlightInput) {
       seatsTotal: input.seatsTotal,
       status: input.status,
     },
-    include: { route: true, car: true },
   });
   // Completing the flight completes its confirmed bookings so passengers see it
   // as finished on their side (they display booking status, not flight status).
@@ -200,5 +199,8 @@ export async function updateFlight(id: string, input: UpdateFlightInput) {
   else if (input.status === 'CANCELLED' || input.status === 'CANCELLED_BY_CLIENT' || input.status === 'CANCELLED_BY_COMPANY') {
     await cancelFlightBookings(id, input.status);
   }
-  return updated;
+  // Re-read AFTER the side-effects so seatsTaken/seatsLeft reflect freed seats
+  // (cancel) or the completed bookings. Reading the update() result directly
+  // would return the pre-cascade row — the modal showed a stale seat count.
+  return getFlight(id);
 }

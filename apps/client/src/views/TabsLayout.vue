@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { IonPage, IonTabs, IonTabBar, IonTabButton, IonLabel, IonRouterOutlet } from '@ionic/vue';
+import { IonPage, IonTabs, IonTabBar, IonTabButton, IonLabel, IonRouterOutlet, useIonRouter } from '@ionic/vue';
 import { useRouter } from 'vue-router';
 import { computed } from 'vue';
+import { slideAnimation, setSlideDirection } from '../lib/nav-animation.js';
 
 const router = useRouter();
+const ionRouter = useIonRouter();
 
 const navItems = [
   { tab: 'home', href: '/tabs/home', icon: 'home', label: 'Главная' },
@@ -17,6 +19,22 @@ const currentPath = computed(() => router.currentRoute.value.path);
 function isActive(href: string) {
   return currentPath.value === href || currentPath.value.startsWith(href + '/');
 }
+
+// The tab currently selected — drives IonTabBar's highlight since our tab
+// buttons navigate manually (no `href`) so we can control the slide direction.
+const currentTab = computed(() => navItems.find((i) => isActive(i.href))?.tab ?? 'home');
+
+// Navigate to a tab, sliding in from the side we're heading toward: tabs further
+// right in the bar slide in from the right, tabs to the left slide in from the
+// left. Same handler powers both the desktop pill nav and the mobile tab bar.
+function go(href: string) {
+  if (isActive(href)) return;
+  const from = navItems.findIndex((i) => isActive(i.href));
+  const to = navItems.findIndex((i) => i.href === href);
+  const direction = to > from ? 'forward' : 'back';
+  setSlideDirection(direction);
+  ionRouter.navigate(href, direction, 'replace', slideAnimation);
+}
 </script>
 
 <template>
@@ -28,7 +46,7 @@ function isActive(href: string) {
         :key="item.tab"
         class="d-bottom-nav__item"
         :class="isActive(item.href) && 'd-bottom-nav__item--active'"
-        @click="router.push(item.href)"
+        @click="go(item.href)"
       >
         <span class="ms d-bottom-nav__icon">{{ item.icon }}</span>
         <span class="d-bottom-nav__label">{{ item.label }}</span>
@@ -37,22 +55,16 @@ function isActive(href: string) {
 
     <IonTabs>
       <IonRouterOutlet />
-      <IonTabBar slot="bottom">
-        <IonTabButton tab="home" href="/tabs/home">
-          <span class="ms tab-icon">home</span>
-          <IonLabel>Главная</IonLabel>
-        </IonTabButton>
-        <IonTabButton tab="availability" href="/tabs/availability">
-          <span class="ms tab-icon">directions_car</span>
-          <IonLabel>Транспорт</IonLabel>
-        </IonTabButton>
-        <IonTabButton tab="info" href="/tabs/info">
-          <span class="ms tab-icon">info</span>
-          <IonLabel>Инфо</IonLabel>
-        </IonTabButton>
-        <IonTabButton tab="cabinet" href="/tabs/cabinet">
-          <span class="ms tab-icon">account_circle</span>
-          <IonLabel>Кабинет</IonLabel>
+      <IonTabBar slot="bottom" :selected-tab="currentTab">
+        <IonTabButton
+          v-for="item in navItems"
+          :key="item.tab"
+          :tab="item.tab"
+          :class="{ 'tab-active': isActive(item.href) }"
+          @click="go(item.href)"
+        >
+          <span class="ms tab-icon">{{ item.icon }}</span>
+          <IonLabel>{{ item.label }}</IonLabel>
         </IonTabButton>
       </IonTabBar>
     </IonTabs>
@@ -65,6 +77,14 @@ function isActive(href: string) {
   line-height: 1;
   display: block;
   margin-bottom: 2px;
+}
+
+/* We navigate tab buttons manually (no `href`), so Ionic no longer tracks the
+   selected tab — colour the active button's icon + label ourselves to match the
+   desktop nav's green highlight. */
+ion-tab-button.tab-active .tab-icon,
+ion-tab-button.tab-active ion-label {
+  color: #56A919;
 }
 
 /* Desktop elements — hidden on mobile */

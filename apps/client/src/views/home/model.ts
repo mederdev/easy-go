@@ -22,6 +22,11 @@ export function useHomeModel() {
   const routesLoading = ref(false);
   const cars = ref<Car[]>([]);
 
+  /** Only routes the admin flagged as popular are surfaced on the home screen.
+   *  The public endpoint returns all active routes (search selectors need them),
+   *  so we filter here. */
+  const popularRoutes = computed<Route[]>(() => routes.value.filter((r) => r.popular));
+
   onIonViewWillEnter(async () => {
     routesLoading.value = true;
     try {
@@ -63,6 +68,7 @@ export function useHomeModel() {
   return {
     router,
     routes,
+    popularRoutes,
     routesLoading,
     staticRoutes,
     fleetTeaser,

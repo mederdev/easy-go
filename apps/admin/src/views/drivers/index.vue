@@ -3,6 +3,7 @@ import StateBlock from '@/components/StateBlock.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import AppModal from '@/components/AppModal.vue';
 import StatusChip from '@/components/StatusChip.vue';
+import PasswordInput from '@/components/PasswordInput.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useDriversModel } from './model';
 
@@ -161,9 +162,9 @@ const {
         </label>
         <label class="field">
           <span class="label">Пароль для входа (необязательно)</span>
-          <input
+          <PasswordInput
             v-model="createData.password"
-            type="password"
+            variant="create"
             placeholder="Мин. 6 символов — доступ к приложению водителя"
             autocomplete="new-password"
           />
@@ -235,10 +236,8 @@ const {
             </button>
           </div>
           <div v-if="pwOpen" class="pw-form">
-            <input
+            <PasswordInput
               v-model="pwValue"
-              class="pw-input"
-              type="password"
               placeholder="Новый пароль (мин. 6 символов)"
               autocomplete="new-password"
             />

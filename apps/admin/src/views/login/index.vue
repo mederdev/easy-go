@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PasswordInput from '@/components/PasswordInput.vue';
 import { useLoginModel } from './model';
 
 const {
@@ -53,9 +54,9 @@ const {
           </label>
           <label class="field">
             <span class="label">Пароль</span>
-            <input
+            <PasswordInput
               v-model="password"
-              type="password"
+              variant="login"
               placeholder="••••••••"
               autocomplete="current-password"
             />

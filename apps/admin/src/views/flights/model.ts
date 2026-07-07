@@ -16,6 +16,10 @@ export function useFlightsModel() {
   const routes = ref<Route[]>([]);
   const cars = ref<Car[]>([]);
 
+  // Only active routes can be used for new flights; draft/archived directions
+  // stay in `routes` so the filter chips can still narrow to their old flights.
+  const activeRoutes = computed(() => routes.value.filter((r) => r.status === 'ACTIVE'));
+
   function money(minor: number): string {
     return formatMoney(minor, config.currency, config.locale);
   }
@@ -156,7 +160,7 @@ export function useFlightsModel() {
 
   function openCreate(): void {
     form.error.value = null;
-    formData.routeId = routes.value[0]?.id ?? '';
+    formData.routeId = activeRoutes.value[0]?.id ?? '';
     formData.carId = '';
     formData.date = todayStr();
     formData.time = '14:00';
@@ -376,6 +380,7 @@ export function useFlightsModel() {
     error,
     flights,
     routes,
+    activeRoutes,
     cars,
     load,
     routeFilter,

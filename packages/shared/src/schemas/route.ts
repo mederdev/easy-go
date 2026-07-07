@@ -10,6 +10,7 @@ export const Route = z.object({
   price: z.number().int().nonnegative(), // minor units, per seat
   dailyTrips: z.number().int().nonnegative(),
   status: RouteStatus,
+  popular: z.boolean(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -22,6 +23,7 @@ export const CreateRouteInput = z.object({
   price: z.number().int().nonnegative(),
   dailyTrips: z.number().int().nonnegative().default(0),
   status: RouteStatus.default('ACTIVE'),
+  popular: z.boolean().default(false),
 });
 export type CreateRouteInput = z.infer<typeof CreateRouteInput>;
 

@@ -386,6 +386,10 @@ function closeForm() {
 }
 
 .custom-cta--inline {
+  /* Buttons shrink-to-fit their content, so stretch to fill the column
+     (full width minus the 16px side margins) instead of hugging the text. */
+  box-sizing: border-box;
+  width: calc(100% - 32px);
   margin: 16px 16px 0;
   padding: 16px;
   background: var(--eg-green);

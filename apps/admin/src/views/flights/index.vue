@@ -12,6 +12,7 @@ const {
   error,
   flights,
   routes,
+  activeRoutes,
   cars,
   load,
   routeFilter,
@@ -298,8 +299,8 @@ const {
         <label class="field">
           <span class="label">Маршрут</span>
           <select v-model="form.routeId">
-            <option v-if="routes.length === 0" value="">Сначала добавьте маршрут</option>
-            <option v-for="r in routes" :key="r.id" :value="r.id">{{ routeLabel(r) }}</option>
+            <option v-if="activeRoutes.length === 0" value="">Сначала добавьте активный маршрут</option>
+            <option v-for="r in activeRoutes" :key="r.id" :value="r.id">{{ routeLabel(r) }}</option>
           </select>
         </label>
         <div class="two">

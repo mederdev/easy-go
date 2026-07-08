@@ -1,10 +1,12 @@
 import type { FastifyPluginAsync } from 'fastify';
 import {
+  AddBookingAddonInput,
   AdminCreateBookingInput,
   AdminStopInput,
   CreateBookingInput,
   ListBookingsQuery,
   SetPaymentStatusInput,
+  UpdateBookingAddonInput,
   UpdateBookingPaymentInput,
   UpdateBookingStatusInput,
   UpdateStopInput,
@@ -109,6 +111,37 @@ const routes: FastifyPluginAsync = async (app) => {
     async (request) => {
       const { id, stopId } = request.params as { id: string; stopId: string };
       return svc.deleteBookingStop(parse(Id, id), parse(Id, stopId), { role: 'admin' });
+    },
+  );
+
+  // ── Extra services / доп. услуги (admin attaches catalog services, priced in) ──
+  app.post(
+    '/:id/addons',
+    { preHandler: [app.authorize(['operator', 'admin', 'owner'])] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const input = parse(AddBookingAddonInput, request.body);
+      reply.code(201);
+      return svc.addBookingAddon(parse(Id, id), input);
+    },
+  );
+
+  app.patch(
+    '/:id/addons/:addonId',
+    { preHandler: [app.authorize(['operator', 'admin', 'owner'])] },
+    async (request) => {
+      const { id, addonId } = request.params as { id: string; addonId: string };
+      const input = parse(UpdateBookingAddonInput, request.body);
+      return svc.updateBookingAddon(parse(Id, id), parse(Id, addonId), input);
+    },
+  );
+
+  app.delete(
+    '/:id/addons/:addonId',
+    { preHandler: [app.authorize(['operator', 'admin', 'owner'])] },
+    async (request) => {
+      const { id, addonId } = request.params as { id: string; addonId: string };
+      return svc.deleteBookingAddon(parse(Id, id), parse(Id, addonId));
     },
   );
 

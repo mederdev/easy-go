@@ -12,8 +12,8 @@ const {
   error,
   flights,
   routes,
-  activeRoutes,
-  cars,
+  routeOptions,
+  availableCars,
   load,
   routeFilter,
   dateFilter,
@@ -29,6 +29,8 @@ const {
   statuses,
   form,
   maxSeats,
+  isEditing,
+  openEditFromDetail,
   closeModal,
   save,
   pct,
@@ -49,7 +51,6 @@ const {
   openDetail,
   closeDetail,
   detailStatusEdit,
-  detailCarEdit,
   detailDirty,
   detailStatusSaving,
   detailStatusError,
@@ -185,10 +186,6 @@ const {
             </div>
           </div>
           <div v-else class="no-car">Автомобиль не назначен</div>
-          <select v-model="detailCarEdit" class="status-select car-select">
-            <option value="">Без авто</option>
-            <option v-for="c in cars" :key="c.id" :value="c.id">{{ c.model }} · {{ c.plate }}</option>
-          </select>
         </div>
 
         <!-- Seats load -->
@@ -206,6 +203,12 @@ const {
         <div v-if="detailFlight.pickupAddress" class="detail-section">
           <div class="section-title">Адрес подачи</div>
           <div class="info-val">{{ detailFlight.pickupAddress }}</div>
+        </div>
+
+        <!-- Dropoff address -->
+        <div v-if="detailFlight.dropoffAddress" class="detail-section">
+          <div class="section-title">Адрес высадки</div>
+          <div class="info-val">{{ detailFlight.dropoffAddress }}</div>
         </div>
 
         <!-- Passengers -->
@@ -278,6 +281,9 @@ const {
       </div>
 
       <template #footer>
+        <button type="button" class="btn ghost" @click="openEditFromDetail">
+          Редактировать
+        </button>
         <button
           type="button"
           class="btn primary"
@@ -291,7 +297,7 @@ const {
 
     <AppModal
       :open="modalOpen"
-      title="Новый рейс"
+      :title="isEditing ? 'Редактирование рейса' : 'Новый рейс'"
       subtitle="Маршрут, время отправления и автомобиль"
       @close="closeModal"
     >
@@ -299,8 +305,8 @@ const {
         <label class="field">
           <span class="label">Маршрут</span>
           <select v-model="form.routeId">
-            <option v-if="activeRoutes.length === 0" value="">Сначала добавьте активный маршрут</option>
-            <option v-for="r in activeRoutes" :key="r.id" :value="r.id">{{ routeLabel(r) }}</option>
+            <option v-if="routeOptions.length === 0" value="">Сначала добавьте активный маршрут</option>
+            <option v-for="r in routeOptions" :key="r.id" :value="r.id">{{ routeLabel(r) }}</option>
           </select>
         </label>
         <div class="two">
@@ -323,7 +329,7 @@ const {
             <span class="label">Автомобиль</span>
             <select v-model="form.carId">
               <option value="">Без авто</option>
-              <option v-for="c in cars" :key="c.id" :value="c.id">{{ c.model }} · {{ c.plate }}</option>
+              <option v-for="c in availableCars" :key="c.id" :value="c.id">{{ c.model }} · {{ c.plate }}</option>
             </select>
           </label>
           <label class="field">
@@ -339,6 +345,10 @@ const {
           <input v-model="form.pickupAddress" placeholder="г. Бишкек, ул. Чуй 120" />
         </label>
         <label class="field">
+          <span class="label">Адрес высадки <span class="opt">(необязательно)</span></span>
+          <input v-model="form.dropoffAddress" placeholder="г. Алматы, ул. Абая 10" />
+        </label>
+        <label class="field">
           <span class="label">Статус</span>
           <select v-model="form.status">
             <option v-for="s in statuses" :key="s" :value="s">{{ FLIGHT_STATUS_LABEL[s] }}</option>
@@ -350,7 +360,7 @@ const {
       <template #footer>
         <button type="button" class="btn ghost" @click="closeModal">Отмена</button>
         <button type="button" class="btn primary" :disabled="saving" @click="save">
-          {{ saving ? 'Сохранение…' : 'Создать рейс' }}
+          {{ saving ? 'Сохранение…' : isEditing ? 'Сохранить рейс' : 'Создать рейс' }}
         </button>
       </template>
     </AppModal>
@@ -591,10 +601,6 @@ const {
 }
 .status-select:focus {
   border-color: var(--eg-brand);
-}
-.car-select {
-  width: 100%;
-  height: 46px;
 }
 .detail-section {
   display: flex;

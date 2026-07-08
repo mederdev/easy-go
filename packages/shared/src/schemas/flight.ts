@@ -14,6 +14,7 @@ export const Flight = z.object({
   pickupLat: z.number().nullable(),
   pickupLng: z.number().nullable(),
   pickupAddress: z.string().nullable(),
+  dropoffAddress: z.string().nullable(),
   seatsTotal: z.number().int().positive(),
   seatsTaken: z.number().int().nonnegative(), // denormalized
   status: FlightStatus,
@@ -38,6 +39,7 @@ export const CreateFlightInput = z.object({
   pickupLat: z.number().nullish(),
   pickupLng: z.number().nullish(),
   pickupAddress: z.string().nullish(),
+  dropoffAddress: z.string().nullish(),
   seatsTotal: z.number().int().positive().default(11),
   status: FlightStatus.default('SCHEDULED'),
 });

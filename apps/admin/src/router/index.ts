@@ -31,6 +31,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: 'Маршруты', subtitle: 'Направления и цены', cta: 'Добавить маршрут' },
       },
       {
+        path: 'service-addons',
+        name: 'service-addons',
+        component: () => import('@/views/service-addons/index.vue'),
+        meta: { title: 'Доп. услуги', subtitle: 'Каталог платных услуг', cta: 'Добавить услугу' },
+      },
+      {
         path: 'fleet',
         name: 'fleet',
         component: () => import('@/views/fleet/index.vue'),

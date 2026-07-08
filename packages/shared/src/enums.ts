@@ -32,6 +32,10 @@ export type FlightStatus = z.infer<typeof FlightStatus>;
 export const StopKind = z.enum(['PICKUP', 'DROPOFF']);
 export type StopKind = z.infer<typeof StopKind>;
 
+/** Lifecycle of a catalog service add-on (доп. услуга); archived = soft-deleted. */
+export const AddonStatus = z.enum(['ACTIVE', 'ARCHIVED']);
+export type AddonStatus = z.infer<typeof AddonStatus>;
+
 /**
  * Payment state of a booking or a flight.
  * Booking: derived from `prepaid` vs `total` (UNPAID/PARTIAL/PAID), plus an

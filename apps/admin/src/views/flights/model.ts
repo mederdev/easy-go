@@ -1,4 +1,4 @@
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import type { Booking, Car, CreateFlightInput, FlightStatus, FlightView, Route, UpdateFlightInput } from '@easygo/shared';
 import { BOOKING_STATUS_LABEL, FLIGHT_STATUS_LABEL, PAYMENT_STATUS_LABEL, formatMoney } from '@easygo/shared';
@@ -155,20 +155,123 @@ export function useFlightsModel() {
     time: '14:00',
     seatsTotal: 11,
     pickupAddress: '',
+    dropoffAddress: '',
     status: 'SCHEDULED' as FlightStatus,
   });
 
+  // Which flight is being edited (null = the modal creates a new flight).
+  const editingId = ref<string | null>(null);
+  const isEditing = computed(() => editingId.value !== null);
+
   function openCreate(): void {
     form.error.value = null;
+    editingId.value = null;
     formData.routeId = activeRoutes.value[0]?.id ?? '';
     formData.carId = '';
     formData.date = todayStr();
     formData.time = '14:00';
     formData.seatsTotal = 11;
     formData.pickupAddress = '';
+    formData.dropoffAddress = '';
     formData.status = 'SCHEDULED';
     form.open.value = true;
+    void loadTakenCars();
   }
+
+  /** Split an ISO instant into the local YYYY-MM-DD / HH:MM the form inputs use
+   *  (mirrors how `save()` reads them back as local time). */
+  function localParts(iso: string): { date: string; time: string } {
+    const d = new Date(iso);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return {
+      date: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`,
+      time: `${p(d.getHours())}:${p(d.getMinutes())}`,
+    };
+  }
+
+  /** Open the same modal pre-filled from an existing flight for editing. */
+  async function openEdit(f: FlightView): Promise<void> {
+    form.error.value = null;
+    editingId.value = f.id;
+    const { date, time } = localParts(f.departAt);
+    formData.routeId = f.routeId;
+    formData.carId = f.carId ?? '';
+    formData.date = date;
+    formData.time = time;
+    formData.pickupAddress = f.pickupAddress ?? '';
+    formData.dropoffAddress = f.dropoffAddress ?? '';
+    formData.status = f.status;
+    form.open.value = true;
+    void loadTakenCars();
+    // Setting carId queues the seat-default watcher; apply the flight's own
+    // seat count after it flushes so we keep the real value, not the car's cap.
+    await nextTick();
+    formData.seatsTotal = f.seatsTotal;
+  }
+
+  /** Close the detail modal and reopen the form in edit mode for that flight. */
+  function openEditFromDetail(): void {
+    const f = detailFlight.value;
+    if (!f) return;
+    closeDetail();
+    void openEdit(f);
+  }
+
+  // Route <select> options: active routes, plus the edited flight's own route
+  // even if it's since been archived/drafted (so its value stays selectable).
+  const routeOptions = computed(() => {
+    const opts = [...activeRoutes.value];
+    if (formData.routeId && !opts.some((r) => r.id === formData.routeId)) {
+      const r = routes.value.find((x) => x.id === formData.routeId);
+      if (r) opts.push(r);
+    }
+    return opts;
+  });
+
+  // Cars already assigned to another (non-cancelled) flight on the form's chosen
+  // day — the API rejects double-booking, so we hide them from the picker too.
+  const CANCELLED_STATUSES: FlightStatus[] = [
+    'CANCELLED', 'CANCELLED_BY_CLIENT', 'CANCELLED_BY_COMPANY',
+  ];
+  const takenCarIds = ref<Set<string>>(new Set());
+
+  async function loadTakenCars(): Promise<void> {
+    const date = formData.date;
+    if (!date) {
+      takenCarIds.value = new Set();
+      return;
+    }
+    try {
+      const fs = await api.flights.list({
+        from: `${date}T00:00:00.000Z`,
+        to: `${date}T23:59:59.999Z`,
+      });
+      const busy = new Set<string>();
+      for (const f of fs) {
+        // The flight being edited doesn't conflict with itself.
+        if (editingId.value && f.id === editingId.value) continue;
+        if (f.carId && !CANCELLED_STATUSES.includes(f.status)) busy.add(f.carId);
+      }
+      takenCarIds.value = busy;
+    } catch {
+      // Non-critical: fall back to showing all cars; the API still guards saves.
+      takenCarIds.value = new Set();
+    }
+  }
+
+  // Refresh availability whenever the picked day changes while the form is open.
+  watch(
+    () => formData.date,
+    () => {
+      if (form.open.value) void loadTakenCars();
+    },
+  );
+
+  // Cars offered in the form: free on the chosen day, plus the flight's own car
+  // (which never counts as a conflict with itself) so its value stays selectable.
+  const availableCars = computed(() =>
+    cars.value.filter((c) => !takenCarIds.value.has(c.id) || c.id === formData.carId),
+  );
 
   // The chosen car's capacity caps the seat count ('' = no car → no cap).
   const maxSeats = computed(() => {
@@ -210,9 +313,14 @@ export function useFlightsModel() {
         departAt: depart.toISOString(),
         seatsTotal: Number(formData.seatsTotal) || 11,
         pickupAddress: formData.pickupAddress.trim() || null,
+        dropoffAddress: formData.dropoffAddress.trim() || null,
         status: formData.status,
       };
-      await api.flights.create(payload);
+      if (editingId.value) {
+        await api.flights.update(editingId.value, payload);
+      } else {
+        await api.flights.create(payload);
+      }
       form.close(); // also clears the ?create=1 CTA flag from the URL
       await load();
     });
@@ -283,7 +391,6 @@ export function useFlightsModel() {
     detailError.value = null;
     detailBookings.value = [];
     detailStatusEdit.value = f.status;
-    detailCarEdit.value = f.carId ?? '';
     try {
       const res = await api.bookings.list({ flightId: f.id, limit: 100, offset: 0 });
       detailBookings.value = res.items;
@@ -299,23 +406,20 @@ export function useFlightsModel() {
     detailFlight.value = null;
     detailBookings.value = [];
     detailStatusEdit.value = null;
-    detailCarEdit.value = '';
     detailStatusSaving.value = false;
     detailStatusError.value = null;
   }
 
   const detailStatusEdit = ref<FlightStatus | null>(null);
-  const detailCarEdit = ref<string>(''); // carId, '' = no car assigned
   const detailStatusSaving = ref(false);
   const detailStatusError = ref<string | null>(null);
 
-  // Whether the editable status/car fields differ from the loaded flight.
+  // Whether the quick status selector differs from the loaded flight. Car and
+  // everything else are edited through the full edit form, not this modal.
   const detailDirty = computed(() => {
     const f = detailFlight.value;
     if (!f) return false;
-    const statusChanged = detailStatusEdit.value !== null && detailStatusEdit.value !== f.status;
-    const carChanged = (detailCarEdit.value || null) !== (f.carId ?? null);
-    return statusChanged || carChanged;
+    return detailStatusEdit.value !== null && detailStatusEdit.value !== f.status;
   });
 
   async function saveDetailChanges(): Promise<void> {
@@ -324,9 +428,6 @@ export function useFlightsModel() {
     const patch: UpdateFlightInput = {};
     if (detailStatusEdit.value !== null && detailStatusEdit.value !== f.status) {
       patch.status = detailStatusEdit.value;
-    }
-    if ((detailCarEdit.value || null) !== (f.carId ?? null)) {
-      patch.carId = detailCarEdit.value || null;
     }
     if (Object.keys(patch).length === 0) return;
     detailStatusSaving.value = true;
@@ -397,7 +498,11 @@ export function useFlightsModel() {
     statuses,
     form: formData,
     maxSeats,
+    isEditing,
+    routeOptions,
+    availableCars,
     openCreate,
+    openEditFromDetail,
     closeModal: form.close,
     save,
     pct,
@@ -419,7 +524,6 @@ export function useFlightsModel() {
     openDetail,
     closeDetail,
     detailStatusEdit,
-    detailCarEdit,
     detailDirty,
     detailStatusSaving,
     detailStatusError,

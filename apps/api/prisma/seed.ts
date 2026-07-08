@@ -25,6 +25,7 @@ async function main() {
   // Clean (dev only) in dependency order.
   await prisma.dailyStat.deleteMany();
   await prisma.booking.deleteMany();
+  await prisma.serviceAddon.deleteMany();
   await prisma.idempotencyKey.deleteMany();
   await prisma.flight.deleteMany();
   await prisma.car.deleteMany();
@@ -64,6 +65,15 @@ async function main() {
   ]);
   await prisma.car.create({ data: { model: 'Yutong Bus', plate: '01 KG 111 JKL', type: 'BUS', seats: 20, status: 'MAINTENANCE', locationCity: 'Бишкек' } });
 
+  // Reusable catalog of paid extra services (price in minor units — сом × 100).
+  await prisma.serviceAddon.createMany({
+    data: [
+      { name: 'Детское кресло', price: 50000, order: 0 },
+      { name: 'Встреча с табличкой', price: 30000, order: 1 },
+      { name: 'Негабаритный багаж', price: 40000, order: 2 },
+    ],
+  });
+
   // Routes (price in minor units — сом × 100).
   const rBA = await prisma.route.create({ data: { fromCity: 'Бишкек', toCity: 'Алматы', durationLabel: '~4 ч', price: 350000, dailyTrips: 3, status: 'ACTIVE', popular: true } });
   const rAB = await prisma.route.create({ data: { fromCity: 'Алматы', toCity: 'Бишкек', durationLabel: '~4 ч', price: 350000, dailyTrips: 3, status: 'ACTIVE', popular: true } });
@@ -72,7 +82,7 @@ async function main() {
   await prisma.route.create({ data: { fromCity: 'Бишкек', toCity: 'Каракол', durationLabel: '~6 ч', price: 250000, dailyTrips: 0, status: 'DRAFT' } });
 
   // Flights: today + tomorrow on Бишкек→Алматы, plus one to Иссык-Куль today.
-  const f14 = await prisma.flight.create({ data: { routeId: rBA.id, carId: car1.id, departAt: at(14), seatsTotal: 11, pickupAddress: 'г. Бишкек, ул. Чуй 120' } });
+  const f14 = await prisma.flight.create({ data: { routeId: rBA.id, carId: car1.id, departAt: at(14), seatsTotal: 11, pickupAddress: 'г. Бишкек, ул. Чуй 120', dropoffAddress: 'г. Алматы, ул. Абая 10' } });
   const f17 = await prisma.flight.create({ data: { routeId: rBA.id, carId: car2.id, departAt: at(17), seatsTotal: 11 } });
   const f20 = await prisma.flight.create({ data: { routeId: rBA.id, carId: car3.id, departAt: at(20), seatsTotal: 11 } });
   await prisma.flight.create({ data: { routeId: rBA.id, carId: car1.id, departAt: at(8, 0, 1), seatsTotal: 11 } });

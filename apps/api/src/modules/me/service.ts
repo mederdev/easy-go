@@ -7,6 +7,7 @@ import { toClientView } from '../client-auth/service.js';
 const bookingInclude = {
   flight: { include: { route: true, car: { include: { driver: true } } } },
   stops: { orderBy: { order: 'asc' as const } },
+  addons: { orderBy: { order: 'asc' as const } },
 } as const;
 
 export async function getProfile(clientId: string) {

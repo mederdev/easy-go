@@ -63,7 +63,7 @@ export const CAR_STATUS_LABEL: Record<CarStatus, string> = {
 };
 
 export const CAR_TYPE_LABEL: Record<CarType, string> = {
-  SEDAN: 'Легковушка',
+  SEDAN: 'Седан',
   MINIVAN: 'Минивэн',
   BUS: 'Бус',
 };

@@ -1,6 +1,6 @@
 import { ref, computed, onMounted, reactive } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import type { Booking, BookingStop, PaymentStatus, StopKind } from '@easygo/shared';
+import type { Booking, BookingAddon, BookingStop, PaymentStatus, StopKind } from '@easygo/shared';
 import { BOOKING_STATUS_LABEL, PAYMENT_STATUS_LABEL, STOP_KIND_LABEL, formatMoney, paxLabel } from '@easygo/shared';
 import { ApiError } from '@easygo/api-client';
 import { api } from '@/lib/api';
@@ -179,6 +179,13 @@ export function useTripDetailModel() {
     return s.price != null ? formatMoney(s.price) : 'цена уточняется';
   }
 
+  // ── Доп. услуги (extra services): read-only; the operator attaches them and
+  // their price is included in the booking total. ──
+  const addons = computed<BookingAddon[]>(() => booking.value?.addons ?? []);
+  function addonPriceLabel(a: BookingAddon): string {
+    return formatMoney(a.price);
+  }
+
   const PAYMENT_STATUS_STYLE: Record<PaymentStatus, { bg: string; color: string }> = {
     UNPAID: { bg: 'rgba(192,73,46,0.2)', color: '#FF9B82' },
     PARTIAL: { bg: 'rgba(199,122,24,0.22)', color: '#F2C078' },
@@ -228,5 +235,8 @@ export function useTripDetailModel() {
     saveStop,
     removeStop,
     stopPriceLabel,
+    // Доп. услуги (read-only)
+    addons,
+    addonPriceLabel,
   };
 }

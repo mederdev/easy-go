@@ -61,7 +61,7 @@ const {
         </div>
       </div>
 
-      <div class="card">
+      <!-- <div class="card">
         <div class="card-title">Точки сбора и развоза</div>
         <div class="fields two">
           <label class="field">
@@ -77,7 +77,7 @@ const {
           Ориентир для клиентов при бронировании. Итоговая цена каждой точки подтверждается
           оператором в самой брони. 0 — не показывать цену.
         </div>
-      </div>
+      </div> -->
 
       <div class="card">
         <div class="card-title">Уведомления в Telegram</div>

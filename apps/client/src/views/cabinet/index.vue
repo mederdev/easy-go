@@ -180,8 +180,12 @@ onIonViewWillEnter(refresh);
                   <span>{{ selectedFlight.car.model }} · {{ selectedFlight.car.plate }}</span>
                 </div>
                 <div v-if="selectedFlight.pickupAddress" class="sheet-row">
-                  <span class="label">Адрес</span>
+                  <span class="label">Подача</span>
                   <span>{{ selectedFlight.pickupAddress }}</span>
+                </div>
+                <div v-if="selectedFlight.dropoffAddress" class="sheet-row">
+                  <span class="label">Высадка</span>
+                  <span>{{ selectedFlight.dropoffAddress }}</span>
                 </div>
 
                 <!-- Passengers -->
@@ -542,8 +546,9 @@ onIonViewWillEnter(refresh);
   display: flex; align-items: flex-end;
 }
 .sheet-card {
-  width: 100%; max-height: 92vh; background: #fff; border-radius: 22px 22px 0 0;
-  padding: 20px 20px 36px; overflow-y: auto;
+  width: 100%; min-height: 75vh; max-height: 96vh; background: #fff; border-radius: 22px 22px 0 0;
+  padding: 20px 20px 0; overflow-y: auto;
+  display: flex; flex-direction: column;
 }
 .sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .sheet-title { font: 800 19px 'Manrope', sans-serif; }
@@ -605,7 +610,10 @@ onIonViewWillEnter(refresh);
 .pay-mini--off { background: #fff; border: 1px solid #e2e5df; color: var(--eg-muted); }
 .pay-mini:disabled { opacity: 0.5; cursor: not-allowed; }
 .flight-actions {
-  display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap;
+  position: sticky; bottom: 0; margin-top: auto;
+  display: flex; gap: 10px; flex-wrap: wrap;
+  background: #fff; padding: 12px 0 24px;
+  border-top: 1px solid #f0f1ee; z-index: 2;
 }
 .status-btn {
   flex: 1 1 0; min-width: 140px; height: 54px; border-radius: 15px;
@@ -623,11 +631,17 @@ onIonViewWillEnter(refresh);
   background: var(--eg-green); color: #fff; border: none;
 }
 
-/* Slide-up transition */
-.slide-up-enter-active { animation: slideUp .25s ease-out; }
-.slide-up-leave-active { animation: slideUp .2s ease-in reverse; }
+/* Backdrop fades, card slides up independently */
+.slide-up-enter-active { animation: sheetFade .25s ease-out; }
+.slide-up-leave-active { animation: sheetFade .2s ease-in reverse; }
+.slide-up-enter-active .sheet-card { animation: slideUp .28s cubic-bezier(0.32, 0.72, 0, 1); }
+.slide-up-leave-active .sheet-card { animation: slideUp .2s ease-in reverse; }
+@keyframes sheetFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 @keyframes slideUp {
-  from { transform: translateY(100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }
 </style>

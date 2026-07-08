@@ -64,6 +64,19 @@ const {
   removeStop,
   stopPriceLabel,
   stopsTotalMinor,
+  addonCatalog,
+  bookingAddons,
+  addonBusy,
+  addonError,
+  addonFormOpen,
+  addonForm,
+  openAddonForm,
+  closeAddonForm,
+  onAddonSelect,
+  saveAddon,
+  removeAddon,
+  addonPriceLabel,
+  addonsTotalMinor,
   STOP_KIND_LABEL,
   createOpen,
   creating,
@@ -411,16 +424,6 @@ const {
               <div class="client-phone">{{ selected.client?.phone ?? '' }}</div>
             </div>
           </div>
-          <div v-if="selected.client" class="client-stats">
-            <div>
-              <div class="cap">Поездок</div>
-              <div class="stat">{{ selected.client.tripsCount }}</div>
-            </div>
-            <div>
-              <div class="cap">Сумма заказов</div>
-              <div class="stat">{{ money(selected.client.totalSum) }}</div>
-            </div>
-          </div>
 
           <div class="divider" />
 
@@ -493,6 +496,58 @@ const {
 
           <div class="divider" />
 
+          <!-- Доп. услуги: attach catalog services; their price is part of the total. -->
+          <div class="section-title">Доп. услуги</div>
+          <div v-if="addonError" class="status-error">{{ addonError }}</div>
+          <div v-if="bookingAddons.length === 0 && !addonFormOpen" class="stops-empty">
+            Услуг нет — добавьте платную услугу к брони.
+          </div>
+          <div v-else class="stops-list">
+            <div v-for="a in bookingAddons" :key="a.id" class="stop-row">
+              <span class="stop-addr">{{ a.name }}</span>
+              <span class="stop-price">{{ addonPriceLabel(a) }}</span>
+              <button type="button" class="stop-ic" title="Изменить" :disabled="addonBusy" @click="openAddonForm(a)">
+                <span class="material-symbols-outlined">edit</span>
+              </button>
+              <button type="button" class="stop-ic stop-ic--del" title="Удалить услугу" :disabled="addonBusy" @click="removeAddon(a)">
+                <span class="material-symbols-outlined">delete</span>
+              </button>
+            </div>
+          </div>
+
+          <div v-if="addonFormOpen" class="stop-form">
+            <label v-if="!addonForm.id && addonCatalog.length" class="field">
+              <span class="label">Услуга из каталога <span class="opt">(необязательно)</span></span>
+              <select v-model="addonForm.addonId" @change="onAddonSelect">
+                <option value="">— свой вариант —</option>
+                <option v-for="c in addonCatalog" :key="c.id" :value="c.id">{{ c.name }}</option>
+              </select>
+            </label>
+            <div class="two">
+              <label class="field">
+                <span class="label">Название</span>
+                <input v-model="addonForm.name" placeholder="Детское кресло" />
+              </label>
+              <label class="field">
+                <span class="label">Цена</span>
+                <input v-model.number="addonForm.price" type="number" min="0" inputmode="numeric" placeholder="0" />
+              </label>
+            </div>
+            <div class="pay-actions">
+              <button type="button" class="status-btn" :disabled="addonBusy" @click="saveAddon">
+                {{ addonForm.id ? 'Сохранить услугу' : 'Добавить услугу' }}
+              </button>
+              <button type="button" class="status-btn ghost" :disabled="addonBusy" @click="closeAddonForm">Отмена</button>
+            </div>
+          </div>
+          <div v-else class="pay-actions">
+            <button type="button" class="status-btn ghost" :disabled="addonBusy" @click="openAddonForm()">
+              + Добавить услугу
+            </button>
+          </div>
+
+          <div class="divider" />
+
           <div class="section-title">Оплата</div>
           <div v-if="paymentError" class="status-error">{{ paymentError }}</div>
           <div class="pay-summary">
@@ -503,6 +558,10 @@ const {
             <div v-if="stopsTotalMinor > 0" class="pay-line">
               <span class="cap">Доп. точки</span>
               <span class="val">{{ money(stopsTotalMinor) }}</span>
+            </div>
+            <div v-if="addonsTotalMinor > 0" class="pay-line">
+              <span class="cap">Доп. услуги</span>
+              <span class="val">{{ money(addonsTotalMinor) }}</span>
             </div>
             <div v-if="selected.discount > 0" class="pay-line">
               <span class="cap">Скидка</span>
@@ -1426,6 +1485,8 @@ const {
 }
 .stop-form input,
 .stop-form select {
+  width: 100%;
+  box-sizing: border-box;
   height: 46px;
   padding: 0 12px;
   border: 1px solid var(--eg-border);
@@ -1552,6 +1613,7 @@ const {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 .label {
   font: 600 12px var(--eg-font);

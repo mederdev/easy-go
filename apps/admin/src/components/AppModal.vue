@@ -3,6 +3,8 @@ defineProps<{
   open: boolean;
   title: string;
   subtitle?: string;
+  /** Raise above another open modal (default overlay z-index is 50). */
+  zIndex?: number;
 }>();
 const emit = defineEmits<{ (e: 'close'): void }>();
 </script>
@@ -10,7 +12,12 @@ const emit = defineEmits<{ (e: 'close'): void }>();
 <template>
   <Teleport to="body">
     <Transition name="fade">
-      <div v-if="open" class="overlay" @click.self="emit('close')">
+      <div
+        v-if="open"
+        class="overlay"
+        :style="zIndex != null ? { zIndex } : undefined"
+        @click.self="emit('close')"
+      >
         <div class="modal" role="dialog" aria-modal="true">
           <div class="head">
             <div class="titles">

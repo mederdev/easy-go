@@ -69,16 +69,6 @@ async function onWhatsApp() {
           <span class="ms contact-item__arrow">chevron_right</span>
         </a>
 
-        <div class="contact-item contact-item--static">
-          <span class="contact-item__icon-wrap ms-wrap" style="background: var(--eg-green-light)">
-            <span class="ms" style="color: var(--eg-green)">storefront</span>
-          </span>
-          <div class="contact-item__content">
-            <div class="contact-item__label">Офис · пункт отправления</div>
-            <div class="contact-item__value" style="line-height: 1.4">г. Бишкек, ул. Чуй 120</div>
-            <div class="contact-item__sub">Ежедневно 07:00 — 22:00</div>
-          </div>
-        </div>
       </div>
 
       <div style="height: 32px"></div>

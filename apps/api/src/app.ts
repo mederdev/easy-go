@@ -26,6 +26,7 @@ import analyticsRoutes from './modules/analytics/routes.js';
 import fileRoutes from './modules/files/routes.js';
 import cityRoutes from './modules/cities/routes.js';
 import customRequestRoutes from './modules/custom-requests/routes.js';
+import serviceAddonRoutes from './modules/service-addons/routes.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -68,6 +69,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(fileRoutes, { prefix: '/files' });
   await app.register(cityRoutes, { prefix: '/cities' });
   await app.register(customRequestRoutes, { prefix: '/custom-requests' });
+  await app.register(serviceAddonRoutes, { prefix: '/service-addons' });
 
   return app;
 }

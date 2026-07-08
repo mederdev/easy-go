@@ -13,6 +13,7 @@ function toDriverFlightView(flight: Awaited<ReturnType<typeof fetchFlight>>): Dr
     seatsTotal: flight.seatsTotal,
     seatsTaken: flight.seatsTaken,
     pickupAddress: flight.pickupAddress,
+    dropoffAddress: flight.dropoffAddress,
     route: {
       fromCity: flight.route.fromCity,
       toCity: flight.route.toCity,

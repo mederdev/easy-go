@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { IonPage, IonContent } from '@ionic/vue';
-import LoadingSpinner from '@/components/LoadingSpinner.vue';
+import TripDetailSkeleton from '@/components/TripDetailSkeleton.vue';
 import ErrorBanner from '@/components/ErrorBanner.vue';
 import { useTripDetailModel } from './model';
 
@@ -41,6 +41,8 @@ const {
   saveStop,
   removeStop,
   stopPriceLabel,
+  addons,
+  addonPriceLabel,
 } = useTripDetailModel();
 </script>
 
@@ -53,7 +55,7 @@ const {
         <div class="head-title">Поездка {{ booking?.code ?? '' }}</div>
       </div>
 
-      <LoadingSpinner v-if="loading" label="Загружаем…" />
+      <TripDetailSkeleton v-if="loading" />
       <ErrorBanner v-else-if="error" :message="error" style="margin: 0 16px" />
 
       <template v-else-if="booking">
@@ -79,6 +81,10 @@ const {
           <div class="row"><span class="k">Авто</span><span class="v">{{ booking.flight?.car?.model ?? 'KIA Carnival' }}</span></div>
           <div class="div"></div>
           <div class="row"><span class="k">Подача</span><span class="v">{{ booking.flight?.pickupAddress ?? '—' }}</span></div>
+          <template v-if="booking.flight?.dropoffAddress">
+            <div class="div"></div>
+            <div class="row"><span class="k">Высадка</span><span class="v">{{ booking.flight.dropoffAddress }}</span></div>
+          </template>
           <template v-if="booking.discount > 0">
             <div class="div"></div>
             <div class="row"><span class="k">Скидка</span><span class="v">−{{ formatMoney(booking.discount) }}</span></div>
@@ -176,6 +182,20 @@ const {
             <button class="stop-save" :disabled="stopBusy" @click="saveStop">{{ stopBusy ? 'Сохранение…' : 'Сохранить' }}</button>
           </div>
         </div>
+
+        <!-- Доп. услуги (read-only): attached by the operator, priced into the total -->
+        <template v-if="addons.length">
+          <div class="section-title">Доп. услуги</div>
+          <div class="details">
+            <template v-for="(a, i) in addons" :key="a.id">
+              <div v-if="i > 0" class="div"></div>
+              <div class="stop-line">
+                <span class="stop-addr">{{ a.name }}</span>
+                <span class="stop-price">{{ addonPriceLabel(a) }}</span>
+              </div>
+            </template>
+          </div>
+        </template>
 
         <button class="wa" @click="contactOperator"><span class="ms">chat</span>Связаться с оператором</button>
         <button v-if="booking.paymentStatus !== 'PAID'" class="receipt" @click="sendReceipt">

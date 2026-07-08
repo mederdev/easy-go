@@ -13,6 +13,10 @@
   --eg-bg-subtle: var(--eg-surface-alt);
   --eg-border-color: var(--eg-border);
 
+  /* Skeleton loading placeholders (see components/Skeleton.vue) */
+  --eg-skeleton-base: #E9ECE6;
+  --eg-skeleton-shine: rgba(255, 255, 255, 0.65);
+
   /* Ionic background override */
   --ion-background-color: var(--eg-page);
   --ion-text-color: var(--eg-ink);

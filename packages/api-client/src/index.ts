@@ -1,8 +1,13 @@
 import type {
+  AddBookingAddonInput,
   AdminCreateBookingInput,
   AdminStopInput,
   StopInput,
   UpdateStopInput,
+  ServiceAddon,
+  CreateServiceAddonInput,
+  UpdateServiceAddonInput,
+  UpdateBookingAddonInput,
   AdminTelegramPollResponse,
   AnalyticsQuery,
   AnalyticsSeries,
@@ -190,6 +195,14 @@ export function createApiClient(opts: ApiClientOptions) {
       remove: (id: string) => request<Route>('DELETE', `/routes/${id}`),
     },
 
+    serviceAddons: {
+      list: () => request<ServiceAddon[]>('GET', '/service-addons'),
+      create: (input: CreateServiceAddonInput) => request<ServiceAddon>('POST', '/service-addons', input),
+      update: (id: string, input: UpdateServiceAddonInput) =>
+        request<ServiceAddon>('PATCH', `/service-addons/${id}`, input),
+      remove: (id: string) => request<ServiceAddon>('DELETE', `/service-addons/${id}`),
+    },
+
     flights: {
       search: (query: SearchFlightsQuery) => request<FlightView[]>('GET', '/flights/search', undefined, { query: query as unknown as Query }),
       availableDates: (query: AvailableDatesQuery) => request<string[]>('GET', '/flights/available-dates', undefined, { query: query as unknown as Query }),
@@ -218,6 +231,13 @@ export function createApiClient(opts: ApiClientOptions) {
       updateStop: (id: string, stopId: string, input: UpdateStopInput) =>
         request<Booking>('PATCH', `/bookings/${id}/stops/${stopId}`, input),
       deleteStop: (id: string, stopId: string) => request<Booking>('DELETE', `/bookings/${id}/stops/${stopId}`),
+      // Extra services (доп. услуги): admin attaches catalog services, priced into the total.
+      addAddon: (id: string, input: AddBookingAddonInput) =>
+        request<Booking>('POST', `/bookings/${id}/addons`, input),
+      updateAddon: (id: string, addonId: string, input: UpdateBookingAddonInput) =>
+        request<Booking>('PATCH', `/bookings/${id}/addons/${addonId}`, input),
+      deleteAddon: (id: string, addonId: string) =>
+        request<Booking>('DELETE', `/bookings/${id}/addons/${addonId}`),
     },
 
     clients: {

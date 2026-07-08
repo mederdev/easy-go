@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IonPage, IonTabs, IonTabBar, IonTabButton, IonLabel, IonRouterOutlet, useIonRouter } from '@ionic/vue';
+import { IonPage, IonRouterOutlet, useIonRouter } from '@ionic/vue';
 import { useRouter } from 'vue-router';
 import { computed } from 'vue';
 import { slideAnimation, setSlideDirection } from '../lib/nav-animation.js';
@@ -20,13 +20,14 @@ function isActive(href: string) {
   return currentPath.value === href || currentPath.value.startsWith(href + '/');
 }
 
-// The tab currently selected — drives IonTabBar's highlight since our tab
-// buttons navigate manually (no `href`) so we can control the slide direction.
-const currentTab = computed(() => navItems.find((i) => isActive(i.href))?.tab ?? 'home');
-
 // Navigate to a tab, sliding in from the side we're heading toward: tabs further
 // right in the bar slide in from the right, tabs to the left slide in from the
 // left. Same handler powers both the desktop pill nav and the mobile tab bar.
+//
+// We drive `IonRouterOutlet` directly rather than wrapping it in `IonTabs`: the
+// tab machinery intercepts button clicks to select a registered `<ion-tab>`, and
+// with our manual (href-less) navigation that lookup fails ("Tab with id
+// undefined does not exist") and the outlet never advances.
 function go(href: string) {
   if (isActive(href)) return;
   const from = navItems.findIndex((i) => isActive(i.href));
@@ -39,6 +40,12 @@ function go(href: string) {
 
 <template>
   <IonPage>
+    <!-- Router outlet fills the space above the nav. `ion-router-outlet` is
+         absolutely positioned, so it needs a sized, relatively-positioned host. -->
+    <div class="tabs-outlet">
+      <IonRouterOutlet />
+    </div>
+
     <!-- Desktop floating bottom nav — hidden on mobile via CSS -->
     <nav class="d-bottom-nav">
       <button
@@ -53,38 +60,64 @@ function go(href: string) {
       </button>
     </nav>
 
-    <IonTabs>
-      <IonRouterOutlet />
-      <IonTabBar slot="bottom" :selected-tab="currentTab">
-        <IonTabButton
-          v-for="item in navItems"
-          :key="item.tab"
-          :tab="item.tab"
-          :class="{ 'tab-active': isActive(item.href) }"
-          @click="go(item.href)"
-        >
-          <span class="ms tab-icon">{{ item.icon }}</span>
-          <IonLabel>{{ item.label }}</IonLabel>
-        </IonTabButton>
-      </IonTabBar>
-    </IonTabs>
+    <!-- Mobile bottom tab bar — takes layout space so it never overlaps content -->
+    <nav class="m-tab-bar">
+      <button
+        v-for="item in navItems"
+        :key="item.tab"
+        class="m-tab-bar__item"
+        :class="{ 'm-tab-bar__item--active': isActive(item.href) }"
+        @click="go(item.href)"
+      >
+        <span class="ms m-tab-bar__icon">{{ item.icon }}</span>
+        <span class="m-tab-bar__label">{{ item.label }}</span>
+      </button>
+    </nav>
   </IonPage>
 </template>
 
 <style scoped>
-.tab-icon {
-  font-size: 23px;
-  line-height: 1;
-  display: block;
-  margin-bottom: 2px;
+/* IonPage is a flex column; the outlet takes the remaining height above the bar. */
+.tabs-outlet {
+  position: relative;
+  flex: 1;
+  contain: layout size style;
 }
 
-/* We navigate tab buttons manually (no `href`), so Ionic no longer tracks the
-   selected tab — colour the active button's icon + label ourselves to match the
-   desktop nav's green highlight. */
-ion-tab-button.tab-active .tab-icon,
-ion-tab-button.tab-active ion-label {
+/* ---- Mobile tab bar (matches the former ion-tab-bar) ---- */
+.m-tab-bar {
+  display: flex;
+  height: 74px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  border-top: 1px solid #EEF0EC;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.m-tab-bar__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #A7ACA2;
+}
+
+.m-tab-bar__item--active {
   color: #56A919;
+}
+
+.m-tab-bar__icon {
+  font-size: 23px;
+  line-height: 1;
+}
+
+.m-tab-bar__label {
+  font: 700 10px 'Manrope', sans-serif;
 }
 
 /* Desktop elements — hidden on mobile */
@@ -94,6 +127,16 @@ ion-tab-button.tab-active ion-label {
 
 /* ---- Desktop ---- */
 @media (min-width: 768px) {
+  /* Hide the mobile tab bar */
+  .m-tab-bar {
+    display: none;
+  }
+
+  /* Leave room below page content for the floating pill nav */
+  .tabs-outlet {
+    margin-bottom: 88px;
+  }
+
   /* Floating pill nav at the bottom center */
   .d-bottom-nav {
     display: flex;
@@ -108,11 +151,6 @@ ion-tab-button.tab-active ion-label {
     border-radius: 22px;
     padding: 6px;
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.10), 0 1px 4px rgba(0, 0, 0, 0.06);
-  }
-
-  /* Add some bottom padding to page content so it doesn't hide behind the nav */
-  ion-tabs {
-    padding-bottom: 88px;
   }
 }
 

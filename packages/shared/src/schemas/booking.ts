@@ -4,6 +4,7 @@ import { BookingStatus, PaymentStatus } from '../enums.js';
 import { Client } from './client.js';
 import { Flight } from './flight.js';
 import { AdminStopInput, BookingStop, StopInput } from './stop.js';
+import { BookingAddon } from './service-addon.js';
 
 export const Booking = z.object({
   id: Id,
@@ -21,6 +22,7 @@ export const Booking = z.object({
   paymentStatus: PaymentStatus,
   comment: z.string().nullable(),
   stops: BookingStop.array().optional(),
+  addons: BookingAddon.array().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });

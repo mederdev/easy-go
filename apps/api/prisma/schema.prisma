@@ -63,6 +63,13 @@ enum StopKind {
   DROPOFF
 }
 
+/// Lifecycle of a catalog service add-on. Archived rows stay referenced by past
+/// bookings but drop out of the pick-list; there is no hard delete.
+enum AddonStatus {
+  ACTIVE
+  ARCHIVED
+}
+
 enum CarType {
   SEDAN
   MINIVAN
@@ -204,6 +211,7 @@ model Flight {
   pickupLat     Float?
   pickupLng     Float?
   pickupAddress String?
+  dropoffAddress String?
   seatsTotal    Int           @default(11)
   seatsTaken    Int           @default(0) // denormalized
   status        FlightStatus  @default(SCHEDULED)
@@ -238,7 +246,8 @@ model Booking {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  stops BookingStop[]
+  stops  BookingStop[]
+  addons BookingAddon[]
 
   @@index([status])
   @@index([clientId])
@@ -261,6 +270,42 @@ model BookingStop {
   order     Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([bookingId])
+}
+
+/// Reusable catalog of paid extra services (детское кресло, встреча с табличкой…).
+/// An admin manages these; each has a default price (minor units). Attaching one
+/// to a booking snapshots its name+price into a BookingAddon, so later catalog
+/// edits never rewrite historical booking totals. Soft-deleted via ARCHIVED.
+model ServiceAddon {
+  id        String         @id @default(uuid())
+  name      String
+  price     Int            @default(0) // default price, minor units
+  status    AddonStatus    @default(ACTIVE)
+  order     Int            @default(0)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  lines     BookingAddon[]
+
+  @@index([status])
+}
+
+/// A paid extra service attached to a booking. name+price are snapshots taken
+/// when it was attached (the catalog row is just a template); the price folds
+/// into `booking.total` alongside seats and confirmed stops. `addonId` goes null
+/// if the catalog row is later archived-then-removed, but the line survives.
+model BookingAddon {
+  id        String        @id @default(uuid())
+  bookingId String
+  booking   Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  addonId   String?
+  addon     ServiceAddon? @relation(fields: [addonId], references: [id], onDelete: SetNull)
+  name      String // snapshot at attach time
+  price     Int           @default(0) // snapshot, minor units — part of booking.total
+  order     Int           @default(0)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 
   @@index([bookingId])
 }

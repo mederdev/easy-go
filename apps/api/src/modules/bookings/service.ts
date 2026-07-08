@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import type {
+  AddBookingAddonInput,
   AdminCreateBookingInput,
   AdminStopInput,
   BookingStatus,
   CreateBookingInput,
   ListBookingsQuery,
   PaymentStatus,
+  UpdateBookingAddonInput,
   UpdateBookingPaymentInput,
   UpdateStopInput,
 } from '@easygo/shared';
@@ -20,11 +22,18 @@ const bookingInclude = {
   client: true,
   flight: { include: { route: true, car: { include: { driver: true } } } },
   stops: { orderBy: { order: 'asc' as const } },
+  addons: { orderBy: { order: 'asc' as const } },
 } as const;
 
 /** Sum of admin-confirmed stop prices on a booking (minor units). */
 async function stopsPriceSum(tx: Prisma.TransactionClient, bookingId: string): Promise<number> {
   const agg = await tx.bookingStop.aggregate({ where: { bookingId }, _sum: { price: true } });
+  return agg._sum.price ?? 0;
+}
+
+/** Sum of attached extra-service (add-on) prices on a booking (minor units). */
+async function addonsPriceSum(tx: Prisma.TransactionClient, bookingId: string): Promise<number> {
+  const agg = await tx.bookingAddon.aggregate({ where: { bookingId }, _sum: { price: true } });
   return agg._sum.price ?? 0;
 }
 
@@ -417,7 +426,7 @@ export async function updateBookingPayment(id: string, input: UpdateBookingPayme
   const result = await prisma.$transaction(async (tx) => {
     const booking = await tx.booking.findUnique({
       where: { id },
-      include: { flight: { include: { route: true } }, stops: true },
+      include: { flight: { include: { route: true } }, stops: true, addons: true },
     });
     if (!booking) throw Errors.notFound('Бронирование');
 
@@ -494,11 +503,13 @@ export async function updateBookingPayment(id: string, input: UpdateBookingPayme
 
     // `unitPrice === undefined` keeps the stored override (or route default);
     // an explicit `null` clears it back to the target flight's route price.
-    // Confirmed stop prices are part of the total alongside the seats.
+    // Confirmed stop prices and attached extra services are part of the total
+    // alongside the seats.
     const stopsSum = booking.stops.reduce((sum, s) => sum + (s.price ?? 0), 0);
+    const addonsSum = booking.addons.reduce((sum, a) => sum + a.price, 0);
     const unitPrice = input.unitPrice !== undefined ? input.unitPrice : booking.unitPrice;
     const effectiveUnit = unitPrice ?? target.route.price;
-    const gross = effectiveUnit * pax + stopsSum;
+    const gross = effectiveUnit * pax + stopsSum + addonsSum;
     const discount = Math.min(Math.max(0, input.discount ?? booking.discount), gross);
     const total = Math.max(0, gross - discount);
     const prepaid = Math.min(Math.max(0, input.prepaid ?? booking.prepaid), total);
@@ -562,9 +573,10 @@ async function getStopBooking(tx: Prisma.TransactionClient, bookingId: string, a
 }
 
 /**
- * Re-derive a booking's money after a stop change: confirmed stop prices are
- * part of the total, so total/prepaid/paymentStatus, the client's lifetime sum
- * and the flight's payment aggregate all follow.
+ * Re-derive a booking's money after a stop or add-on change: confirmed stop
+ * prices and attached extra-service prices are part of the total, so
+ * total/prepaid/paymentStatus, the client's lifetime sum and the flight's
+ * payment aggregate all follow.
  */
 async function recomputeBookingMoney(tx: Prisma.TransactionClient, bookingId: string) {
   const booking = await tx.booking.findUnique({
@@ -574,8 +586,9 @@ async function recomputeBookingMoney(tx: Prisma.TransactionClient, bookingId: st
   if (!booking) throw Errors.notFound('Бронирование');
 
   const stopsSum = await stopsPriceSum(tx, bookingId);
+  const addonsSum = await addonsPriceSum(tx, bookingId);
   const effectiveUnit = booking.unitPrice ?? booking.flight.route.price;
-  const gross = effectiveUnit * booking.pax + stopsSum;
+  const gross = effectiveUnit * booking.pax + stopsSum + addonsSum;
   const discount = Math.min(booking.discount, gross);
   const total = Math.max(0, gross - discount);
   const prepaid = Math.min(booking.prepaid, total);
@@ -680,6 +693,72 @@ export async function deleteBookingStop(bookingId: string, stopId: string, actor
     const stop = booking.stops.find((s) => s.id === stopId);
     if (!stop) throw Errors.notFound('Точка');
     await tx.bookingStop.delete({ where: { id: stopId } });
+    return recomputeBookingMoney(tx, bookingId);
+  });
+}
+
+// ── Extra services (доп. услуги) — admin-only, priced into the total ──
+
+/**
+ * Attach an extra service to a booking. When `addonId` points at a catalog
+ * entry we snapshot its name/price; an explicit `name`/`price` in the payload
+ * overrides the snapshot (or stands alone for an ad-hoc service). The snapshot
+ * insulates the booking from later catalog edits/archival.
+ */
+export async function addBookingAddon(bookingId: string, input: AddBookingAddonInput) {
+  return prisma.$transaction(async (tx) => {
+    const booking = await tx.booking.findUnique({
+      where: { id: bookingId },
+      include: { addons: true },
+    });
+    if (!booking) throw Errors.notFound('Бронирование');
+
+    let name = input.name?.trim();
+    let price = input.price;
+    let addonId: string | null = null;
+    if (input.addonId) {
+      const addon = await tx.serviceAddon.findUnique({ where: { id: input.addonId } });
+      if (!addon || addon.status === 'ARCHIVED') throw Errors.notFound('Услуга');
+      addonId = addon.id;
+      name = name || addon.name;
+      price = price ?? addon.price;
+    }
+    if (!name) throw Errors.badRequest('Укажите услугу');
+
+    const order = booking.addons.reduce((max, a) => Math.max(max, a.order), -1) + 1;
+    await tx.bookingAddon.create({
+      data: { bookingId, addonId, name, price: price ?? 0, order },
+    });
+    return recomputeBookingMoney(tx, bookingId);
+  });
+}
+
+/** Edit an attached service's name or price. */
+export async function updateBookingAddon(
+  bookingId: string,
+  addonRowId: string,
+  input: UpdateBookingAddonInput,
+) {
+  return prisma.$transaction(async (tx) => {
+    const row = await tx.bookingAddon.findUnique({ where: { id: addonRowId } });
+    if (!row || row.bookingId !== bookingId) throw Errors.notFound('Услуга');
+    await tx.bookingAddon.update({
+      where: { id: addonRowId },
+      data: {
+        name: input.name !== undefined ? input.name.trim() : row.name,
+        price: input.price !== undefined ? input.price : row.price,
+      },
+    });
+    return recomputeBookingMoney(tx, bookingId);
+  });
+}
+
+/** Remove an attached service (its price leaves the total as well). */
+export async function deleteBookingAddon(bookingId: string, addonRowId: string) {
+  return prisma.$transaction(async (tx) => {
+    const row = await tx.bookingAddon.findUnique({ where: { id: addonRowId } });
+    if (!row || row.bookingId !== bookingId) throw Errors.notFound('Услуга');
+    await tx.bookingAddon.delete({ where: { id: addonRowId } });
     return recomputeBookingMoney(tx, bookingId);
   });
 }

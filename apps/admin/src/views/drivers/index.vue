@@ -21,6 +21,15 @@ const {
   openCreate,
   closeCreate,
   saveDriver,
+  editOpen,
+  editSaving,
+  editError,
+  editData,
+  carOptions,
+  toggleCarId,
+  openEdit,
+  closeEdit,
+  saveEdit,
   selected,
   driverFlights,
   flightsLoading,
@@ -33,9 +42,6 @@ const {
   closeDriver,
   openPw,
   savePassword,
-  statusSaving,
-  statusError,
-  toggleActive,
   deleteConfirm,
   deleting,
   deleteError,
@@ -180,6 +186,84 @@ const {
       </template>
     </AppModal>
 
+    <!-- Edit driver modal -->
+    <AppModal
+      :open="editOpen"
+      title="Изменить данные"
+      subtitle="Имя, телефон и стаж водителя"
+      :z-index="60"
+      @close="closeEdit"
+    >
+      <form class="create-form" @submit.prevent="saveEdit">
+        <label class="field">
+          <span class="label">Имя</span>
+          <input v-model="editData.name" placeholder="Азамат Бекову" />
+        </label>
+        <label class="field">
+          <span class="label">Телефон</span>
+          <input v-model="editData.phone" inputmode="tel" placeholder="+996 700 000 000" />
+        </label>
+        <label class="field">
+          <span class="label">Стаж (необязательно)</span>
+          <input v-model="editData.experience" placeholder="Например: 8 лет" />
+        </label>
+
+        <div class="field">
+          <span class="label">Статус</span>
+          <div class="seg">
+            <button
+              type="button"
+              class="seg-btn"
+              :class="{ 'seg-btn--active': editData.isActive }"
+              @click="editData.isActive = true"
+            >
+              Активен
+            </button>
+            <button
+              type="button"
+              class="seg-btn"
+              :class="{ 'seg-btn--active': !editData.isActive }"
+              @click="editData.isActive = false"
+            >
+              Не активен
+            </button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="label">Автомобиль</span>
+          <div v-if="carOptions.length" class="car-list">
+            <label
+              v-for="c in carOptions"
+              :key="c.id"
+              class="car-option"
+              :class="{ 'car-option--on': editData.carIds.includes(c.id) }"
+            >
+              <input
+                type="checkbox"
+                :checked="editData.carIds.includes(c.id)"
+                @change="toggleCarId(c.id)"
+              />
+              <span class="car-text">
+                <span class="car-label">{{ c.model }} · {{ c.plate }}</span>
+                <span v-if="c.takenBy" class="car-taken">закреплён за {{ c.takenBy }} — будет переназначен</span>
+              </span>
+            </label>
+          </div>
+          <div v-else class="car-empty">Нет доступных автомобилей</div>
+        </div>
+
+        <div v-if="editError" class="form-error">{{ editError }}</div>
+      </form>
+
+      <template #footer>
+        <button type="button" class="btn-outline" @click="closeEdit">Отмена</button>
+        <button type="button" class="btn-primary btn-save" :disabled="editSaving" @click="saveEdit">
+          {{ editSaving ? 'Сохранение…' : 'Сохранить' }}
+        </button>
+      </template>
+    </AppModal>
+
     <!-- Driver detail modal -->
     <AppModal
       :open="!!selected"
@@ -189,28 +273,21 @@ const {
     >
       <template v-if="selected">
         <div class="section">
+          <div class="section-head">
+            <div class="section-title">Данные водителя</div>
+            <button class="btn-outline" type="button" @click="openEdit">
+              <span class="material-symbols-outlined">edit</span>
+              Изменить
+            </button>
+          </div>
           <div class="meta-row"><span class="meta-label">Телефон</span><span>{{ selected.phone }}</span></div>
           <div class="meta-row"><span class="meta-label">Стаж</span><span>{{ selected.experience ?? '—' }}</span></div>
           <div class="meta-row"><span class="meta-label">Автомобиль</span><span>{{ carLabel(selected) }}</span></div>
           <div class="meta-row">
             <span class="meta-label">Статус</span>
-            <div>
-              <div class="status-toggle-row">
-                <span class="status-chip" :class="(selected as any).isActive ? 'status--active' : 'status--inactive'">
-                  {{ (selected as any).isActive ? 'Активен' : 'Не активен' }}
-                </span>
-                <button
-                  class="btn-outline btn-sm"
-                  :disabled="statusSaving"
-                  type="button"
-                  @click="toggleActive"
-                >
-                  <span class="material-symbols-outlined">{{ (selected as any).isActive ? 'toggle_on' : 'toggle_off' }}</span>
-                  {{ (selected as any).isActive ? 'Деактивировать' : 'Активировать' }}
-                </button>
-              </div>
-              <div v-if="statusError" class="status-error">{{ statusError }}</div>
-            </div>
+            <span class="status-chip" :class="(selected as any).isActive ? 'status--active' : 'status--inactive'">
+              {{ (selected as any).isActive ? 'Активен' : 'Не активен' }}
+            </span>
           </div>
           <div class="meta-row">
             <span class="meta-label">Доступ к приложению</span>
@@ -345,10 +422,6 @@ const {
 }
 .status--active { background: #EEF6E6; color: #3E7C12; }
 .status--inactive { background: #F5F5F5; color: #888; }
-.status-toggle-row { display: flex; align-items: center; gap: 10px; }
-.btn-sm { height: 30px; padding: 0 10px; font-size: 12px; }
-.btn-sm .material-symbols-outlined { font-size: 16px; }
-.status-error { margin-top: 6px; font: 500 12px var(--eg-font); color: #C0492E; }
 
 /* Modal internals */
 .section { padding: 16px 0; border-bottom: 1px solid #f0f1ee; }
@@ -391,6 +464,45 @@ const {
   padding: 10px 12px; border-radius: 10px;
 }
 .btn-save { padding: 0 20px; }
+
+/* Status segmented control (edit modal) */
+.seg {
+  display: flex;
+  gap: 6px;
+  background: #f2f3ef;
+  border: 1px solid var(--eg-border);
+  border-radius: 11px;
+  padding: 4px;
+}
+.seg-btn {
+  flex: 1;
+  height: 38px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font: 700 13px var(--eg-font);
+  color: var(--eg-hint);
+  cursor: pointer;
+}
+.seg-btn--active {
+  background: #fff;
+  color: var(--eg-ink);
+  box-shadow: 0 1px 3px rgba(20, 30, 10, 0.12);
+}
+
+/* Car assignment picker (edit modal) */
+.car-list { display: flex; flex-direction: column; gap: 8px; }
+.car-option {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border: 1px solid var(--eg-border);
+  border-radius: 11px; cursor: pointer; background: #fff;
+}
+.car-option--on { border-color: var(--eg-brand); background: #f6fbf0; }
+.car-option input { width: 18px; height: 18px; accent-color: var(--eg-brand); flex: none; }
+.car-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.car-label { font: 600 14px var(--eg-font); color: var(--eg-ink); }
+.car-taken { font: 500 12px var(--eg-font); color: #B05000; }
+.car-empty { font: 500 13px var(--eg-font); color: var(--eg-hint); padding: 4px 0; }
 
 /* Danger zone (delete driver) */
 .btn-danger {
@@ -537,15 +649,12 @@ const {
   .m-flights {
     display: flex;
   }
-  /* Let detail rows wrap so the status toggle can't force sideways scroll. */
+  /* Let detail rows wrap so wide values can't force sideways scroll. */
   .meta-row {
     flex-wrap: wrap;
   }
   .meta-label {
     width: 130px;
-  }
-  .status-toggle-row {
-    flex-wrap: wrap;
   }
 }
 </style>

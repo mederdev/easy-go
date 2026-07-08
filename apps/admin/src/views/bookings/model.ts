@@ -1,6 +1,6 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import type { AdminCreateBookingInput, ApplicationStatus, Booking, BookingStatus, BookingStop, Car, CarFeature, Client, CreateFlightInput, CustomRequest, FlightView, Route, StopKind } from '@easygo/shared';
+import type { AdminCreateBookingInput, ApplicationStatus, Booking, BookingAddon, BookingStatus, BookingStop, Car, CarFeature, Client, CreateFlightInput, CustomRequest, FlightView, Route, ServiceAddon, StopKind } from '@easygo/shared';
 import { APPLICATION_STATUS_LABEL, BOOKING_STATUS_LABEL, CAR_FEATURE_LABEL, CAR_TYPE_LABEL, PAYMENT_STATUS_LABEL, STOP_KIND_LABEL, formatMoney, paxLabel, seatsLabel, toMajor, toMinor } from '@easygo/shared';
 import { api, errorMessage } from '@/lib/api';
 import { useConfigStore } from '@/stores/config';
@@ -387,6 +387,101 @@ export function useBookingsModel() {
     bookingStops.value.reduce((sum, s) => sum + (s.price ?? 0), 0),
   );
 
+  // ── Доп. услуги (extra services) ──
+  // A managed catalog (Settings) prefills the pick-list; each attached service's
+  // price is part of the booking total.
+  const addonCatalog = ref<ServiceAddon[]>([]);
+  const addonBusy = ref(false);
+  const addonError = ref<string | null>(null);
+  const addonFormOpen = ref(false);
+  const addonForm = reactive({
+    id: null as string | null, // null = adding a new line
+    addonId: '' as string, // catalog pick ('' = ad-hoc)
+    name: '',
+    price: 0, // major units
+  });
+
+  const bookingAddons = computed<BookingAddon[]>(() => selected.value?.addons ?? []);
+  /** Attached service prices already included in the booking total (minor units). */
+  const addonsTotalMinor = computed(() =>
+    bookingAddons.value.reduce((sum, a) => sum + a.price, 0),
+  );
+
+  async function loadAddonCatalog(): Promise<void> {
+    try {
+      addonCatalog.value = await api.serviceAddons.list();
+    } catch {
+      // Non-fatal: operator can still type an ad-hoc service.
+    }
+  }
+
+  function openAddonForm(a?: BookingAddon): void {
+    addonForm.id = a?.id ?? null;
+    addonForm.addonId = a?.addonId ?? '';
+    addonForm.name = a?.name ?? '';
+    addonForm.price = a ? toMajor(a.price, config.currency) : 0;
+    addonError.value = null;
+    addonFormOpen.value = true;
+  }
+
+  function closeAddonForm(): void {
+    addonFormOpen.value = false;
+    addonError.value = null;
+  }
+
+  /** Selecting a catalog service prefills its name + default price (editable). */
+  function onAddonSelect(): void {
+    const picked = addonCatalog.value.find((c) => c.id === addonForm.addonId);
+    if (picked) {
+      addonForm.name = picked.name;
+      addonForm.price = toMajor(picked.price, config.currency);
+    }
+  }
+
+  async function saveAddon(): Promise<void> {
+    if (!selected.value) return;
+    const name = addonForm.name.trim();
+    if (!name) {
+      addonError.value = 'Укажите услугу.';
+      return;
+    }
+    const price = toMinor(Number(addonForm.price) || 0, config.currency);
+    addonBusy.value = true;
+    addonError.value = null;
+    try {
+      const updated = addonForm.id
+        ? await api.bookings.updateAddon(selected.value.id, addonForm.id, { name, price })
+        : await api.bookings.addAddon(selected.value.id, {
+            addonId: addonForm.addonId || undefined,
+            name,
+            price,
+          });
+      applyUpdated(updated);
+      addonFormOpen.value = false;
+    } catch (e) {
+      addonError.value = errorMessage(e);
+    } finally {
+      addonBusy.value = false;
+    }
+  }
+
+  async function removeAddon(a: BookingAddon): Promise<void> {
+    if (!selected.value) return;
+    addonBusy.value = true;
+    addonError.value = null;
+    try {
+      applyUpdated(await api.bookings.deleteAddon(selected.value.id, a.id));
+    } catch (e) {
+      addonError.value = errorMessage(e);
+    } finally {
+      addonBusy.value = false;
+    }
+  }
+
+  function addonPriceLabel(a: BookingAddon): string {
+    return money(a.price);
+  }
+
   async function setPaid(paid: boolean): Promise<void> {
     if (!selected.value) return;
     paymentBusy.value = true;
@@ -409,6 +504,8 @@ export function useBookingsModel() {
     editing.value = false;
     stopFormOpen.value = false;
     stopError.value = null;
+    addonFormOpen.value = false;
+    addonError.value = null;
     syncPaymentForm(b);
   }
   function closeDrawer(): void {
@@ -911,7 +1008,10 @@ export function useBookingsModel() {
     { immediate: true },
   );
 
-  onMounted(load);
+  onMounted(() => {
+    void load();
+    void loadAddonCatalog();
+  });
 
   return {
     // list
@@ -974,6 +1074,20 @@ export function useBookingsModel() {
     removeStop,
     stopPriceLabel,
     stopsTotalMinor,
+    // доп. услуги
+    addonCatalog,
+    bookingAddons,
+    addonBusy,
+    addonError,
+    addonFormOpen,
+    addonForm,
+    openAddonForm,
+    closeAddonForm,
+    onAddonSelect,
+    saveAddon,
+    removeAddon,
+    addonPriceLabel,
+    addonsTotalMinor,
     // create
     createOpen,
     creating,

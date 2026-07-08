@@ -1,5 +1,5 @@
-import { ref, reactive, onMounted } from 'vue';
-import type { Driver, FlightView } from '@easygo/shared';
+import { ref, reactive, computed, onMounted } from 'vue';
+import type { Car, Driver, FlightView } from '@easygo/shared';
 import { FLIGHT_STATUS_LABEL } from '@easygo/shared';
 import { api, errorMessage } from '@/lib/api';
 import { useCrudList } from '@/composables/useCrudList';
@@ -62,6 +62,99 @@ export function useDriversModel() {
 
   createForm.watchCreateCta(openCreate);
 
+  // Edit modal (opened from the driver detail modal). Bundles the driver's
+  // profile, active status, and car assignment into a single save.
+  const editForm = useFormModel();
+  const editData = reactive({
+    name: '',
+    phone: '',
+    experience: '',
+    isActive: true,
+    carIds: [] as string[],
+  });
+
+  // Cars offered in the picker: every AVAILABLE car (not on a trip) plus the
+  // driver's own cars, so a car already on a trip still shows as selected. A car
+  // held by another driver is shown with a `takenBy` note — picking it reassigns.
+  const availableCars = ref<Car[]>([]);
+  const carOptions = computed<Array<{ id: string; model: string; plate: string; takenBy?: string }>>(() => {
+    const map = new Map<string, { id: string; model: string; plate: string; takenBy?: string }>();
+    for (const c of selected.value?.cars ?? []) {
+      map.set(c.id, { id: c.id, model: c.model, plate: c.plate });
+    }
+    for (const c of availableCars.value) {
+      if (map.has(c.id)) continue;
+      const takenBy =
+        c.driverId && c.driverId !== selected.value?.id
+          ? (drivers.value as DriverWithCars[]).find((d) => d.id === c.driverId)?.name
+          : undefined;
+      map.set(c.id, { id: c.id, model: c.model, plate: c.plate, takenBy });
+    }
+    return [...map.values()];
+  });
+
+  function toggleCarId(id: string): void {
+    editData.carIds = editData.carIds.includes(id)
+      ? editData.carIds.filter((x) => x !== id)
+      : [...editData.carIds, id];
+  }
+
+  async function openEdit(): Promise<void> {
+    if (!selected.value) return;
+    editData.name = selected.value.name;
+    editData.phone = selected.value.phone;
+    editData.experience = selected.value.experience ?? '';
+    editData.isActive = selected.value.isActive;
+    editData.carIds = (selected.value.cars ?? []).map((c) => c.id);
+    editForm.error.value = null;
+    editForm.open.value = true;
+    try {
+      availableCars.value = (await api.fleet.available()) as Car[];
+    } catch {
+      availableCars.value = [];
+    }
+  }
+
+  function closeEdit(): void {
+    editForm.open.value = false;
+    editForm.error.value = null;
+  }
+
+  async function saveEdit(): Promise<void> {
+    if (!selected.value) return;
+    editForm.error.value = null;
+    if (!editData.name.trim()) {
+      editForm.error.value = 'Укажите имя водителя.';
+      return;
+    }
+    if (editData.phone.replace(/\D/g, '').length < 9) {
+      editForm.error.value = 'Укажите номер телефона.';
+      return;
+    }
+    const driver = selected.value;
+    const driverId = driver.id;
+    const currentIds = new Set((driver.cars ?? []).map((c) => c.id));
+    const nextIds = new Set(editData.carIds);
+    const toAssign = editData.carIds.filter((id) => !currentIds.has(id));
+    const toUnassign = [...currentIds].filter((id) => !nextIds.has(id));
+    await editForm.submit(async () => {
+      // Profile + status first, so a deactivation conflict aborts before we
+      // touch any car assignment.
+      await api.drivers.update(driverId, {
+        name: editData.name.trim(),
+        phone: editData.phone.trim(),
+        experience: editData.experience.trim() || undefined,
+        isActive: editData.isActive,
+      });
+      for (const id of toUnassign) await api.fleet.update(id, { driverId: null });
+      for (const id of toAssign) await api.fleet.update(id, { driverId });
+      editForm.open.value = false;
+      await load();
+      const fresh = (drivers.value as DriverWithCars[]).find((d) => d.id === driverId);
+      if (fresh) selected.value = fresh;
+    });
+  }
+
   // Detail modal
   const selected = ref<DriverWithCars | null>(null);
   const driverFlights = ref<FlightView[]>([]);
@@ -92,9 +185,9 @@ export function useDriversModel() {
     pwValue.value = '';
     pwError.value = null;
     pwSuccess.value = false;
-    statusError.value = null;
     deleteConfirm.value = false;
     deleteError.value = null;
+    closeEdit();
   }
 
   // Deletion (admin/owner; API refuses while the driver has flights)
@@ -133,25 +226,6 @@ export function useDriversModel() {
     pwValue.value = '';
     pwError.value = null;
     pwSuccess.value = false;
-  }
-
-  const statusSaving = ref(false);
-  const statusError = ref<string | null>(null);
-
-  async function toggleActive(): Promise<void> {
-    if (!selected.value || statusSaving.value) return;
-    statusSaving.value = true;
-    statusError.value = null;
-    try {
-      const updated = await api.drivers.update(selected.value.id, { isActive: !selected.value.isActive }) as DriverWithCars;
-      await load();
-      const fresh = (drivers.value as DriverWithCars[]).find((d) => d.id === selected.value!.id);
-      selected.value = fresh ?? { ...selected.value, isActive: updated.isActive };
-    } catch (e: unknown) {
-      statusError.value = errorMessage(e);
-    } finally {
-      statusSaving.value = false;
-    }
   }
 
   async function savePassword(): Promise<void> {
@@ -209,6 +283,15 @@ export function useDriversModel() {
     openCreate,
     closeCreate: createForm.close,
     saveDriver,
+    editOpen: editForm.open,
+    editSaving: editForm.saving,
+    editError: editForm.error,
+    editData,
+    carOptions,
+    toggleCarId,
+    openEdit,
+    closeEdit,
+    saveEdit,
     selected,
     driverFlights,
     flightsLoading,
@@ -221,9 +304,6 @@ export function useDriversModel() {
     closeDriver,
     openPw,
     savePassword,
-    statusSaving,
-    statusError,
-    toggleActive,
     deleteConfirm,
     deleting,
     deleteError,

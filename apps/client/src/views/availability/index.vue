@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { IonPage, IonContent } from '@ionic/vue';
-import LoadingSpinner from '@/components/LoadingSpinner.vue';
+import AvailabilityCardSkeleton from '@/components/AvailabilityCardSkeleton.vue';
 import ErrorBanner from '@/components/ErrorBanner.vue';
 import CityInput from '@/components/CityInput.vue';
 import { useAvailabilityModel } from './model';
@@ -32,7 +32,7 @@ const {
       </div>
 
       <div class="avail-list">
-        <LoadingSpinner v-if="loading" label="Загрузка..." />
+        <AvailabilityCardSkeleton v-if="loading" />
         <ErrorBanner v-else-if="error" :message="error" />
 
         <template v-else-if="cars.length > 0">

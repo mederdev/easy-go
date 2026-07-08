@@ -88,6 +88,7 @@ export const DriverFlightView = z.object({
   seatsTotal: z.number().int(),
   seatsTaken: z.number().int(),
   pickupAddress: z.string().nullable(),
+  dropoffAddress: z.string().nullable(),
   route: z.object({
     fromCity: z.string(),
     toCity: z.string(),

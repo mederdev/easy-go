@@ -4,7 +4,7 @@ import SearchWidget from '@/components/SearchWidget/index.vue';
 import RouteCard from '@/components/RouteCard.vue';
 import WhyUsCard from '@/components/WhyUsCard.vue';
 import SectionHeader from '@/components/SectionHeader.vue';
-import LoadingSpinner from '@/components/LoadingSpinner.vue';
+import RouteCardSkeleton from '@/components/RouteCardSkeleton.vue';
 import { useHomeModel } from './model';
 
 const {
@@ -47,7 +47,7 @@ const {
         <!-- Popular Routes -->
         <SectionHeader title="Популярные маршруты" />
         <div class="home-routes">
-          <LoadingSpinner v-if="routesLoading" />
+          <RouteCardSkeleton v-if="routesLoading" />
           <template v-else-if="popularRoutes.length > 0">
             <RouteCard
               v-for="route in popularRoutes"

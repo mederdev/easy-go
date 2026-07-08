@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { IonPage, IonContent } from '@ionic/vue';
-import LoadingSpinner from '@/components/LoadingSpinner.vue';
+import TripDetailSkeleton from '@/components/TripDetailSkeleton.vue';
 import ErrorBanner from '@/components/ErrorBanner.vue';
 import { useTripDetailModel } from './model';
 
@@ -55,7 +55,7 @@ const {
         <div class="head-title">Поездка {{ booking?.code ?? '' }}</div>
       </div>
 
-      <LoadingSpinner v-if="loading" label="Загружаем…" />
+      <TripDetailSkeleton v-if="loading" />
       <ErrorBanner v-else-if="error" :message="error" style="margin: 0 16px" />
 
       <template v-else-if="booking">

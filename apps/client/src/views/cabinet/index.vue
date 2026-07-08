@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { IonPage, IonContent, onIonViewWillEnter } from '@ionic/vue';
-import LoadingSpinner from '@/components/LoadingSpinner.vue';
+import BookingCardSkeleton from '@/components/BookingCardSkeleton.vue';
 import ErrorBanner from '@/components/ErrorBanner.vue';
 import { useCabinetModel } from './model';
 
@@ -111,7 +111,7 @@ onIonViewWillEnter(refresh);
           <button :class="['seg', driverFlightTab === 'history' && 'seg--on']" @click="driverFlightTab = 'history'">История</button>
         </div>
 
-        <LoadingSpinner v-if="loading" label="Загружаем рейсы…" />
+        <BookingCardSkeleton v-if="loading" />
         <ErrorBanner v-else-if="error" :message="error" style="margin: 0 16px" />
 
         <div v-else class="list">
@@ -333,7 +333,7 @@ onIonViewWillEnter(refresh);
           <button :class="['seg', activeTab === 'history' && 'seg--on']" @click="activeTab = 'history'">История</button>
         </div>
 
-        <LoadingSpinner v-if="loading" label="Загружаем поездки…" />
+        <BookingCardSkeleton v-if="loading" />
         <ErrorBanner v-else-if="error" :message="error" style="margin: 0 16px" />
 
         <div v-else class="list">

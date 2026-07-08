@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import { IonPage, IonContent } from '@ionic/vue';
 import TripCard from '@/components/TripCard.vue';
-import LoadingSpinner from '@/components/LoadingSpinner.vue';
+import TripCardSkeleton from '@/components/TripCardSkeleton.vue';
 import ErrorBanner from '@/components/ErrorBanner.vue';
 import DatePickerModal from '@/components/DatePickerModal.vue';
 import CustomRequestCta from '@/components/CustomRequestCta.vue';
@@ -76,7 +76,7 @@ const calendarOpen = ref(false);
 
         <!-- Content -->
         <div class="results-list">
-          <LoadingSpinner v-if="loading" label="Ищем рейсы..." />
+          <TripCardSkeleton v-if="loading" />
           <ErrorBanner v-else-if="error" :message="error" />
           <template v-else-if="flights.length > 0">
             <TripCard

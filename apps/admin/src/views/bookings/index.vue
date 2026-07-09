@@ -120,12 +120,28 @@ const {
   customStatusBusy,
   customStatusError,
   changeCustomStatus,
+  customEditing,
+  customForm,
+  customPaymentBusy,
+  customPaymentError,
+  startCustomEdit,
+  cancelCustomEdit,
+  saveCustomEdit,
+  setCustomPaid,
+  customAddStop,
+  customRemoveStop,
+  customAddAddon,
+  customRemoveAddon,
+  customEditTotal,
+  customStopsTotalMinor,
+  customAddonsTotalMinor,
   approveOpen,
   approving,
   approveError,
   approveRoutes,
   approveCars,
   approveForm,
+  approveMinDate,
   approveTotal,
   requestedFeatures,
   selectedCarMissingFeatures,
@@ -842,16 +858,147 @@ const {
             <div class="drawer-code">Заявка клиента</div>
             <div class="drawer-route">{{ customRouteLabel(customSelected) }}</div>
           </div>
-          <button class="drawer-close" type="button" @click="closeCustom">
-            <span class="material-symbols-outlined">close</span>
-          </button>
+          <div class="drawer-head-actions">
+            <button
+              v-if="!customEditing"
+              class="drawer-edit"
+              type="button"
+              title="Редактировать"
+              @click="startCustomEdit"
+            >
+              <span class="material-symbols-outlined">edit</span>
+            </button>
+            <button class="drawer-close" type="button" @click="closeCustom">
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
         </div>
 
         <div class="drawer-body" data-scroll>
           <div class="chip-row">
             <StatusChip kind="application" :status="customSelected.status" />
+            <StatusChip kind="payment" :status="customSelected.paymentStatus" />
           </div>
 
+          <!-- ═══ Edit mode ═══ -->
+          <form v-if="customEditing" class="form" @submit.prevent="saveCustomEdit">
+            <div v-if="customPaymentError" class="status-error">{{ customPaymentError }}</div>
+            <div class="two">
+              <label class="field">
+                <span class="label">Дата поездки</span>
+                <DatePicker
+                  class="form-date"
+                  :model-value="customForm.date"
+                  @update:model-value="customForm.date = $event"
+                />
+              </label>
+              <label class="field">
+                <span class="label">Желаемое время <span class="opt">(необязательно)</span></span>
+                <input v-model="customForm.time" type="time" />
+              </label>
+            </div>
+            <label class="field">
+              <span class="label">Пассажиров</span>
+              <div class="stepper">
+                <button type="button" @click="customForm.pax = Math.max(1, Number(customForm.pax) - 1)">−</button>
+                <span class="stepper-val">{{ customForm.pax }}</span>
+                <button type="button" @click="customForm.pax = Number(customForm.pax) + 1">+</button>
+              </div>
+            </label>
+            <label class="field">
+              <span class="label">Цена за место <span class="opt">(задаётся вручную)</span></span>
+              <input v-model.number="customForm.unitPrice" type="number" min="0" inputmode="numeric" placeholder="0" />
+            </label>
+            <div class="two">
+              <label class="field">
+                <span class="label">Скидка</span>
+                <input v-model.number="customForm.discount" type="number" min="0" inputmode="numeric" />
+              </label>
+              <label class="field">
+                <span class="label">Предоплата</span>
+                <input v-model.number="customForm.prepaid" type="number" min="0" inputmode="numeric" />
+              </label>
+            </div>
+
+            <div class="section-title">Точки сбора и развоза</div>
+            <div v-for="(s, i) in customForm.stops" :key="`stop-${i}`" class="stop-form">
+              <div class="two">
+                <label class="field">
+                  <span class="label">Тип точки</span>
+                  <select v-model="s.kind">
+                    <option value="PICKUP">{{ STOP_KIND_LABEL.PICKUP }}</option>
+                    <option value="DROPOFF">{{ STOP_KIND_LABEL.DROPOFF }}</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span class="label">Цена точки <span class="opt">(пусто — не подтверждена)</span></span>
+                  <input v-model.number="s.price" type="number" min="0" inputmode="numeric" placeholder="—" />
+                </label>
+              </div>
+              <label class="field">
+                <span class="label">Адрес</span>
+                <input v-model="s.address" placeholder="Улица, дом, ориентир…" />
+              </label>
+              <label class="field">
+                <span class="label">Примечание <span class="opt">(необязательно)</span></span>
+                <input v-model="s.note" placeholder="Подъезд, время, контакт…" />
+              </label>
+              <div class="pay-actions">
+                <button type="button" class="status-btn ghost" @click="customRemoveStop(i)">Удалить точку</button>
+              </div>
+            </div>
+            <div class="pay-actions">
+              <button type="button" class="status-btn ghost" @click="customAddStop()">+ Добавить точку</button>
+            </div>
+
+            <div class="section-title">Доп. услуги</div>
+            <div v-for="(a, i) in customForm.addons" :key="`addon-${i}`" class="stop-form">
+              <div class="two">
+                <label class="field">
+                  <span class="label">Название</span>
+                  <input v-model="a.name" placeholder="Детское кресло" />
+                </label>
+                <label class="field">
+                  <span class="label">Цена</span>
+                  <input v-model.number="a.price" type="number" min="0" inputmode="numeric" placeholder="0" />
+                </label>
+              </div>
+              <div class="pay-actions">
+                <button type="button" class="status-btn ghost" @click="customRemoveAddon(i)">Удалить услугу</button>
+              </div>
+            </div>
+            <div class="pay-actions">
+              <select
+                v-if="addonCatalog.length"
+                class="addon-pick"
+                @change="customAddAddon(($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''"
+              >
+                <option value="">+ Из каталога…</option>
+                <option v-for="c in addonCatalog" :key="c.id" :value="c.id">{{ c.name }}</option>
+              </select>
+              <button type="button" class="status-btn ghost" @click="customAddAddon()">+ Добавить услугу</button>
+            </div>
+
+            <label class="field">
+              <span class="label">Комментарий <span class="opt">(необязательно)</span></span>
+              <textarea v-model="customForm.comment" rows="2" placeholder="Багаж, детское кресло, адрес подачи…" />
+            </label>
+
+            <div class="pay-summary">
+              <div class="pay-line">
+                <span class="cap">Итого</span>
+                <span class="val accent">{{ customEditTotal }}</span>
+              </div>
+            </div>
+
+            <div class="pay-actions">
+              <button type="submit" class="status-btn" :disabled="customPaymentBusy">Сохранить</button>
+              <button type="button" class="status-btn ghost" :disabled="customPaymentBusy" @click="cancelCustomEdit">Отмена</button>
+            </div>
+          </form>
+
+          <!-- ═══ Read mode ═══ -->
+          <template v-else>
           <div class="grid">
             <div>
               <div class="cap">Дата поездки</div>
@@ -873,22 +1020,16 @@ const {
               <div class="cap">Весь салон</div>
               <div class="val">{{ customSelected.wholeCabin ? 'Да' : 'Нет' }}</div>
             </div>
+            <div>
+              <div class="cap">Сумма</div>
+              <div class="val accent">{{ money(customSelected.total) }}</div>
+            </div>
           </div>
 
           <div v-if="customSelected.features?.length" class="features">
             <div class="cap">Доп. оснащение</div>
             <div class="features-list">
               <span v-for="f in customSelected.features" :key="f" class="feature-tag">{{ featureLabel(f) }}</span>
-            </div>
-          </div>
-
-          <div v-if="customSelected.stops?.length" class="features">
-            <div class="cap">Точки сбора и развоза</div>
-            <div class="stops-list" style="margin-top: 6px">
-              <div v-for="(s, i) in customSelected.stops" :key="i" class="stop-row">
-                <span :class="['stop-tag', s.kind === 'DROPOFF' && 'stop-tag--drop']">{{ STOP_KIND_LABEL[s.kind] }}</span>
-                <span class="stop-addr">{{ s.address }}</span>
-              </div>
             </div>
           </div>
 
@@ -902,6 +1043,92 @@ const {
           <div class="section-title">Контакт</div>
           <div class="client-name">{{ customSelected.clientName ?? 'Гость' }}</div>
           <div class="client-phone">{{ customSelected.phone }}</div>
+
+          <div class="divider" />
+
+          <!-- Pickup/dropoff points with confirmed prices. -->
+          <div class="section-title">Точки сбора и развоза</div>
+          <div v-if="!customSelected.stops?.length" class="stops-empty">
+            Точек нет — добавьте их через редактирование.
+          </div>
+          <div v-else class="stops-list">
+            <div v-for="(s, i) in customSelected.stops" :key="i" class="stop-row">
+              <span :class="['stop-tag', s.kind === 'DROPOFF' && 'stop-tag--drop']">{{ STOP_KIND_LABEL[s.kind] }}</span>
+              <span class="stop-addr">
+                {{ s.address }}
+                <span v-if="s.note" class="stop-note">{{ s.note }}</span>
+              </span>
+              <span :class="['stop-price', s.price == null && 'stop-price--pending']">
+                {{ s.price != null ? money(s.price) : 'не подтверждена' }}
+              </span>
+            </div>
+          </div>
+
+          <template v-if="customSelected.addons?.length">
+            <div class="divider" />
+            <div class="section-title">Доп. услуги</div>
+            <div class="stops-list">
+              <div v-for="(a, i) in customSelected.addons" :key="i" class="stop-row">
+                <span class="stop-addr">{{ a.name }}</span>
+                <span class="stop-price">{{ money(a.price) }}</span>
+              </div>
+            </div>
+          </template>
+
+          <div class="divider" />
+
+          <div class="section-title">Оплата</div>
+          <div v-if="customPaymentError" class="status-error">{{ customPaymentError }}</div>
+          <div class="pay-summary">
+            <div class="pay-line">
+              <span class="cap">Цена за место</span>
+              <span class="val">{{ customSelected.unitPrice != null ? money(customSelected.unitPrice) : 'не задана' }}</span>
+            </div>
+            <div v-if="customStopsTotalMinor > 0" class="pay-line">
+              <span class="cap">Доп. точки</span>
+              <span class="val">{{ money(customStopsTotalMinor) }}</span>
+            </div>
+            <div v-if="customAddonsTotalMinor > 0" class="pay-line">
+              <span class="cap">Доп. услуги</span>
+              <span class="val">{{ money(customAddonsTotalMinor) }}</span>
+            </div>
+            <div v-if="customSelected.discount > 0" class="pay-line">
+              <span class="cap">Скидка</span>
+              <span class="val">−{{ money(customSelected.discount) }}</span>
+            </div>
+            <div class="pay-line">
+              <span class="cap">Предоплата</span>
+              <span class="val">{{ money(customSelected.prepaid) }}</span>
+            </div>
+            <div class="pay-line">
+              <span class="cap">Остаток к оплате</span>
+              <span class="val accent">{{ money(Math.max(0, customSelected.total - customSelected.prepaid)) }}</span>
+            </div>
+            <div class="pay-line">
+              <span class="cap">Итого</span>
+              <span class="val">{{ money(customSelected.total) }}</span>
+            </div>
+          </div>
+          <div class="pay-actions">
+            <button
+              v-if="customSelected.paymentStatus !== 'PAID'"
+              type="button"
+              class="status-btn"
+              :disabled="customPaymentBusy"
+              @click="setCustomPaid(true)"
+            >
+              Отметить оплаченным
+            </button>
+            <button
+              v-else
+              type="button"
+              class="status-btn danger"
+              :disabled="customPaymentBusy"
+              @click="setCustomPaid(false)"
+            >
+              Отменить оплату
+            </button>
+          </div>
 
           <div class="divider" />
 
@@ -920,6 +1147,7 @@ const {
               {{ st === 'ACCEPTED' ? 'Принять — создать рейс' : APPLICATION_STATUS_LABEL[st] }}
             </button>
           </div>
+          </template>
         </div>
 
         <div class="drawer-footer">
@@ -949,7 +1177,12 @@ const {
         <div class="two">
           <label class="field">
             <span class="label">Дата рейса</span>
-            <input v-model="approveForm.date" type="date" />
+            <DatePicker
+              class="form-date"
+              :model-value="approveForm.date"
+              :min="approveMinDate"
+              @update:model-value="approveForm.date = $event"
+            />
           </label>
           <label class="field">
             <span class="label">Время</span>
@@ -1000,6 +1233,10 @@ const {
             <span>Номер в WhatsApp</span>
           </label>
         </div>
+        <label class="field">
+          <span class="label">Цена за место <span class="opt">(по умолчанию — цена маршрута)</span></span>
+          <input v-model.number="approveForm.unitPrice" type="number" min="0" inputmode="numeric" placeholder="0" />
+        </label>
         <div class="two">
           <label class="field">
             <span class="label">Скидка <span class="opt">(необязательно)</span></span>
@@ -1519,6 +1756,16 @@ const {
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 12px;
+}
+.addon-pick {
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--eg-border);
+  border-radius: 11px;
+  background: #fff;
+  color: var(--eg-ink, #16181c);
+  font: 700 13px var(--eg-font);
+  cursor: pointer;
 }
 .status-actions {
   display: flex;

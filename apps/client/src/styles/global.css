@@ -108,8 +108,23 @@ ion-toolbar {
 
 /* Input resets */
 input,
-textarea {
+textarea,
+select {
   font-family: var(--eg-font, 'Manrope', sans-serif);
+}
+
+/* iOS Safari auto-zooms on focus of any form control whose font-size is < 16px,
+   and never zooms back out on blur. Forcing a 16px minimum on all editable
+   controls kills the zoom-on-focus entirely while keeping pinch-to-zoom intact
+   (unlike maximum-scale, which disables user zoom and hurts accessibility).
+   !important is required to beat the various `font:`/`font-size` shorthands set
+   per-input in the views. */
+@supports (-webkit-touch-callout: none) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }
 
 /* Button touch feedback */

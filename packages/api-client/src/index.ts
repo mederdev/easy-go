@@ -21,6 +21,7 @@ import type {
   CreateBookingInput,
   CreateCarInput,
   CreateCustomRequestInput,
+  UpdateCustomRequestInput,
   CreateDriverApplicationInput,
   CreateDriverInput,
   CreatePartnerApplicationInput,
@@ -314,6 +315,8 @@ export function createApiClient(opts: ApiClientOptions) {
         request<Paginated<CustomRequest>>('GET', '/custom-requests', undefined, { query }),
       setStatus: (id: string, status: string) =>
         request<CustomRequest>('PATCH', `/custom-requests/${id}/status`, { status }),
+      update: (id: string, input: UpdateCustomRequestInput) =>
+        request<CustomRequest>('PATCH', `/custom-requests/${id}`, input),
     },
   };
 }

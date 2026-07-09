@@ -150,6 +150,11 @@ export function useBookingsModel() {
   }
 
   const pad = (n: number) => String(n).padStart(2, '0');
+  /** Today as a local ISO `YYYY-MM-DD` — earliest day a new flight may depart. */
+  function todayStr(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
   function toDateInput(iso?: string | null): string {
     if (!iso) return '';
     const d = new Date(iso);
@@ -788,9 +793,167 @@ export function useBookingsModel() {
   function openCustom(r: CustomRequest): void {
     customSelected.value = r;
     customStatusError.value = null;
+    customEditing.value = false;
+    customPaymentError.value = null;
   }
   function closeCustom(): void {
     customSelected.value = null;
+    customEditing.value = false;
+  }
+
+  // ── Edit a custom request: full pricing parity with bookings ──
+  // The request has no flight/route, so the per-seat price is set by hand
+  // (placeholder 0). Points and services live in Json on the request, so they're
+  // edited in local form arrays and persisted together with the price via one PATCH.
+  type CustomFormStop = { kind: StopKind; address: string; note: string; price: number | null };
+  type CustomFormAddon = { name: string; price: number };
+  const customEditing = ref(false);
+  const customPaymentBusy = ref(false);
+  const customPaymentError = ref<string | null>(null);
+  const customForm = reactive({
+    date: '', // ISO YYYY-MM-DD desired departure day
+    time: '', // "HH:mm" desired departure, '' = no preference
+    pax: 1,
+    unitPrice: null as number | null, // major units; null/empty = not quoted
+    discount: 0, // major units
+    prepaid: 0, // major units
+    comment: '',
+    stops: [] as CustomFormStop[],
+    addons: [] as CustomFormAddon[],
+  });
+
+  /** A numeric-input value that is actually set (not null / '' / NaN). */
+  function hasNum(v: number | null): boolean {
+    return v !== null && String(v) !== '' && !Number.isNaN(Number(v));
+  }
+
+  function syncCustomForm(r: CustomRequest): void {
+    customForm.date = r.date ?? '';
+    customForm.time = r.time ?? '';
+    customForm.pax = r.pax;
+    customForm.unitPrice = r.unitPrice != null ? toMajor(r.unitPrice, config.currency) : null;
+    customForm.discount = toMajor(r.discount, config.currency);
+    customForm.prepaid = toMajor(r.prepaid, config.currency);
+    customForm.comment = r.comment ?? '';
+    customForm.stops = (r.stops ?? []).map((s) => ({
+      kind: s.kind,
+      address: s.address,
+      note: s.note ?? '',
+      price: s.price != null ? toMajor(s.price, config.currency) : null,
+    }));
+    customForm.addons = (r.addons ?? []).map((a) => ({ name: a.name, price: toMajor(a.price, config.currency) }));
+  }
+
+  function startCustomEdit(): void {
+    if (!customSelected.value) return;
+    customPaymentError.value = null;
+    syncCustomForm(customSelected.value);
+    customEditing.value = true;
+  }
+  function cancelCustomEdit(): void {
+    if (customSelected.value) syncCustomForm(customSelected.value);
+    customPaymentError.value = null;
+    customEditing.value = false;
+  }
+
+  function customAddStop(): void {
+    const pickups = customForm.stops.filter((s) => s.kind === 'PICKUP').length;
+    const pax = Number(customForm.pax) || 1;
+    customForm.stops.push({ kind: pickups < pax ? 'PICKUP' : 'DROPOFF', address: '', note: '', price: null });
+  }
+  function customRemoveStop(i: number): void {
+    customForm.stops.splice(i, 1);
+  }
+  function customAddAddon(fromCatalogId = ''): void {
+    const picked = addonCatalog.value.find((c) => c.id === fromCatalogId);
+    customForm.addons.push(
+      picked ? { name: picked.name, price: toMajor(picked.price, config.currency) } : { name: '', price: 0 },
+    );
+  }
+  function customRemoveAddon(i: number): void {
+    customForm.addons.splice(i, 1);
+  }
+
+  /** Live total (minor units) while editing, from the form's major-unit values. */
+  const customEditTotalMinor = computed(() => {
+    const unitMinor = hasNum(customForm.unitPrice) ? toMinor(Number(customForm.unitPrice), config.currency) : 0;
+    const stopsSum = customForm.stops.reduce(
+      (sum, s) => sum + (hasNum(s.price) ? toMinor(Number(s.price), config.currency) : 0),
+      0,
+    );
+    const addonsSum = customForm.addons.reduce(
+      (sum, a) => sum + (Number(a.price) ? toMinor(Number(a.price), config.currency) : 0),
+      0,
+    );
+    const gross = unitMinor * (Number(customForm.pax) || 0) + stopsSum + addonsSum;
+    const discount = toMinor(Number(customForm.discount) || 0, config.currency);
+    return Math.max(0, gross - Math.min(discount, gross));
+  });
+  const customEditTotal = computed(() => money(customEditTotalMinor.value));
+
+  // Read-mode summary values, from the stored (minor-unit) request.
+  const customStopsTotalMinor = computed(() =>
+    (customSelected.value?.stops ?? []).reduce((sum, s) => sum + (s.price ?? 0), 0),
+  );
+  const customAddonsTotalMinor = computed(() =>
+    (customSelected.value?.addons ?? []).reduce((sum, a) => sum + a.price, 0),
+  );
+
+  function applyCustomUpdated(updated: CustomRequest): void {
+    customSelected.value = updated;
+    const idx = customItems.value.findIndex((x) => x.id === updated.id);
+    if (idx !== -1) customItems.value.splice(idx, 1, updated);
+  }
+
+  async function saveCustomEdit(): Promise<void> {
+    if (!customSelected.value) return;
+    customPaymentBusy.value = true;
+    customPaymentError.value = null;
+    try {
+      const stops = customForm.stops
+        .filter((s) => s.address.trim())
+        .map((s) => ({
+          kind: s.kind,
+          address: s.address.trim(),
+          note: s.note.trim() || undefined,
+          price: hasNum(s.price) ? toMinor(Number(s.price), config.currency) : null,
+        }));
+      const addons = customForm.addons
+        .filter((a) => a.name.trim())
+        .map((a) => ({ name: a.name.trim(), price: toMinor(Number(a.price) || 0, config.currency) }));
+      const updated = await api.customRequests.update(customSelected.value.id, {
+        date: customForm.date || undefined,
+        time: customForm.time.trim() || null,
+        pax: Number(customForm.pax) || 1,
+        unitPrice: hasNum(customForm.unitPrice) ? toMinor(Number(customForm.unitPrice), config.currency) : null,
+        discount: toMinor(Number(customForm.discount) || 0, config.currency),
+        prepaid: toMinor(Number(customForm.prepaid) || 0, config.currency),
+        comment: customForm.comment.trim() || null,
+        stops,
+        addons,
+      });
+      applyCustomUpdated(updated);
+      customEditing.value = false;
+    } catch (e) {
+      customPaymentError.value = errorMessage(e);
+    } finally {
+      customPaymentBusy.value = false;
+    }
+  }
+
+  async function setCustomPaid(paid: boolean): Promise<void> {
+    if (!customSelected.value) return;
+    customPaymentBusy.value = true;
+    customPaymentError.value = null;
+    try {
+      applyCustomUpdated(
+        await api.customRequests.update(customSelected.value.id, { paymentStatus: paid ? 'PAID' : 'UNPAID' }),
+      );
+    } catch (e) {
+      customPaymentError.value = errorMessage(e);
+    } finally {
+      customPaymentBusy.value = false;
+    }
   }
 
   function customWaLink(r: CustomRequest): string {
@@ -842,13 +1005,16 @@ export function useBookingsModel() {
     pax: 1,
     whatsapp: true,
     comment: '',
+    unitPrice: null as number | null, // major units; carried from the request, empty = route price
     discount: 0, // major units
     prepaid: 0, // major units
   });
 
   const approveRoute = computed(() => approveRoutes.value.find((r) => r.id === approveForm.routeId) ?? null);
   const approveTotalMinor = computed(() => {
-    const price = approveRoute.value?.price ?? 0;
+    const price = hasNum(approveForm.unitPrice)
+      ? toMinor(Number(approveForm.unitPrice), config.currency)
+      : approveRoute.value?.price ?? 0;
     const gross = price * (Number(approveForm.pax) || 0);
     const discount = toMinor(Number(approveForm.discount) || 0, config.currency);
     return Math.max(0, gross - Math.min(discount, gross));
@@ -897,8 +1063,10 @@ export function useBookingsModel() {
     approveForm.comment = r.comment ?? '';
     approveForm.carId = '';
     approveForm.seatsTotal = 11;
-    approveForm.discount = 0;
-    approveForm.prepaid = 0;
+    // Carry the pricing quoted on the request into the new booking.
+    approveForm.unitPrice = r.unitPrice != null ? toMajor(r.unitPrice, config.currency) : null;
+    approveForm.discount = toMajor(r.discount, config.currency);
+    approveForm.prepaid = toMajor(r.prepaid, config.currency);
     approveOpen.value = true;
     try {
       if (!approveMetaLoaded) {
@@ -929,6 +1097,11 @@ export function useBookingsModel() {
     }
     if (!approveForm.name.trim() || approveForm.phone.trim().length < 6) {
       approveError.value = 'Укажите имя и телефон клиента.';
+      return;
+    }
+    // Approving creates a new flight — it can't depart before today.
+    if (approveForm.date < todayStr()) {
+      approveError.value = 'Невозможно подтвердить заказ: дата рейса не может быть раньше сегодняшнего дня.';
       return;
     }
     const depart = new Date(`${approveForm.date}T${approveForm.time}:00`);
@@ -963,14 +1136,18 @@ export function useBookingsModel() {
         whatsapp: approveForm.whatsapp,
         comment: approveForm.comment.trim() || undefined,
         status: 'CONFIRMED',
+        unitPrice: hasNum(approveForm.unitPrice)
+          ? toMinor(Number(approveForm.unitPrice), config.currency)
+          : undefined,
         discount: toMinor(Number(approveForm.discount) || 0, config.currency),
         prepaid: toMinor(Number(approveForm.prepaid) || 0, config.currency),
-        // Carry the request's pickup/dropoff points onto the booking; prices
-        // are confirmed afterwards in the booking drawer.
+        // Carry the request's pickup/dropoff points — with their confirmed prices —
+        // onto the booking.
         stops: (customSelected.value.stops ?? []).map((s) => ({
           kind: s.kind,
           address: s.address,
           note: s.note ?? undefined,
+          price: s.price ?? null,
         })),
       };
       await api.bookings.adminCreate(bookingPayload);
@@ -1011,6 +1188,8 @@ export function useBookingsModel() {
   onMounted(() => {
     void load();
     void loadAddonCatalog();
+    // Prefetch the custom-requests count so the tab badge shows without opening the tab.
+    void loadCustom();
   });
 
   return {
@@ -1134,6 +1313,22 @@ export function useBookingsModel() {
     customStatusBusy,
     customStatusError,
     changeCustomStatus,
+    // custom request edit (pricing parity with bookings)
+    customEditing,
+    customForm,
+    customPaymentBusy,
+    customPaymentError,
+    startCustomEdit,
+    cancelCustomEdit,
+    saveCustomEdit,
+    setCustomPaid,
+    customAddStop,
+    customRemoveStop,
+    customAddAddon,
+    customRemoveAddon,
+    customEditTotal,
+    customStopsTotalMinor,
+    customAddonsTotalMinor,
     // approve custom request → flight + booking
     approveOpen,
     approving,
@@ -1141,6 +1336,7 @@ export function useBookingsModel() {
     approveRoutes,
     approveCars,
     approveForm,
+    approveMinDate: todayStr(),
     approveTotal,
     requestedFeatures,
     selectedCarMissingFeatures,

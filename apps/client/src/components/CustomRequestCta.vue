@@ -435,6 +435,10 @@ function closeForm() {
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  /* The backdrop must not pan/scroll the page behind it — without this the
+     whole overlay can be dragged in any direction on touch (mobile). */
+  touch-action: none;
+  overscroll-behavior: contain;
 }
 
 .modal-sheet {
@@ -445,6 +449,11 @@ function closeForm() {
   padding: 20px 20px 40px;
   max-height: 92dvh;
   overflow-y: auto;
+  /* Allow only vertical scrolling inside the sheet; block horizontal drag and
+     scroll-chaining to the page underneath. */
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-header {

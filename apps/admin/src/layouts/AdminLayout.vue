@@ -23,6 +23,7 @@ const navMain: NavItem[] = [
 
 const navSecondary: NavItem[] = [
   { to: '/applications', label: 'Заявки на сотр.', icon: 'handshake' },
+  { to: '/docs', label: 'Документация', icon: 'help' },
   { to: '/settings', label: 'Настройки', icon: 'settings' },
 ];
 

@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router';
 const router = useRouter();
 
 const sections = [
+  { to: '/tabs/docs', icon: 'help', title: 'Как пользоваться', sub: 'Инструкции для пассажиров и водителей' },
   { to: '/tabs/about', icon: 'storefront', title: 'О компании', sub: 'Автопарк, преимущества, отзывы' },
   { to: '/tabs/contacts', icon: 'call', title: 'Контакты', sub: 'Телефон, WhatsApp, офис' },
   { to: '/tabs/drivers', icon: 'badge', title: 'Водителям', sub: 'Присоединиться к автопарку' },

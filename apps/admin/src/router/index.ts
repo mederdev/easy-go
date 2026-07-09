@@ -72,6 +72,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/settings/index.vue'),
         meta: { title: 'Настройки', subtitle: 'Параметры платформы', cta: null },
       },
+      {
+        path: 'docs',
+        name: 'docs',
+        component: () => import('@/views/docs/index.vue'),
+        meta: { title: 'Документация', subtitle: 'Как пользоваться системой', cta: null },
+      },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/' },

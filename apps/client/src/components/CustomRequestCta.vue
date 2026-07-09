@@ -539,6 +539,21 @@ function closeForm() {
   border-color: var(--eg-green);
 }
 
+/* iOS Safari renders type="time"/"date" as native controls with an intrinsic
+   width that ignores width:100% and overflows the sheet. Strip the native
+   appearance so they obey the same box model as the text fields. */
+.field__input[type='time'],
+.field__input[type='date'] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+}
+
+.field__input[type='time']::-webkit-date-and-time-value {
+  text-align: left;
+  margin: 0;
+}
+
 .field__textarea {
   resize: vertical;
   min-height: 80px;

@@ -194,6 +194,27 @@ it fails the deploy aborts and the running API is left untouched.
 **Rollback:** set `TAG=<previous-sha>` in `.env.prod` (or export it) and re-run
 the last three commands — images are retained per commit SHA in GHCR.
 
+## 5a. Wipe + reseed back-office admins (destructive, manual)
+
+`prisma/seed-prod.ts` **deletes every row** (bookings, clients, drivers, cars,
+routes, flights, applications, files, custom-requests, users) and recreates only
+the admin logins hard-coded at the top of that file. `SystemConfig` (currency,
+company, WhatsApp/Telegram) is **preserved**. The script is baked into the api
+image, so first push the change to `main` (or run **Deploy**) to get an image
+that contains it, then on the server run it as a one-shot via the existing
+`migrate` service — no compose-file edit needed:
+
+```
+docker compose --env-file .env.prod -f docker-compose.prod.yml pull migrate
+docker compose --env-file .env.prod -f docker-compose.prod.yml run --rm migrate \
+  pnpm exec tsx prisma/seed-prod.ts --force
+```
+
+`--force` (or `WIPE_CONFIRM=1`) is mandatory; without it the script prints the
+target DB host and refuses. Re-running is safe — admins are upserted by phone.
+To change who gets created or the shared password, edit the `ADMINS` / `PASSWORD`
+constants at the top of `apps/api/prisma/seed-prod.ts` and redeploy.
+
 ## Notes / gotchas
 
 - **Env model** — compose has two independent mechanisms:
@@ -212,7 +233,9 @@ the last three commands — images are retained per commit SHA in GHCR.
 - **MinIO split**: the API talks to MinIO internally (`MINIO_ENDPOINT=minio`)
   but signs presigned URLs for the public host (`MINIO_PUBLIC_ENDPOINT=
   storage.easygo-transfer.com`), which the edge proxies preserving `Host`.
-- **Never** run `pnpm db:seed` in production (it wipes all tables).
+- **Never** run `pnpm db:seed` in production (dev seed — wipes tables and
+  inserts demo data). The intentional prod wipe/reseed tool is
+  `prisma/seed-prod.ts` — see §5a.
 - The dev `docker-compose.yml` / `infra/nginx/nginx.conf` are unchanged and
   remain for local use.
 

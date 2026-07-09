@@ -163,6 +163,10 @@ export function useFlightsModel() {
   const editingId = ref<string | null>(null);
   const isEditing = computed(() => editingId.value !== null);
 
+  // Earliest selectable departure day. New flights can't be scheduled in the
+  // past; an existing flight (which may already be past) keeps its own date.
+  const minDate = computed(() => (isEditing.value ? undefined : todayStr()));
+
   function openCreate(): void {
     form.error.value = null;
     editingId.value = null;
@@ -299,6 +303,11 @@ export function useFlightsModel() {
     form.error.value = null;
     if (!formData.routeId) {
       form.error.value = 'Выберите маршрут.';
+      return;
+    }
+    // A new flight can't depart before today (an existing one keeps its date).
+    if (!editingId.value && formData.date < todayStr()) {
+      form.error.value = 'Дата рейса не может быть раньше сегодняшнего дня.';
       return;
     }
     const depart = new Date(`${formData.date}T${formData.time}:00`);
@@ -498,6 +507,7 @@ export function useFlightsModel() {
     statuses,
     form: formData,
     maxSeats,
+    minDate,
     isEditing,
     routeOptions,
     availableCars,

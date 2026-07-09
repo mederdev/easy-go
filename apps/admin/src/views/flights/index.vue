@@ -29,6 +29,7 @@ const {
   statuses,
   form,
   maxSeats,
+  minDate,
   isEditing,
   openEditFromDetail,
   closeModal,
@@ -315,6 +316,7 @@ const {
             <DatePicker
               class="form-date"
               :model-value="form.date"
+              :min="minDate"
               placeholder="Выберите дату"
               @update:model-value="form.date = $event"
             />

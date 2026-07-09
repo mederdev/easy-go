@@ -377,10 +377,18 @@ model CustomRequest {
   carType    CarType? // desired vehicle class (null = no preference)
   features   CarFeature[] // desired add-ons (roof rack, child seat…)
   wholeCabin Boolean           @default(false) // "салон" — book the entire car
-  stops      Json              @default("[]") // [{kind, address, note}] — desired pickup/dropoff points
+  stops      Json              @default("[]") // [{kind, address, note, price}] — desired pickup/dropoff points (price = minor units, confirmed by admin)
   phone      String
   comment    String?
   status     ApplicationStatus @default(NEW)
+  // Operator-side pricing (mirrors Booking): the request has no route, so unitPrice
+  // is set by hand (null = not quoted yet). total/paymentStatus recompute on edit.
+  unitPrice     Int? // minor units, per-seat price; null = not quoted
+  discount      Int           @default(0) // minor units
+  prepaid       Int           @default(0) // minor units
+  total         Int           @default(0) // minor units = (unitPrice ?? 0)*pax - discount + stops + addons
+  paymentStatus PaymentStatus @default(UNPAID)
+  addons        Json          @default("[]") // [{name, price}] — priced extra services (minor units)
   createdAt  DateTime          @default(now())
 
   @@index([status])

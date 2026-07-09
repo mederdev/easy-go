@@ -1,0 +1,7 @@
+-- AlterTable
+ALTER TABLE "CustomRequest" ADD COLUMN     "addons" JSONB NOT NULL DEFAULT '[]',
+ADD COLUMN     "discount" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "paymentStatus" "PaymentStatus" NOT NULL DEFAULT 'UNPAID',
+ADD COLUMN     "prepaid" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "total" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "unitPrice" INTEGER;

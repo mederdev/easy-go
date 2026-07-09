@@ -198,6 +198,7 @@ function closeForm() {
               </button>
             </div>
 
+            <div class="modal-body">
             <!-- Pre-filled route summary -->
             <div class="modal-route">
               <div class="modal-route__row">
@@ -366,6 +367,7 @@ function closeForm() {
                 {{ submitting ? 'Отправка...' : 'Отправить заявку' }}
               </button>
             </div>
+            </div>
           </template>
         </div>
       </div>
@@ -446,7 +448,6 @@ function closeForm() {
   max-width: 500px;
   background: #fff;
   border-radius: 24px 24px 0 0;
-  padding: 20px 20px 40px;
   max-height: 92dvh;
   overflow-y: auto;
   /* Allow only vertical scrolling inside the sheet; block horizontal drag and
@@ -460,7 +461,19 @@ function closeForm() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  /* Pinned to the top of the sheet so the close button stays reachable while
+     the body scrolls. */
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #fff;
+  padding: 16px 20px;
+  border-bottom: 1px solid #EFF0ED;
+  border-radius: 24px 24px 0 0;
+}
+
+.modal-body {
+  padding: 16px 20px 40px;
 }
 
 .modal-title {
@@ -547,6 +560,9 @@ function closeForm() {
   -webkit-appearance: none;
   appearance: none;
   min-width: 0;
+  /* An empty native value has no line box, so appearance:none collapses the
+     height. Pin it to match the padding-based height of the text fields. */
+  min-height: 46px;
 }
 
 .field__input[type='time']::-webkit-date-and-time-value {
@@ -774,7 +790,7 @@ function closeForm() {
   flex-direction: column;
   align-items: center;
   gap: 14px;
-  padding: 20px 0;
+  padding: 32px 24px;
   text-align: center;
 }
 

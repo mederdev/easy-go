@@ -66,6 +66,18 @@ function holdsSeat(status: BookingStatus): boolean {
   return SEAT_HOLDING_STATUSES.includes(status);
 }
 
+/**
+ * How many seats a booking occupies on its flight. A whole-cabin ("салон")
+ * booking locks the entire car regardless of how many passengers actually
+ * travel — the client may take the salon with fewer people than seats and let
+ * the admin offer the spare seats to someone else (over WhatsApp, outside the
+ * app). So seat counters must reconcile against this, never against `pax`
+ * directly: for a whole-cabin booking `pax` (real passengers) can be < seatsTotal.
+ */
+function seatsHeldBy(booking: { wholeCabin: boolean; pax: number }, seatsTotal: number): number {
+  return booking.wholeCabin ? seatsTotal : booking.pax;
+}
+
 const CANCELLED_STATUSES: BookingStatus[] = ['CANCELLED', 'CANCELLED_BY_CLIENT', 'CANCELLED_BY_COMPANY'];
 
 /**
@@ -109,13 +121,35 @@ export async function createBooking(
     if (flight.status !== 'SCHEDULED') throw Errors.conflict('Рейс закрыт для бронирования', 'FLIGHT_CLOSED');
 
     const status = opts.status ?? 'NEW';
+    // "Салон" buys the whole car: priced at the flight's flat cabinPrice and
+    // reserving every seat, so it needs a cabin price and an otherwise-empty
+    // flight (no seats may be split off to other passengers).
+    const wholeCabin = input.wholeCabin ?? false;
+    if (wholeCabin) {
+      if (flight.cabinPrice == null) {
+        throw Errors.badRequest('Для этого рейса не задана цена салона');
+      }
+      if (flight.seatsTaken > 0) {
+        throw Errors.conflict('Салон недоступен: на рейсе уже есть брони', 'CABIN_UNAVAILABLE');
+      }
+      if (input.pax > flight.seatsTotal) {
+        throw Errors.badRequest(`Пассажиров больше, чем мест в салоне (${flight.seatsTotal})`);
+      }
+    }
+    // Record the client's actual passenger count — even for a whole cabin, where
+    // they may travel with fewer people than seats. What differs is seat
+    // *reservation*: a whole-cabin booking locks every seat on the car so no one
+    // else can book it, while `pax` still reflects who's really coming.
+    const pax = input.pax;
+    const seatsHeld = wholeCabin ? flight.seatsTotal : pax;
+
     // Only a confirmed booking is "attached" (reserves seats). NEW requests don't
     // consume capacity, so several may await confirmation — seats are checked and
     // reserved when the admin confirms.
     const reservesSeat = holdsSeat(status);
     if (reservesSeat) {
       const seatsLeft = flight.seatsTotal - flight.seatsTaken;
-      if (seatsLeft < input.pax) {
+      if (seatsLeft < seatsHeld) {
         throw Errors.conflict(`Недостаточно мест: осталось ${seatsLeft}`, 'NOT_ENOUGH_SEATS');
       }
     }
@@ -148,11 +182,15 @@ export async function createBooking(
     // later); operator-entered stops may be priced immediately and then count
     // toward the total.
     const stops = (input.stops ?? []) as AdminStopInput[];
-    assertStopsWithinPax(stops, input.pax);
+    assertStopsWithinPax(stops, pax);
     const stopsSum = stops.reduce((sum, s) => sum + (s.price ?? 0), 0);
-    const unitPrice = opts.unitPrice ?? null;
-    const effectiveUnit = unitPrice ?? flight.route.price;
-    const gross = effectiveUnit * input.pax + stopsSum;
+    // Whole-cabin bookings ignore the per-seat price: the base is the flat cabin
+    // price. Otherwise it's the (optionally overridden) per-seat price × pax.
+    const unitPrice = wholeCabin ? null : (opts.unitPrice ?? null);
+    // Per-seat base: an explicit override wins, else the flight's own seat price,
+    // else the route default.
+    const base = wholeCabin ? flight.cabinPrice! : (unitPrice ?? flight.seatPrice ?? flight.route.price) * pax;
+    const gross = base + stopsSum;
     const discount = Math.min(opts.discount ?? 0, gross);
     const total = Math.max(0, gross - discount);
     const prepaid = Math.min(opts.prepaid ?? 0, total);
@@ -163,7 +201,8 @@ export async function createBooking(
         code: `tmp-${randomUUID()}`,
         clientId: client.id,
         flightId: flight.id,
-        pax: input.pax,
+        pax,
+        wholeCabin,
         unitPrice,
         discount,
         prepaid,
@@ -195,7 +234,7 @@ export async function createBooking(
     // Reserve seats + bump lifetime trip counters only for an already-confirmed
     // booking; a NEW request stays unattached until an admin confirms it.
     if (reservesSeat) {
-      const newTaken = flight.seatsTaken + input.pax;
+      const newTaken = flight.seatsTaken + seatsHeld;
       await tx.flight.update({
         where: { id: flight.id },
         data: {
@@ -315,11 +354,13 @@ export async function setBookingStatus(id: string, status: BookingStatus) {
       // Attaching: reserve seats now, re-checking availability at confirmation time.
       const flight = await tx.flight.findUnique({ where: { id: booking.flightId } });
       if (!flight) throw Errors.notFound('Рейс');
+      // A whole-cabin booking reserves the entire car, not just its passengers.
+      const seatsHeld = seatsHeldBy(booking, flight.seatsTotal);
       const seatsLeft = flight.seatsTotal - flight.seatsTaken;
-      if (seatsLeft < booking.pax) {
+      if (seatsLeft < seatsHeld) {
         throw Errors.conflict(`Недостаточно мест: осталось ${seatsLeft}`, 'NOT_ENOUGH_SEATS');
       }
-      const newTaken = flight.seatsTaken + booking.pax;
+      const newTaken = flight.seatsTaken + seatsHeld;
       await tx.flight.update({
         where: { id: flight.id },
         data: {
@@ -335,7 +376,7 @@ export async function setBookingStatus(id: string, status: BookingStatus) {
       // Detaching: free the reserved seats and reopen a flight that had filled up.
       const flight = await tx.flight.findUnique({ where: { id: booking.flightId } });
       if (flight) {
-        const newTaken = Math.max(0, flight.seatsTaken - booking.pax);
+        const newTaken = Math.max(0, flight.seatsTaken - seatsHeldBy(booking, flight.seatsTotal));
         await tx.flight.update({
           where: { id: flight.id },
           data: {
@@ -391,7 +432,7 @@ export async function cancelFlightBookings(flightId: string, status: BookingStat
     for (const b of bookings) {
       if (CANCELLED_STATUSES.includes(b.status)) continue; // already cancelled
       if (holdsSeat(b.status)) {
-        freed += b.pax;
+        freed += seatsHeldBy(b, flight.seatsTotal);
         await tx.client.update({
           where: { id: b.clientId },
           data: { tripsCount: { decrement: 1 }, totalSum: { decrement: b.total } },
@@ -455,12 +496,15 @@ export async function updateBookingPayment(id: string, input: UpdateBookingPayme
       throw Errors.conflict('Рейс закрыт для бронирования', 'FLIGHT_CLOSED');
     }
 
-    // Reconcile flight capacity. Only attached (seat-holding) bookings move seats;
-    // NEW/cancelled bookings hold nothing, so their pax/flight edits are free until
-    // confirmation re-checks availability.
+    // Reconcile flight capacity against seats *held*, not raw pax: a whole-cabin
+    // booking locks the whole car, so editing its pax leaves seat counts unchanged.
+    // Only attached (seat-holding) bookings move seats; NEW/cancelled bookings hold
+    // nothing, so their pax/flight edits are free until confirmation re-checks.
+    const oldSeatsHeld = seatsHeldBy(booking, booking.flight.seatsTotal);
+    const newSeatsHeld = seatsHeldBy({ wholeCabin: booking.wholeCabin, pax }, target.seatsTotal);
     if (held && flightChanged) {
       // Free the whole booking off the old flight…
-      const oldTaken = Math.max(0, booking.flight.seatsTaken - booking.pax);
+      const oldTaken = Math.max(0, booking.flight.seatsTaken - oldSeatsHeld);
       await tx.flight.update({
         where: { id: booking.flightId },
         data: {
@@ -473,24 +517,24 @@ export async function updateBookingPayment(id: string, input: UpdateBookingPayme
       });
       // …and reserve it on the new one.
       const seatsLeft = target.seatsTotal - target.seatsTaken;
-      if (seatsLeft < pax) {
+      if (seatsLeft < newSeatsHeld) {
         throw Errors.conflict(`Недостаточно мест: осталось ${seatsLeft}`, 'NOT_ENOUGH_SEATS');
       }
-      const newTaken = target.seatsTaken + pax;
+      const newTaken = target.seatsTaken + newSeatsHeld;
       await tx.flight.update({
         where: { id: target.id },
         data: { seatsTaken: newTaken, status: newTaken >= target.seatsTotal ? 'CLOSED' : target.status },
       });
-    } else if (held && pax !== booking.pax) {
-      // Same flight, passenger count changed: adjust the delta only.
-      const paxDelta = pax - booking.pax;
-      if (paxDelta > 0) {
+    } else if (held && newSeatsHeld !== oldSeatsHeld) {
+      // Same flight, seats held changed: adjust the delta only.
+      const seatsDelta = newSeatsHeld - oldSeatsHeld;
+      if (seatsDelta > 0) {
         const seatsLeft = target.seatsTotal - target.seatsTaken;
-        if (seatsLeft < paxDelta) {
+        if (seatsLeft < seatsDelta) {
           throw Errors.conflict(`Недостаточно мест: осталось ${seatsLeft}`, 'NOT_ENOUGH_SEATS');
         }
       }
-      const newTaken = Math.max(0, target.seatsTaken + paxDelta);
+      const newTaken = Math.max(0, target.seatsTaken + seatsDelta);
       await tx.flight.update({
         where: { id: target.id },
         data: {
@@ -508,8 +552,10 @@ export async function updateBookingPayment(id: string, input: UpdateBookingPayme
     const stopsSum = booking.stops.reduce((sum, s) => sum + (s.price ?? 0), 0);
     const addonsSum = booking.addons.reduce((sum, a) => sum + a.price, 0);
     const unitPrice = input.unitPrice !== undefined ? input.unitPrice : booking.unitPrice;
-    const effectiveUnit = unitPrice ?? target.route.price;
-    const gross = effectiveUnit * pax + stopsSum + addonsSum;
+    const effectiveUnit = unitPrice ?? target.seatPrice ?? target.route.price;
+    // A whole-cabin booking is priced at the flight's flat cabin price, not per seat.
+    const base = booking.wholeCabin ? (target.cabinPrice ?? effectiveUnit * pax) : effectiveUnit * pax;
+    const gross = base + stopsSum + addonsSum;
     const discount = Math.min(Math.max(0, input.discount ?? booking.discount), gross);
     const total = Math.max(0, gross - discount);
     const prepaid = Math.min(Math.max(0, input.prepaid ?? booking.prepaid), total);
@@ -587,8 +633,12 @@ async function recomputeBookingMoney(tx: Prisma.TransactionClient, bookingId: st
 
   const stopsSum = await stopsPriceSum(tx, bookingId);
   const addonsSum = await addonsPriceSum(tx, bookingId);
-  const effectiveUnit = booking.unitPrice ?? booking.flight.route.price;
-  const gross = effectiveUnit * booking.pax + stopsSum + addonsSum;
+  const effectiveUnit = booking.unitPrice ?? booking.flight.seatPrice ?? booking.flight.route.price;
+  // A whole-cabin booking is priced at the flight's flat cabin price, not per seat.
+  const base = booking.wholeCabin
+    ? (booking.flight.cabinPrice ?? effectiveUnit * booking.pax)
+    : effectiveUnit * booking.pax;
+  const gross = base + stopsSum + addonsSum;
   const discount = Math.min(booking.discount, gross);
   const total = Math.max(0, gross - discount);
   const prepaid = Math.min(booking.prepaid, total);

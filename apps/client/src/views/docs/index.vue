@@ -10,7 +10,7 @@ const { audience, sections, setAudience, contentRef, scrollTo } = useDocsModel()
   <IonPage>
     <IonContent ref="contentRef" :fullscreen="true">
       <div class="pg">
-        <div style="padding: 8px 0 0"><BackButton /></div>
+        <div style="padding: 8px 0 0 8px"><BackButton /></div>
 
         <div class="head">
           <h1 class="head-title">Помощь</h1>

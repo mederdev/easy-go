@@ -45,7 +45,7 @@ async function notifyBookingCreated(bookingId: string): Promise<void> {
     `<b>🚌 Новая бронь ${escapeHtml(booking.code)}</b>`,
     `Маршрут: ${escapeHtml(booking.flight.route.fromCity)} → ${escapeHtml(booking.flight.route.toCity)}`,
     `Отправление: ${formatDateTime(booking.flight.departAt)}`,
-    `Мест: ${paxLabel(booking.pax)}`,
+    `Пассажиров: ${paxLabel(booking.pax)}${booking.wholeCabin ? ' · весь салон' : ''}`,
     `Клиент: ${escapeHtml(booking.client.name)}, ${booking.client.phone ?? 'телефон не указан'}`,
     `Сумма: ${formatMoney(booking.total, config.currency)}`,
   ];

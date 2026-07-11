@@ -153,6 +153,24 @@ const {
             <input v-model.number="form.dailyTrips" type="number" min="0" />
           </label>
         </div>
+        <div class="field">
+          <span class="label">Цена за весь салон ({{ config.currency }})</span>
+          <span class="hint-sub">Ориентир для индивидуальных заявок — своя цена под каждый тип машины.</span>
+          <div class="three">
+            <label class="field">
+              <span class="label sub">Минивэн</span>
+              <input v-model="form.cabinMinivanMajor" inputmode="decimal" placeholder="20000" />
+            </label>
+            <label class="field">
+              <span class="label sub">Седан</span>
+              <input v-model="form.cabinSedanMajor" inputmode="decimal" placeholder="12000" />
+            </label>
+            <label class="field">
+              <span class="label sub">Бус</span>
+              <input v-model="form.cabinBusMajor" inputmode="decimal" placeholder="35000" />
+            </label>
+          </div>
+        </div>
         <label class="field">
           <span class="label">Статус</span>
           <select v-model="form.status">
@@ -254,10 +272,25 @@ const {
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
+.three {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+.hint-sub {
+  font: 500 12px var(--eg-font);
+  color: var(--eg-hint);
+  margin: -2px 0 2px;
+}
+.label.sub {
+  font-weight: 500;
+  text-transform: none;
+}
 .field {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 .label {
   font: 600 12px var(--eg-font);
@@ -265,6 +298,9 @@ const {
 }
 input,
 select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   height: 46px;
   padding: 0 12px;
   border: 1px solid var(--eg-border);
@@ -406,7 +442,8 @@ select:focus {
 }
 
 @media (max-width: 720px) {
-  .two {
+  .two,
+  .three {
     grid-template-columns: 1fr;
   }
   .table {

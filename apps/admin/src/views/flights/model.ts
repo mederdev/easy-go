@@ -1,7 +1,7 @@
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import type { Booking, Car, CreateFlightInput, FlightStatus, FlightView, Route, UpdateFlightInput } from '@easygo/shared';
-import { BOOKING_STATUS_LABEL, FLIGHT_STATUS_LABEL, PAYMENT_STATUS_LABEL, formatMoney } from '@easygo/shared';
+import type { Booking, Car, CarType, CreateFlightInput, FlightStatus, FlightView, Route, UpdateFlightInput } from '@easygo/shared';
+import { BOOKING_STATUS_LABEL, FLIGHT_STATUS_LABEL, PAYMENT_STATUS_LABEL, formatMoney, toMajor, toMinor } from '@easygo/shared';
 import { api, errorMessage } from '@/lib/api';
 import { dateLabel, flightRouteLabel, routeLabel, timeLabel } from '@/lib/format';
 import { useConfigStore } from '@/stores/config';
@@ -154,6 +154,8 @@ export function useFlightsModel() {
     date: todayStr(),
     time: '14:00',
     seatsTotal: 11,
+    cabinPriceMajor: '' as string, // "весь салон" price in major units — required
+    seatPriceMajor: '' as string, // per-seat price in major units — auto-filled from the route
     pickupAddress: '',
     dropoffAddress: '',
     status: 'SCHEDULED' as FlightStatus,
@@ -175,10 +177,14 @@ export function useFlightsModel() {
     formData.date = todayStr();
     formData.time = '14:00';
     formData.seatsTotal = 11;
+    formData.cabinPriceMajor = '';
+    formData.seatPriceMajor = '';
     formData.pickupAddress = '';
     formData.dropoffAddress = '';
     formData.status = 'SCHEDULED';
     form.open.value = true;
+    // A car isn't picked yet, but the route already fixes the per-seat price.
+    applyRouteDefaults();
     void loadTakenCars();
   }
 
@@ -207,10 +213,13 @@ export function useFlightsModel() {
     formData.status = f.status;
     form.open.value = true;
     void loadTakenCars();
-    // Setting carId queues the seat-default watcher; apply the flight's own
-    // seat count after it flushes so we keep the real value, not the car's cap.
+    // Setting routeId/carId queues the default-fill watchers; apply the flight's
+    // own seat count and prices after they flush so we keep the real values
+    // (the watchers may have overwritten them with route defaults on the change).
     await nextTick();
     formData.seatsTotal = f.seatsTotal;
+    formData.cabinPriceMajor = f.cabinPrice != null ? String(toMajor(f.cabinPrice, config.currency)) : '';
+    formData.seatPriceMajor = f.seatPrice != null ? String(toMajor(f.seatPrice, config.currency)) : '';
   }
 
   /** Close the detail modal and reopen the form in edit mode for that flight. */
@@ -283,13 +292,53 @@ export function useFlightsModel() {
     return car ? car.seats : null;
   });
 
+  /** The route's default whole-cabin price for a given car class (minor units),
+   *  or null when that class has no default set. */
+  function routeCabinDefault(route: Route | undefined, type: CarType): number | null {
+    if (!route) return null;
+    if (type === 'SEDAN') return route.cabinPriceSedan;
+    if (type === 'MINIVAN') return route.cabinPriceMinivan;
+    return route.cabinPriceBus;
+  }
+
+  /** Prefill the per-seat price from the selected route's default (`route.price`).
+   *  Runs on route change and on open — the seat price doesn't depend on the car. */
+  function applyRouteDefaults(): void {
+    const route = routes.value.find((r) => r.id === formData.routeId);
+    if (route && route.price > 0) {
+      formData.seatPriceMajor = String(toMajor(route.price, config.currency));
+    }
+  }
+
   // Selecting a car defaults seats to its capacity; typing above the cap
-  // (or switching to a smaller car) clamps the value back down.
+  // (or switching to a smaller car) clamps the value back down. Picking a car
+  // also prefills the whole-salon price from the route's default for that car
+  // class (if one is set) — a sedan and a minivan have different salon pricing.
   watch(
     () => formData.carId,
     (id) => {
       const car = cars.value.find((c) => c.id === id);
-      if (car) formData.seatsTotal = car.seats;
+      if (!car) return;
+      formData.seatsTotal = car.seats;
+      const route = routes.value.find((r) => r.id === formData.routeId);
+      const cabinDefault = routeCabinDefault(route, car.type);
+      if (cabinDefault != null) {
+        formData.cabinPriceMajor = String(toMajor(cabinDefault, config.currency));
+      }
+    },
+  );
+  // Changing the route re-derives both defaults: the per-seat price from the new
+  // route, and (if a car is already picked) the whole-salon price for its class.
+  watch(
+    () => formData.routeId,
+    () => {
+      applyRouteDefaults();
+      const car = cars.value.find((c) => c.id === formData.carId);
+      const route = routes.value.find((r) => r.id === formData.routeId);
+      const cabinDefault = car ? routeCabinDefault(route, car.type) : null;
+      if (cabinDefault != null) {
+        formData.cabinPriceMajor = String(toMajor(cabinDefault, config.currency));
+      }
     },
   );
   watch(
@@ -305,6 +354,27 @@ export function useFlightsModel() {
       form.error.value = 'Выберите маршрут.';
       return;
     }
+    if (!formData.carId) {
+      form.error.value = 'Выберите машину.';
+      return;
+    }
+    const cabinPriceNum = Number(String(formData.cabinPriceMajor).replace(',', '.'));
+    if (!Number.isFinite(cabinPriceNum) || cabinPriceNum <= 0) {
+      form.error.value = 'Укажите цену за весь салон.';
+      return;
+    }
+    // Per-seat price is optional (a null falls back to the route price), but must
+    // be a positive number when the operator does enter one.
+    const seatPriceStr = String(formData.seatPriceMajor).trim();
+    let seatPrice: number | null = null;
+    if (seatPriceStr) {
+      const seatPriceNum = Number(seatPriceStr.replace(',', '.'));
+      if (!Number.isFinite(seatPriceNum) || seatPriceNum <= 0) {
+        form.error.value = 'Укажите корректную цену за место.';
+        return;
+      }
+      seatPrice = toMinor(seatPriceNum, config.currency);
+    }
     // A new flight can't depart before today (an existing one keeps its date).
     if (!editingId.value && formData.date < todayStr()) {
       form.error.value = 'Дата рейса не может быть раньше сегодняшнего дня.';
@@ -318,9 +388,11 @@ export function useFlightsModel() {
     await form.submit(async () => {
       const payload: CreateFlightInput = {
         routeId: formData.routeId,
-        carId: formData.carId || null,
+        carId: formData.carId,
         departAt: depart.toISOString(),
         seatsTotal: Number(formData.seatsTotal) || 11,
+        cabinPrice: toMinor(cabinPriceNum, config.currency),
+        seatPrice,
         pickupAddress: formData.pickupAddress.trim() || null,
         dropoffAddress: formData.dropoffAddress.trim() || null,
         status: formData.status,
@@ -486,6 +558,7 @@ export function useFlightsModel() {
   });
 
   return {
+    config,
     loading,
     error,
     flights,

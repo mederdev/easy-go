@@ -67,6 +67,7 @@ const applicationColors: Record<ApplicationStatus, Pair> = {
   REVIEWING: AMBER,
   ACCEPTED: BLUE,
   REJECTED: RED,
+  CANCELLED: GREY,
 };
 
 const paymentColors: Record<PaymentStatus, Pair> = {

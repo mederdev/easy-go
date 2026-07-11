@@ -79,9 +79,9 @@ const emit = defineEmits<{ (e: 'close'): void }>();
   margin-top: 2px;
 }
 .close {
-  width: 36px;
-  height: 36px;
-  border-radius: 11px;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
   border: 1px solid var(--eg-border);
   background: #fff;
   cursor: pointer;
@@ -90,7 +90,7 @@ const emit = defineEmits<{ (e: 'close'): void }>();
   justify-content: center;
 }
 .close .material-symbols-outlined {
-  font-size: 20px;
+  font-size: 24px;
   color: var(--eg-muted);
 }
 .body {

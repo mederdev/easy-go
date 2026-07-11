@@ -127,6 +127,7 @@ const {
   startCustomEdit,
   cancelCustomEdit,
   saveCustomEdit,
+  canMarkCustomPaid,
   setCustomPaid,
   customAddStop,
   customRemoveStop,
@@ -170,7 +171,7 @@ const {
         Бронирования
       </button>
       <button type="button" class="tab" :class="{ active: tab === 'custom' }" @click="setTab('custom')">
-        Заявки клиентов
+        Индивидуальные заявки
         <span v-if="customTotal" class="tab-count">{{ customTotal }}</span>
       </button>
     </div>
@@ -238,7 +239,7 @@ const {
           </span>
           <span class="strong">{{ bookingRouteLabel(b) }}</span>
           <span class="muted">{{ dateTimeLabel(b.flight?.departAt) }}</span>
-          <span class="strong">{{ b.pax }}</span>
+          <span class="strong">{{ b.pax }}<span v-if="b.wholeCabin" class="cabin-tag">салон</span></span>
           <span class="strong total">{{ money(b.total) }}</span>
           <span class="status-cell">
             <StatusChip kind="booking" :status="b.status" />
@@ -278,7 +279,7 @@ const {
             </div>
             <div class="m-meta-item">
               <span class="m-cap">Пасс.</span>
-              <span class="m-val">{{ b.pax }}</span>
+              <span class="m-val">{{ b.pax }}<span v-if="b.wholeCabin" class="cabin-tag">салон</span></span>
             </div>
             <div class="m-meta-item">
               <span class="m-cap">Сумма</span>
@@ -413,7 +414,10 @@ const {
             </div>
             <div>
               <div class="cap">Пассажиров</div>
-              <div class="val">{{ paxLabel(selected.pax) }}</div>
+              <div class="val">
+                {{ paxLabel(selected.pax) }}
+                <span v-if="selected.wholeCabin" class="cabin-tag">весь салон</span>
+              </div>
             </div>
             <div>
               <div class="cap">Сумма</div>
@@ -1114,11 +1118,14 @@ const {
               v-if="customSelected.paymentStatus !== 'PAID'"
               type="button"
               class="status-btn"
-              :disabled="customPaymentBusy"
+              :disabled="customPaymentBusy || !canMarkCustomPaid"
               @click="setCustomPaid(true)"
             >
               Отметить оплаченным
             </button>
+            <p v-if="customSelected.paymentStatus !== 'PAID' && !canMarkCustomPaid" class="pay-hint">
+              Отметить оплаченной можно только принятую заявку с итоговой ценой
+            </p>
             <button
               v-else
               type="button"
@@ -1190,9 +1197,9 @@ const {
           </label>
         </div>
         <label class="field">
-          <span class="label">Машина <span class="opt">(необязательно)</span></span>
+          <span class="label">Машина</span>
           <select v-model="approveForm.carId" :class="{ 'input-error': selectedCarMissingFeatures.length > 0 }">
-            <option value="">Назначить позже</option>
+            <option value="" disabled>Выберите машину</option>
             <option v-for="c in approveCars" :key="c.id" :value="c.id">
               {{ c.model }} · {{ c.plate }}{{ carUnsuitable(c) ? ' — нет нужного оснащения' : '' }}
             </option>
@@ -1208,6 +1215,13 @@ const {
         <label class="field">
           <span class="label">Мест в рейсе</span>
           <input v-model.number="approveForm.seatsTotal" type="number" min="1" inputmode="numeric" />
+        </label>
+        <label class="field">
+          <span class="label">
+            Цена за весь салон
+            <span v-if="approveForm.cabinPriceMajor === '' && !customSelected?.wholeCabin" class="opt">(обязательно)</span>
+          </span>
+          <input v-model="approveForm.cabinPriceMajor" inputmode="decimal" placeholder="20000" />
         </label>
         <div class="two">
           <label class="field">
@@ -1269,6 +1283,19 @@ const {
 </template>
 
 <style scoped>
+/* "Весь салон" marker next to the passenger count. */
+.cabin-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: #EEF6E6;
+  color: #3E7C12;
+  font: 700 10px 'Manrope', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  vertical-align: middle;
+}
 .tabs {
   display: flex;
   gap: 6px;
@@ -1489,15 +1516,19 @@ const {
 }
 .drawer-close,
 .drawer-edit {
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
   border: 1px solid var(--eg-border);
   background: #fff;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.drawer-close .material-symbols-outlined,
+.drawer-edit .material-symbols-outlined {
+  font-size: 24px;
 }
 .drawer-edit {
   color: var(--eg-brand);
@@ -1756,6 +1787,12 @@ const {
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 12px;
+}
+.pay-hint {
+  flex-basis: 100%;
+  margin: 0;
+  color: #6b7280;
+  font: 600 12px var(--eg-font);
 }
 .addon-pick {
   height: 42px;

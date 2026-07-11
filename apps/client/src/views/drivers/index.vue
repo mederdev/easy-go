@@ -25,7 +25,7 @@ const {
   <IonPage>
     <IonContent :fullscreen="true">
       <div class="pg">
-      <div style="padding: 8px 0 0"><BackButton /></div>
+      <div style="padding: 8px 0 0 8px"><BackButton /></div>
       <div class="drivers-header">
         <h1 class="drivers-header__title">Водителям</h1>
         <p class="drivers-header__sub">

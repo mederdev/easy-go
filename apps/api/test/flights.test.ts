@@ -89,9 +89,19 @@ describe('POST /flights', () => {
     const driver = await makeDriver();
     const car = await makeCar({ driverId: driver.driver.id });
     const { departAt } = futureDay();
-    const res = await app.inject({ method: 'POST', url: '/flights', headers, payload: { routeId: route.id, carId: car.id, departAt: departAt.toISOString(), seatsTotal: 7 } });
+    const res = await app.inject({ method: 'POST', url: '/flights', headers, payload: { routeId: route.id, carId: car.id, departAt: departAt.toISOString(), seatsTotal: 7, cabinPrice: 20_000 } });
     expect(res.statusCode).toBe(201);
-    expect(res.json()).toMatchObject({ seatsTaken: 0, paymentStatus: 'UNPAID', seatsTotal: 7 });
+    expect(res.json()).toMatchObject({ seatsTaken: 0, paymentStatus: 'UNPAID', seatsTotal: 7, cabinPrice: 20_000 });
+  });
+
+  it('rejects a flight without a car or cabin price → 400', async () => {
+    const app = await getApp();
+    const { headers } = await makeUser({ role: 'admin' });
+    const route = await makeRoute();
+    const { departAt } = futureDay();
+    // Missing carId and cabinPrice — both are now mandatory at creation (422 = validation).
+    const res = await app.inject({ method: 'POST', url: '/flights', headers, payload: { routeId: route.id, departAt: departAt.toISOString(), seatsTotal: 7 } });
+    expect(res.statusCode).toBe(422);
   });
 
   it('operator cannot create a flight → 403', async () => {
@@ -154,8 +164,9 @@ describe('Bad references return 4xx, not 500 (fixed desync #7)', () => {
   it('creating a flight with a non-existent routeId → 400', async () => {
     const app = await getApp();
     const { headers } = await makeUser({ role: 'admin' });
+    const car = await makeCar();
     const { departAt } = futureDay();
-    const res = await app.inject({ method: 'POST', url: '/flights', headers, payload: { routeId: '00000000-0000-0000-0000-000000000000', departAt: departAt.toISOString() } });
+    const res = await app.inject({ method: 'POST', url: '/flights', headers, payload: { routeId: '00000000-0000-0000-0000-000000000000', carId: car.id, departAt: departAt.toISOString(), cabinPrice: 20_000 } });
     expect(res.statusCode).toBe(400);
     expect(res.json().error.code).toBe('BAD_REQUEST');
   });
@@ -169,7 +180,7 @@ describe('Car availability — one flight per car per day (their feature)', () =
     const car = await makeCar();
     const { departAt } = futureDay();
     await makeFlight({ routeId: route.id, carId: car.id, departAt });
-    const res = await app.inject({ method: 'POST', url: '/flights', headers, payload: { routeId: route.id, carId: car.id, departAt: departAt.toISOString() } });
+    const res = await app.inject({ method: 'POST', url: '/flights', headers, payload: { routeId: route.id, carId: car.id, departAt: departAt.toISOString(), cabinPrice: 20_000 } });
     expect(res.statusCode).toBe(409);
   });
 
@@ -179,7 +190,7 @@ describe('Car availability — one flight per car per day (their feature)', () =
     const route = await makeRoute();
     const car = await makeCar();
     await makeFlight({ routeId: route.id, carId: car.id, departAt: futureDay(1).departAt });
-    const res = await app.inject({ method: 'POST', url: '/flights', headers, payload: { routeId: route.id, carId: car.id, departAt: futureDay(3).departAt.toISOString() } });
+    const res = await app.inject({ method: 'POST', url: '/flights', headers, payload: { routeId: route.id, carId: car.id, departAt: futureDay(3).departAt.toISOString(), cabinPrice: 20_000 } });
     expect(res.statusCode).toBe(201);
   });
 
@@ -190,7 +201,7 @@ describe('Car availability — one flight per car per day (their feature)', () =
     const car = await makeCar();
     const { departAt } = futureDay();
     await makeFlight({ routeId: route.id, carId: car.id, departAt, status: 'CANCELLED_BY_COMPANY' });
-    const res = await app.inject({ method: 'POST', url: '/flights', headers, payload: { routeId: route.id, carId: car.id, departAt: departAt.toISOString() } });
+    const res = await app.inject({ method: 'POST', url: '/flights', headers, payload: { routeId: route.id, carId: car.id, departAt: departAt.toISOString(), cabinPrice: 20_000 } });
     expect(res.statusCode).toBe(201);
   });
 

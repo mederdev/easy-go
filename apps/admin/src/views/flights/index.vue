@@ -8,6 +8,7 @@ import AppModal from '@/components/AppModal.vue';
 import { useFlightsModel } from './model';
 
 const {
+  config,
   loading,
   error,
   flights,
@@ -330,7 +331,7 @@ const {
           <label class="field">
             <span class="label">Автомобиль</span>
             <select v-model="form.carId">
-              <option value="">Без авто</option>
+              <option value="" disabled>Выберите машину</option>
               <option v-for="c in availableCars" :key="c.id" :value="c.id">{{ c.model }} · {{ c.plate }}</option>
             </select>
           </label>
@@ -340,6 +341,16 @@ const {
               <span v-if="maxSeats" class="opt">(макс. {{ maxSeats }})</span>
             </span>
             <input v-model.number="form.seatsTotal" type="number" min="1" :max="maxSeats ?? undefined" />
+          </label>
+        </div>
+        <div class="two">
+          <label class="field">
+            <span class="label">Цена за весь салон ({{ config.currency }})</span>
+            <input v-model="form.cabinPriceMajor" inputmode="decimal" placeholder="20000" />
+          </label>
+          <label class="field">
+            <span class="label">Цена за место ({{ config.currency }})</span>
+            <input v-model="form.seatPriceMajor" inputmode="decimal" placeholder="3500" />
           </label>
         </div>
         <label class="field">

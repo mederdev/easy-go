@@ -29,6 +29,13 @@ const {
   customStatusStyle,
   customRouteTitle,
   customDateLabel,
+  customBusyId,
+  customActionError,
+  customConfirmId,
+  askRemoveCustomRequest,
+  clearCustomConfirm,
+  removeLabel,
+  removeCustomRequest,
   driverFlightTab,
   driverShown,
   statusChanging,
@@ -374,7 +381,7 @@ onIonViewWillEnter(refresh);
 
         <!-- Custom ("leave a request") orders -->
         <template v-if="!loading && customRequests.length">
-          <div class="section-label">Мои заявки</div>
+          <div class="section-label">Мои индивидуальные заявки</div>
           <div class="list">
             <div v-for="r in customRequests" :key="r.id" class="card card--static">
               <div class="card-head">
@@ -389,6 +396,26 @@ onIonViewWillEnter(refresh);
                 <span v-if="r.carType" class="mi"><span class="ms gi">directions_car</span>{{ CAR_TYPE_LABEL[r.carType] }}<template v-if="r.wholeCabin"> · салон</template></span>
               </div>
               <div v-if="r.comment" class="card-comment">{{ r.comment }}</div>
+
+              <ErrorBanner v-if="customActionError && customConfirmId === r.id" :message="customActionError" style="margin-top: 10px" />
+
+              <!-- Inline confirmation: cancelling removes the request outright -->
+              <div v-if="customConfirmId === r.id" class="req-confirm">
+                <div class="req-confirm-q">Отменить заявку? Её нельзя будет восстановить.</div>
+                <div class="req-confirm-btns">
+                  <button class="req-no" :disabled="customBusyId === r.id" @click="clearCustomConfirm">Нет</button>
+                  <button class="req-yes" :disabled="customBusyId === r.id" @click="removeCustomRequest(r)">
+                    {{ customBusyId === r.id ? '...' : 'Да' }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Withdraw (= remove) the request -->
+              <div v-else class="req-actions">
+                <button class="req-cancel" @click="askRemoveCustomRequest(r)">
+                  <span class="ms">{{ r.status === 'REJECTED' ? 'delete' : 'cancel' }}</span>{{ removeLabel(r) }}
+                </button>
+              </div>
             </div>
           </div>
         </template>
@@ -527,6 +554,29 @@ onIonViewWillEnter(refresh);
   margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f1ee;
   font: 500 13px/1.4 'Manrope', sans-serif; color: var(--eg-muted);
 }
+
+/* Custom request actions */
+.req-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.req-cancel {
+  display: flex; align-items: center; gap: 5px; height: 34px; padding: 0 13px;
+  border-radius: 10px; font: 700 12.5px 'Manrope', sans-serif; cursor: pointer;
+  border: 1px solid #f1c9c0; background: #fcf3f1; color: #c0492e;
+}
+.req-cancel .ms { font-size: 17px; }
+.req-confirm {
+  margin-top: 12px; background: #fcf3f1; border: 1px solid #f1c9c0; border-radius: 12px; padding: 12px 14px;
+}
+.req-confirm-q { font: 600 13px 'Manrope', sans-serif; color: #c0492e; }
+.req-confirm-btns { display: flex; gap: 8px; margin-top: 10px; }
+.req-no {
+  flex: 1; height: 40px; border-radius: 10px; border: 1px solid #e2e5df; background: #fff;
+  color: var(--eg-ink); font: 700 13px 'Manrope', sans-serif; cursor: pointer;
+}
+.req-yes {
+  flex: 1; height: 40px; border-radius: 10px; border: none; background: #c0492e; color: #fff;
+  font: 700 13px 'Manrope', sans-serif; cursor: pointer;
+}
+.req-no:disabled, .req-yes:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* Empty */
 .empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 48px 20px; }

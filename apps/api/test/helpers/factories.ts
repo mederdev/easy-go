@@ -116,7 +116,7 @@ export function hoursFromNow(h: number): Date {
 }
 
 export async function makeFlight(
-  opts: { routeId?: string; carId?: string | null; departAt?: Date; seatsTotal?: number; seatsTaken?: number; status?: FlightStatus; paymentStatus?: PaymentStatus; pickupAddress?: string | null } = {},
+  opts: { routeId?: string; carId?: string | null; departAt?: Date; seatsTotal?: number; seatsTaken?: number; cabinPrice?: number | null; seatPrice?: number | null; status?: FlightStatus; paymentStatus?: PaymentStatus; pickupAddress?: string | null } = {},
 ) {
   let routeId = opts.routeId;
   if (!routeId) routeId = (await makeRoute()).id;
@@ -127,6 +127,8 @@ export async function makeFlight(
       departAt: opts.departAt ?? hoursFromNow(24),
       seatsTotal: opts.seatsTotal ?? 11,
       seatsTaken: opts.seatsTaken ?? 0,
+      cabinPrice: opts.cabinPrice ?? null,
+      seatPrice: opts.seatPrice ?? null,
       status: opts.status ?? 'SCHEDULED',
       paymentStatus: opts.paymentStatus ?? 'UNPAID',
       pickupAddress: opts.pickupAddress ?? null,

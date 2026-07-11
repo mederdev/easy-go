@@ -27,6 +27,9 @@ export function useRoutesModel() {
     toCity: cities[1] as string,
     durationLabel: '',
     priceMajor: '' as string,
+    cabinSedanMajor: '' as string,
+    cabinMinivanMajor: '' as string,
+    cabinBusMajor: '' as string,
     dailyTrips: 0,
     status: 'ACTIVE' as RouteStatus,
     popular: false,
@@ -41,6 +44,9 @@ export function useRoutesModel() {
     formData.toCity = cities[1];
     formData.durationLabel = '';
     formData.priceMajor = '';
+    formData.cabinSedanMajor = '';
+    formData.cabinMinivanMajor = '';
+    formData.cabinBusMajor = '';
     formData.dailyTrips = 0;
     formData.status = 'ACTIVE';
     formData.popular = false;
@@ -59,6 +65,9 @@ export function useRoutesModel() {
     formData.toCity = r.toCity;
     formData.durationLabel = r.durationLabel;
     formData.priceMajor = String(toMajor(r.price, config.currency));
+    formData.cabinSedanMajor = r.cabinPriceSedan != null ? String(toMajor(r.cabinPriceSedan, config.currency)) : '';
+    formData.cabinMinivanMajor = r.cabinPriceMinivan != null ? String(toMajor(r.cabinPriceMinivan, config.currency)) : '';
+    formData.cabinBusMajor = r.cabinPriceBus != null ? String(toMajor(r.cabinPriceBus, config.currency)) : '';
     formData.dailyTrips = r.dailyTrips;
     formData.status = r.status;
     formData.popular = r.popular;
@@ -87,12 +96,31 @@ export function useRoutesModel() {
       form.error.value = 'Укажите корректную цену.';
       return;
     }
+    // Whole-cabin default prices per car class — required so a custom request on
+    // this route can be quoted for whichever car the client picks.
+    const cabinFields: Array<[keyof typeof formData, string]> = [
+      ['cabinSedanMajor', 'седан'],
+      ['cabinMinivanMajor', 'минивэн'],
+      ['cabinBusMajor', 'бус'],
+    ];
+    const cabinMinor: Record<string, number> = {};
+    for (const [key, label] of cabinFields) {
+      const n = Number(String(formData[key]).replace(',', '.'));
+      if (!Number.isFinite(n) || n <= 0) {
+        form.error.value = `Укажите цену за салон (${label}).`;
+        return;
+      }
+      cabinMinor[key] = toMinor(n, config.currency);
+    }
     await form.submit(async () => {
       const payload: CreateRouteInput = {
         fromCity,
         toCity,
         durationLabel: formData.durationLabel.trim(),
         price: toMinor(priceNum, config.currency),
+        cabinPriceSedan: cabinMinor.cabinSedanMajor,
+        cabinPriceMinivan: cabinMinor.cabinMinivanMajor,
+        cabinPriceBus: cabinMinor.cabinBusMajor,
         dailyTrips: Number(formData.dailyTrips) || 0,
         status: formData.status,
         popular: formData.popular,

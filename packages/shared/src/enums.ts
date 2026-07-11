@@ -54,7 +54,7 @@ export type CarStatus = z.infer<typeof CarStatus>;
 export const CarType = z.enum(['SEDAN', 'MINIVAN', 'BUS']);
 export type CarType = z.infer<typeof CarType>;
 
-export const ApplicationStatus = z.enum(['NEW', 'REVIEWING', 'ACCEPTED', 'REJECTED']);
+export const ApplicationStatus = z.enum(['NEW', 'REVIEWING', 'ACCEPTED', 'REJECTED', 'CANCELLED']);
 export type ApplicationStatus = z.infer<typeof ApplicationStatus>;
 
 /** Polymorphic owner of an uploaded file. */

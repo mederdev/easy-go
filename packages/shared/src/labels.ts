@@ -73,6 +73,7 @@ export const APPLICATION_STATUS_LABEL: Record<ApplicationStatus, string> = {
   REVIEWING: 'На рассмотрении',
   ACCEPTED: 'Принята',
   REJECTED: 'Отклонена',
+  CANCELLED: 'Отменена',
 };
 
 export const USER_ROLE_LABEL: Record<UserRole, string> = {

@@ -87,6 +87,7 @@ enum ApplicationStatus {
   REVIEWING
   ACCEPTED
   REJECTED
+  CANCELLED
 }
 
 enum FileOwnerType {
@@ -188,6 +189,11 @@ model Route {
   toCity        String
   durationLabel String
   price         Int // minor units, per seat
+  // Default flat "весь салон" price per car class (minor units). Used to quote a
+  // custom request whose route already exists; null = not set for that class.
+  cabinPriceSedan   Int?
+  cabinPriceMinivan Int?
+  cabinPriceBus     Int?
   dailyTrips    Int         @default(0)
   status        RouteStatus @default(ACTIVE)
   popular       Boolean     @default(false)
@@ -214,6 +220,8 @@ model Flight {
   dropoffAddress String?
   seatsTotal    Int           @default(11)
   seatsTaken    Int           @default(0) // denormalized
+  cabinPrice    Int? // minor units, flat price to buy the whole car ("салон"); required at creation via API
+  seatPrice     Int? // minor units, per-seat price for this flight; null = fall back to route.price
   status        FlightStatus  @default(SCHEDULED)
   paymentStatus PaymentStatus @default(UNPAID) // aggregated from active bookings
   createdAt     DateTime      @default(now())
@@ -235,6 +243,7 @@ model Booking {
   flightId       String
   flight         Flight        @relation(fields: [flightId], references: [id], onDelete: Restrict)
   pax            Int
+  wholeCabin     Boolean       @default(false) // "салон" — booked the entire car; total = flight.cabinPrice
   unitPrice      Int? // minor units, per-seat price override; null = use route.price
   discount       Int           @default(0) // minor units, amount off
   prepaid        Int           @default(0) // minor units, paid so far

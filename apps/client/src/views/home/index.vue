@@ -23,14 +23,6 @@ const {
         <!-- Header -->
         <div class="home-header">
           <img src="/assets/logo-t.png" alt="EasyGo" class="home-header__logo" />
-          <a
-            href="#"
-            class="home-header__chat-btn"
-            @click.prevent="router.push('/tabs/contacts')"
-            aria-label="Написать в WhatsApp"
-          >
-            <span class="ms">chat</span>
-          </a>
         </div>
 
         <!-- Hero -->
@@ -119,19 +111,6 @@ const {
 .home-header__logo {
   height: 26px;
   width: auto;
-}
-
-.home-header__chat-btn {
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
-  background: var(--eg-green-light);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--eg-green);
-  text-decoration: none;
-  font-size: 21px;
 }
 
 .home-hero {

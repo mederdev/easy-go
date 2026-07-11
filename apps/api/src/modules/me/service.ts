@@ -44,6 +44,30 @@ export async function myCustomRequests(clientId: string) {
   return { items, total: items.length };
 }
 
+/**
+ * Load a custom request that belongs to the caller. Custom requests carry no
+ * clientId — they're matched to a client by phone (Client.phone is unique), so a
+ * phone-less (Telegram) client owns none. Not-owned/absent both surface as 404.
+ */
+async function myCustomRequest(clientId: string, id: string) {
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { phone: true } });
+  if (!client?.phone) throw Errors.notFound('Заявка');
+  const req = await prisma.customRequest.findUnique({ where: { id } });
+  if (!req || req.phone !== client.phone) throw Errors.notFound('Заявка');
+  return req;
+}
+
+/**
+ * Customer removes (withdraws) their own custom request. Cancelling and deleting
+ * are one and the same for the client: a cancelled request is simply removed, so
+ * this hard-deletes any of the caller's own requests regardless of status.
+ */
+export async function deleteMyCustomRequest(clientId: string, id: string) {
+  await myCustomRequest(clientId, id); // ownership check (404 if not theirs)
+  await prisma.customRequest.delete({ where: { id } });
+  return { id };
+}
+
 export async function myBooking(clientId: string, id: string) {
   const booking = await prisma.booking.findUnique({ where: { id }, include: bookingInclude });
   if (!booking || booking.clientId !== clientId) throw Errors.notFound('Бронирование');

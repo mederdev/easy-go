@@ -74,21 +74,23 @@ async function main() {
     ],
   });
 
-  // Routes (price in minor units — сом × 100).
-  const rBA = await prisma.route.create({ data: { fromCity: 'Бишкек', toCity: 'Алматы', durationLabel: '~4 ч', price: 350000, dailyTrips: 3, status: 'ACTIVE', popular: true } });
-  const rAB = await prisma.route.create({ data: { fromCity: 'Алматы', toCity: 'Бишкек', durationLabel: '~4 ч', price: 350000, dailyTrips: 3, status: 'ACTIVE', popular: true } });
-  const rBI = await prisma.route.create({ data: { fromCity: 'Бишкек', toCity: 'Иссык-Куль', durationLabel: '~5 ч', price: 200000, dailyTrips: 2, status: 'ACTIVE', popular: true } });
-  await prisma.route.create({ data: { fromCity: 'Иссык-Куль', toCity: 'Бишкек', durationLabel: '~5 ч', price: 200000, dailyTrips: 2, status: 'ACTIVE' } });
+  // Routes (price in minor units — сом × 100). cabinPrice* = default "весь салон"
+  // price per car class, used to quote custom requests on an existing route.
+  const rBA = await prisma.route.create({ data: { fromCity: 'Бишкек', toCity: 'Алматы', durationLabel: '~4 ч', price: 350000, cabinPriceSedan: 1200000, cabinPriceMinivan: 2000000, cabinPriceBus: 3500000, dailyTrips: 3, status: 'ACTIVE', popular: true } });
+  const rAB = await prisma.route.create({ data: { fromCity: 'Алматы', toCity: 'Бишкек', durationLabel: '~4 ч', price: 350000, cabinPriceSedan: 1200000, cabinPriceMinivan: 2000000, cabinPriceBus: 3500000, dailyTrips: 3, status: 'ACTIVE', popular: true } });
+  const rBI = await prisma.route.create({ data: { fromCity: 'Бишкек', toCity: 'Иссык-Куль', durationLabel: '~5 ч', price: 200000, cabinPriceSedan: 800000, cabinPriceMinivan: 1300000, cabinPriceBus: 2200000, dailyTrips: 2, status: 'ACTIVE', popular: true } });
+  await prisma.route.create({ data: { fromCity: 'Иссык-Куль', toCity: 'Бишкек', durationLabel: '~5 ч', price: 200000, cabinPriceSedan: 800000, cabinPriceMinivan: 1300000, cabinPriceBus: 2200000, dailyTrips: 2, status: 'ACTIVE' } });
   await prisma.route.create({ data: { fromCity: 'Бишкек', toCity: 'Каракол', durationLabel: '~6 ч', price: 250000, dailyTrips: 0, status: 'DRAFT' } });
 
   // Flights: today + tomorrow on Бишкек→Алматы, plus one to Иссык-Куль today.
-  const f14 = await prisma.flight.create({ data: { routeId: rBA.id, carId: car1.id, departAt: at(14), seatsTotal: 11, pickupAddress: 'г. Бишкек, ул. Чуй 120', dropoffAddress: 'г. Алматы, ул. Абая 10' } });
-  const f17 = await prisma.flight.create({ data: { routeId: rBA.id, carId: car2.id, departAt: at(17), seatsTotal: 11 } });
-  const f20 = await prisma.flight.create({ data: { routeId: rBA.id, carId: car3.id, departAt: at(20), seatsTotal: 11 } });
-  await prisma.flight.create({ data: { routeId: rBA.id, carId: car1.id, departAt: at(8, 0, 1), seatsTotal: 11 } });
-  await prisma.flight.create({ data: { routeId: rBA.id, carId: car2.id, departAt: at(15, 0, 1), seatsTotal: 11 } });
-  const fBI = await prisma.flight.create({ data: { routeId: rBI.id, carId: car3.id, departAt: at(8), seatsTotal: 11 } });
-  await prisma.flight.create({ data: { routeId: rAB.id, carId: car2.id, departAt: at(8, 0, 1), seatsTotal: 11 } });
+  // cabinPrice: flat "весь салон" price — cheaper than 11 × per-seat, the "hook" to buy the whole car.
+  const f14 = await prisma.flight.create({ data: { routeId: rBA.id, carId: car1.id, departAt: at(14), seatsTotal: 11, cabinPrice: 2_000_000, pickupAddress: 'г. Бишкек, ул. Чуй 120', dropoffAddress: 'г. Алматы, ул. Абая 10' } });
+  const f17 = await prisma.flight.create({ data: { routeId: rBA.id, carId: car2.id, departAt: at(17), seatsTotal: 11, cabinPrice: 2_000_000 } });
+  const f20 = await prisma.flight.create({ data: { routeId: rBA.id, carId: car3.id, departAt: at(20), seatsTotal: 11, cabinPrice: 2_000_000 } });
+  await prisma.flight.create({ data: { routeId: rBA.id, carId: car1.id, departAt: at(8, 0, 1), seatsTotal: 11, cabinPrice: 2_000_000 } });
+  await prisma.flight.create({ data: { routeId: rBA.id, carId: car2.id, departAt: at(15, 0, 1), seatsTotal: 11, cabinPrice: 2_000_000 } });
+  const fBI = await prisma.flight.create({ data: { routeId: rBI.id, carId: car3.id, departAt: at(8), seatsTotal: 11, cabinPrice: 1_200_000 } });
+  await prisma.flight.create({ data: { routeId: rAB.id, carId: car2.id, departAt: at(8, 0, 1), seatsTotal: 11, cabinPrice: 2_000_000 } });
 
   // Clients.
   const aigul = await prisma.client.create({ data: { name: 'Айгуль Сапарова', phone: '+996700123456', whatsapp: true } });

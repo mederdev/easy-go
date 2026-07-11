@@ -674,8 +674,9 @@ export function useBookingsModel() {
     selectedClient.value = null;
     createOpen.value = true;
     try {
+      // Only active flights: scheduled, upcoming (not departed by day), with free seats.
       const list = await api.flights.list({ status: 'SCHEDULED' });
-      bookableFlights.value = list.filter((f) => !f.soldOut);
+      bookableFlights.value = list.filter((f) => !f.soldOut && !isPastFlight(f.departAt));
       createForm.flightId = bookableFlights.value[0]?.id ?? '';
     } catch (e) {
       createError.value = errorMessage(e);
@@ -710,6 +711,7 @@ export function useBookingsModel() {
       const payload: AdminCreateBookingInput = {
         flightId: createForm.flightId,
         pax: Number(createForm.pax) || 1,
+        wholeCabin: false,
         name: createForm.name.trim(),
         phone: createForm.phone.trim(),
         whatsapp: createForm.whatsapp,
@@ -941,8 +943,15 @@ export function useBookingsModel() {
     }
   }
 
+  // A request can only be marked paid once it's accepted and has a final price
+  // (total > 0). Mirrors the server-side guard in the custom-requests module.
+  const canMarkCustomPaid = computed(
+    () => customSelected.value?.status === 'ACCEPTED' && customSelected.value.total > 0,
+  );
+
   async function setCustomPaid(paid: boolean): Promise<void> {
     if (!customSelected.value) return;
+    if (paid && !canMarkCustomPaid.value) return;
     customPaymentBusy.value = true;
     customPaymentError.value = null;
     try {
@@ -961,11 +970,13 @@ export function useBookingsModel() {
   }
 
   // Which statuses an operator can move a request to from its current one.
+  // CANCELLED is client-driven and terminal — operators don't transition out of it.
   const customNextStatuses: Record<ApplicationStatus, ApplicationStatus[]> = {
     NEW: ['REVIEWING', 'ACCEPTED', 'REJECTED'],
     REVIEWING: ['ACCEPTED', 'REJECTED'],
     ACCEPTED: ['REJECTED'],
     REJECTED: ['NEW'],
+    CANCELLED: [],
   };
 
   async function changeCustomStatus(status: ApplicationStatus): Promise<void> {
@@ -1000,6 +1011,7 @@ export function useBookingsModel() {
     date: '',
     time: '09:00',
     seatsTotal: 11,
+    cabinPriceMajor: '' as string, // "весь салон" price (major units) — required on the created flight
     name: '',
     phone: '',
     pax: 1,
@@ -1009,6 +1021,9 @@ export function useBookingsModel() {
     discount: 0, // major units
     prepaid: 0, // major units
   });
+
+  // The request itself flagged "весь салон" → the created booking buys the whole car.
+  const approveWholeCabin = computed(() => customSelected.value?.wholeCabin ?? false);
 
   const approveRoute = computed(() => approveRoutes.value.find((r) => r.id === approveForm.routeId) ?? null);
   const approveTotalMinor = computed(() => {
@@ -1063,6 +1078,8 @@ export function useBookingsModel() {
     approveForm.comment = r.comment ?? '';
     approveForm.carId = '';
     approveForm.seatsTotal = 11;
+    // For a whole-cabin request the quoted total *is* the cabin price; prefill it.
+    approveForm.cabinPriceMajor = r.wholeCabin && r.total > 0 ? String(toMajor(r.total, config.currency)) : '';
     // Carry the pricing quoted on the request into the new booking.
     approveForm.unitPrice = r.unitPrice != null ? toMajor(r.unitPrice, config.currency) : null;
     approveForm.discount = toMajor(r.discount, config.currency);
@@ -1099,6 +1116,15 @@ export function useBookingsModel() {
       approveError.value = 'Укажите имя и телефон клиента.';
       return;
     }
+    if (!approveForm.carId) {
+      approveError.value = 'Выберите машину.';
+      return;
+    }
+    const cabinPriceNum = Number(String(approveForm.cabinPriceMajor).replace(',', '.'));
+    if (!Number.isFinite(cabinPriceNum) || cabinPriceNum <= 0) {
+      approveError.value = 'Укажите цену за весь салон.';
+      return;
+    }
     // Approving creates a new flight — it can't depart before today.
     if (approveForm.date < todayStr()) {
       approveError.value = 'Невозможно подтвердить заказ: дата рейса не может быть раньше сегодняшнего дня.';
@@ -1122,15 +1148,17 @@ export function useBookingsModel() {
     try {
       const flightPayload: CreateFlightInput = {
         routeId: approveForm.routeId,
-        carId: approveForm.carId || null,
+        carId: approveForm.carId,
         departAt: depart.toISOString(),
         seatsTotal: Number(approveForm.seatsTotal) || 11,
+        cabinPrice: toMinor(cabinPriceNum, config.currency),
         status: 'SCHEDULED',
       };
       const flight = await api.flights.create(flightPayload);
       const bookingPayload: AdminCreateBookingInput = {
         flightId: flight.id,
         pax: Number(approveForm.pax) || 1,
+        wholeCabin: approveWholeCabin.value,
         name: approveForm.name.trim(),
         phone: approveForm.phone.trim(),
         whatsapp: approveForm.whatsapp,
@@ -1321,6 +1349,7 @@ export function useBookingsModel() {
     startCustomEdit,
     cancelCustomEdit,
     saveCustomEdit,
+    canMarkCustomPaid,
     setCustomPaid,
     customAddStop,
     customRemoveStop,

@@ -25,6 +25,12 @@ const routes: FastifyPluginAsync = async (app) => {
 
   app.get('/custom-requests', async (request) => svc.myCustomRequests(request.clientId!));
 
+  // Cancel = remove: the client withdraws their own individual request.
+  app.delete('/custom-requests/:id', async (request) => {
+    const { id } = request.params as { id: string };
+    return svc.deleteMyCustomRequest(request.clientId!, parse(Id, id));
+  });
+
   app.get('/bookings/:id', async (request) => {
     const { id } = request.params as { id: string };
     return svc.myBooking(request.clientId!, parse(Id, id));

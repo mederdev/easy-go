@@ -118,6 +118,8 @@ export async function createFlight(input: CreateFlightInput) {
       pickupAddress: input.pickupAddress ?? null,
       dropoffAddress: input.dropoffAddress ?? null,
       seatsTotal: input.seatsTotal,
+      cabinPrice: input.cabinPrice,
+      seatPrice: input.seatPrice ?? null,
       status: input.status,
     },
     include: { route: true, car: true },
@@ -190,6 +192,8 @@ export async function updateFlight(id: string, input: UpdateFlightInput) {
       pickupAddress: input.pickupAddress,
       dropoffAddress: input.dropoffAddress,
       seatsTotal: input.seatsTotal,
+      cabinPrice: input.cabinPrice,
+      seatPrice: input.seatPrice,
       status: input.status,
     },
   });

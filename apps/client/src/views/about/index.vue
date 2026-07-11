@@ -7,7 +7,7 @@ import BackButton from '@/components/BackButton.vue';
   <IonPage>
     <IonContent :fullscreen="true">
       <div class="pg">
-      <div style="padding: 8px 0 0"><BackButton /></div>
+      <div style="padding: 8px 0 0 8px"><BackButton /></div>
       <div class="about-header">
         <h1 class="about-header__title">О компании</h1>
       </div>

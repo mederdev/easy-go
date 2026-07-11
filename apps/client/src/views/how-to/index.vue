@@ -20,7 +20,7 @@ const drivers = [
   <IonPage>
     <IonContent :fullscreen="true">
       <div class="pg">
-      <div style="padding: 8px 0 0"><BackButton /></div>
+      <div style="padding: 8px 0 0 8px"><BackButton /></div>
       <div class="howto-header">
         <h1 class="howto-header__title">Как пользоваться</h1>
         <p class="howto-header__sub">Инструкции для пассажиров и водителей</p>

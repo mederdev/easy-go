@@ -99,6 +99,11 @@ const routes: FastifyPluginAsync = async (app) => {
     const total = Math.max(0, gross - Math.min(discount, gross));
     const prepaidRaw = input.prepaid !== undefined ? input.prepaid : found.prepaid;
     const prepaid = Math.min(prepaidRaw, total);
+    // A request may only be marked paid once it's accepted and has a final price:
+    // with no accepted quote (total 0) there's nothing to consider paid.
+    if (input.paymentStatus === 'PAID' && (found.status !== 'ACCEPTED' || total <= 0)) {
+      throw Errors.badRequest('Отметить оплаченной можно только принятую заявку с итоговой ценой');
+    }
     const paymentStatus = input.paymentStatus ?? derivePaymentStatus(prepaid, total);
 
     const data: Prisma.CustomRequestUpdateInput = {

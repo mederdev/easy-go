@@ -95,3 +95,38 @@ describe('PATCH /custom-requests/:id/status', () => {
     expect(res.json().status).toBe('REVIEWING');
   });
 });
+
+describe('PATCH /custom-requests/:id — mark paid guard', () => {
+  it('rejects PAID while not accepted → 400', async () => {
+    const app = await getApp();
+    const { headers } = await makeUser({ role: 'operator' });
+    const created = await app.inject({ method: 'POST', url: '/custom-requests', payload: { fromCity: 'Бишкек', toCity: 'Ош', date: '2026-08-25', pax: 1, phone: uniquePhone() } });
+    const id = created.json().id;
+    // Quote it (total > 0) but leave status NEW.
+    await app.inject({ method: 'PATCH', url: `/custom-requests/${id}`, headers, payload: { unitPrice: 100000 } });
+    const res = await app.inject({ method: 'PATCH', url: `/custom-requests/${id}`, headers, payload: { paymentStatus: 'PAID' } });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('rejects PAID when accepted but total is 0 → 400', async () => {
+    const app = await getApp();
+    const { headers } = await makeUser({ role: 'operator' });
+    const created = await app.inject({ method: 'POST', url: '/custom-requests', payload: { fromCity: 'Бишкек', toCity: 'Ош', date: '2026-08-25', pax: 1, phone: uniquePhone() } });
+    const id = created.json().id;
+    await app.inject({ method: 'PATCH', url: `/custom-requests/${id}/status`, headers, payload: { status: 'ACCEPTED' } });
+    const res = await app.inject({ method: 'PATCH', url: `/custom-requests/${id}`, headers, payload: { paymentStatus: 'PAID' } });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('allows PAID once accepted with a final price', async () => {
+    const app = await getApp();
+    const { headers } = await makeUser({ role: 'operator' });
+    const created = await app.inject({ method: 'POST', url: '/custom-requests', payload: { fromCity: 'Бишкек', toCity: 'Ош', date: '2026-08-25', pax: 1, phone: uniquePhone() } });
+    const id = created.json().id;
+    await app.inject({ method: 'PATCH', url: `/custom-requests/${id}`, headers, payload: { unitPrice: 100000 } });
+    await app.inject({ method: 'PATCH', url: `/custom-requests/${id}/status`, headers, payload: { status: 'ACCEPTED' } });
+    const res = await app.inject({ method: 'PATCH', url: `/custom-requests/${id}`, headers, payload: { paymentStatus: 'PAID' } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().paymentStatus).toBe('PAID');
+  });
+});

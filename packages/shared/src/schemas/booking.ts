@@ -14,6 +14,7 @@ export const Booking = z.object({
   flightId: Id,
   flight: Flight.optional(),
   pax: z.number().int().positive(),
+  wholeCabin: z.boolean(), // "салон" — booked the entire car; total = flight.cabinPrice
   unitPrice: z.number().int().nonnegative().nullable(), // minor units, per-seat price override; null = route.price
   discount: z.number().int().nonnegative(), // minor units, amount off
   prepaid: z.number().int().nonnegative(), // minor units, paid so far
@@ -35,6 +36,9 @@ export type Booking = z.infer<typeof Booking>;
 export const CreateBookingInput = z.object({
   flightId: Id,
   pax: z.number().int().min(1).max(20),
+  // Buy the whole car: the server ignores `pax` (uses the flight's seat count)
+  // and prices the booking at the flight's flat `cabinPrice`.
+  wholeCabin: z.boolean().default(false),
   name: z.string().min(1),
   phone: Phone,
   whatsapp: z.boolean().default(true),

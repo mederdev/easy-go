@@ -168,3 +168,34 @@ describe('GET /me/custom-requests', () => {
     expect(res.json().total).toBe(0);
   });
 });
+
+describe('DELETE /me/custom-requests/:id (cancel = remove)', () => {
+  /** Create a custom request owned (by phone) by a fresh client. */
+  async function makeOwnedRequest(app: Awaited<ReturnType<typeof getApp>>) {
+    const phone = uniquePhone();
+    const { headers } = await makeClientRow({ phone });
+    const created = await app.inject({
+      method: 'POST',
+      url: '/custom-requests',
+      payload: { fromCity: 'Бишкек', toCity: 'Каракол', date: '2026-08-01', pax: 3, phone },
+    });
+    return { headers, id: created.json().id as string };
+  }
+
+  it('removes the client’s own request outright', async () => {
+    const app = await getApp();
+    const { headers, id } = await makeOwnedRequest(app);
+    const res = await app.inject({ method: 'DELETE', url: `/me/custom-requests/${id}`, headers });
+    expect(res.statusCode).toBe(200);
+    const list = await app.inject({ method: 'GET', url: '/me/custom-requests', headers });
+    expect(list.json().total).toBe(0);
+  });
+
+  it('another client’s request → 404', async () => {
+    const app = await getApp();
+    const { id } = await makeOwnedRequest(app);
+    const { headers: otherHeaders } = await makeClientRow({ phone: uniquePhone() });
+    const res = await app.inject({ method: 'DELETE', url: `/me/custom-requests/${id}`, headers: otherHeaders });
+    expect(res.statusCode).toBe(404);
+  });
+});

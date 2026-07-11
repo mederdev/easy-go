@@ -45,9 +45,45 @@ export function useCabinetModel() {
     REVIEWING: { bg: '#FEF3E2', color: '#C77A18' },
     ACCEPTED: { bg: '#EEF0FF', color: '#5060C8' },
     REJECTED: { bg: '#FBEDEA', color: '#C0492E' },
+    CANCELLED: { bg: '#F0F1EE', color: '#8A8F86' },
   };
   function customStatusStyle(s: string) {
     return CUSTOM_STATUS_STYLE[s] ?? { bg: '#F0F1EE', color: '#8A8F86' };
+  }
+
+  // ── Custom request self-service: cancelling a request removes it outright, so
+  // there is a single "withdraw" action that hard-deletes the client's own
+  // request (any status). ──
+  const customBusyId = ref<string | null>(null);
+  const customActionError = ref<string | null>(null);
+  // Id of the card currently showing an inline "are you sure?" prompt.
+  const customConfirmId = ref<string | null>(null);
+
+  function askRemoveCustomRequest(r: CustomRequest): void {
+    customConfirmId.value = r.id;
+    customActionError.value = null;
+  }
+  function clearCustomConfirm(): void {
+    customConfirmId.value = null;
+  }
+
+  /** Rejected requests are already dead → "Удалить"; the rest are withdrawn → "Отменить". */
+  function removeLabel(r: CustomRequest): string {
+    return r.status === 'REJECTED' ? 'Удалить' : 'Отменить';
+  }
+
+  async function removeCustomRequest(r: CustomRequest): Promise<void> {
+    customBusyId.value = r.id;
+    customActionError.value = null;
+    try {
+      await api.me.deleteCustomRequest(r.id);
+      customRequests.value = customRequests.value.filter((x) => x.id !== r.id);
+      customConfirmId.value = null;
+    } catch (e: unknown) {
+      customActionError.value = (e as Error).message ?? 'Не удалось отменить заявку';
+    } finally {
+      customBusyId.value = null;
+    }
   }
   function customRouteTitle(r: CustomRequest): string {
     return `${r.fromCity} → ${r.toCity}`;
@@ -331,6 +367,13 @@ export function useCabinetModel() {
     customStatusStyle,
     customRouteTitle,
     customDateLabel,
+    customBusyId,
+    customActionError,
+    customConfirmId,
+    askRemoveCustomRequest,
+    clearCustomConfirm,
+    removeLabel,
+    removeCustomRequest,
     // Driver
     driverFlightTab,
     driverFlights,

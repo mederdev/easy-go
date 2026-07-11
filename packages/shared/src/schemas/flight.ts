@@ -17,6 +17,8 @@ export const Flight = z.object({
   dropoffAddress: z.string().nullable(),
   seatsTotal: z.number().int().positive(),
   seatsTaken: z.number().int().nonnegative(), // denormalized
+  cabinPrice: z.number().int().nonnegative().nullable(), // minor units, flat "весь салон" price
+  seatPrice: z.number().int().nonnegative().nullable(), // minor units, per-seat price; null = use route.price
   status: FlightStatus,
   paymentStatus: PaymentStatus, // aggregated from active bookings
   createdAt: z.string().datetime(),
@@ -34,13 +36,15 @@ export type FlightView = z.infer<typeof FlightView>;
 
 export const CreateFlightInput = z.object({
   routeId: Id,
-  carId: Id.nullish(),
+  carId: Id, // a car (hence its type/capacity) is required so the salon price is well-defined
   departAt: z.string().datetime(),
   pickupLat: z.number().nullish(),
   pickupLng: z.number().nullish(),
   pickupAddress: z.string().nullish(),
   dropoffAddress: z.string().nullish(),
   seatsTotal: z.number().int().positive().default(11),
+  cabinPrice: z.number().int().positive(), // minor units, flat "весь салон" price — mandatory
+  seatPrice: z.number().int().positive().nullish(), // minor units, per-seat price; null/omit = use route.price
   status: FlightStatus.default('SCHEDULED'),
 });
 export type CreateFlightInput = z.infer<typeof CreateFlightInput>;

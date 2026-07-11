@@ -23,7 +23,7 @@ async function onWhatsApp() {
   <IonPage>
     <IonContent :fullscreen="true">
       <div class="pg">
-      <div style="padding: 8px 0 0"><BackButton /></div>
+      <div style="padding: 8px 0 0 8px"><BackButton /></div>
       <div class="contacts-header">
         <h1 class="contacts-header__title">Контакты</h1>
       </div>

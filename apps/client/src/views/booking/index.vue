@@ -17,8 +17,16 @@ const {
   departDateLabel,
   departTime,
   totalLabel,
+  unitPriceLabel,
   maxPax,
   submit,
+  wholeCabin,
+  toggleCabin,
+  cabinAvailable,
+  cabinDisabled,
+  cabinPriceLabel,
+  cabinSavings,
+  cabinSavingsLabel,
   stops,
   stopsError,
   addStop,
@@ -62,7 +70,9 @@ const {
       <!-- Passengers -->
       <div class="booking-section-title">Пассажиры</div>
       <div class="booking-pax">
-        <span class="booking-pax__label">Количество мест</span>
+        <span class="booking-pax__label">
+          {{ wholeCabin ? 'Сколько поедет пассажиров' : 'Количество мест' }}
+        </span>
         <div class="pax-row">
           <button
             class="pax-btn pax-btn--minus"
@@ -81,7 +91,41 @@ const {
           </button>
         </div>
       </div>
+      <!-- <div v-if="wholeCabin" class="booking-pax-note">
+        Вы выкупаете весь салон — цена фиксированная. Пассажиров укажите, сколько
+        реально поедет; свободные места оператор при желании предложит другим.
+      </div> -->
+      <div v-if="!wholeCabin" class="booking-pax-hint">
+        Цена за место · {{ unitPriceLabel }}
+      </div>
       <!-- <div class="booking-pax-hint">На этом рейсе осталось {{ maxPax }} мест</div> -->
+
+      <!-- "Весь салон" — buy the whole car at the flat cabin price -->
+      <button
+        v-if="cabinAvailable"
+        type="button"
+        class="cabin-toggle"
+        :class="[wholeCabin && 'cabin-toggle--active', cabinDisabled && 'cabin-toggle--disabled']"
+        :disabled="cabinDisabled"
+        @click="toggleCabin"
+      >
+        <span class="ms cabin-toggle__check">
+          {{ wholeCabin ? 'check_box' : 'check_box_outline_blank' }}
+        </span>
+        <span class="cabin-toggle__body">
+          <span class="cabin-toggle__head">
+            <span class="cabin-toggle__label">Выкупить весь салон</span>
+            <span v-if="cabinSavings > 0" class="cabin-toggle__badge">Выгоднее</span>
+          </span>
+          <span class="cabin-toggle__hint">
+            <template v-if="cabinDisabled">Доступно только на свободном рейсе</template>
+            <template v-else-if="cabinSavings > 0">
+              Вся машина за {{ cabinPriceLabel }} — экономия {{ cabinSavingsLabel }}
+            </template>
+            <template v-else>Вся машина за {{ cabinPriceLabel }}</template>
+          </span>
+        </span>
+      </button>
 
       <!-- Contact Details -->
       <div class="booking-section-title">Контактные данные</div>
@@ -389,6 +433,81 @@ const {
   color: var(--eg-muted);
 }
 
+.booking-pax-note {
+  margin: 8px 16px 0;
+  font: 500 12px/1.5 'Manrope', sans-serif;
+  color: var(--eg-muted);
+  background: var(--eg-bg-subtle);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+/* ── "Весь салон" toggle ── */
+.cabin-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: calc(100% - 32px);
+  margin: 10px 16px 0;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1.5px solid #E2E5DF;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.cabin-toggle--active {
+  border-color: var(--eg-green);
+  background: #EEF6E6;
+}
+
+.cabin-toggle--disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.cabin-toggle__check {
+  font-size: 24px;
+  color: var(--eg-green);
+  flex-shrink: 0;
+}
+
+.cabin-toggle__body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cabin-toggle__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cabin-toggle__label {
+  font: 700 14px 'Manrope', sans-serif;
+  color: var(--eg-ink);
+}
+
+.cabin-toggle__badge {
+  font: 700 10px 'Manrope', sans-serif;
+  color: var(--eg-green);
+  background: #DDF0CB;
+  border-radius: 6px;
+  padding: 2px 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.cabin-toggle__hint {
+  font: 500 12px 'Manrope', sans-serif;
+  color: var(--eg-muted);
+  margin-top: 2px;
+}
+
 .booking-pax-hint {
   margin: 6px 16px 0;
   font: 600 12px 'Manrope', sans-serif;
@@ -549,10 +668,21 @@ const {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
   margin: 18px 16px 0;
   padding: 14px 16px;
   background: var(--eg-bg-subtle);
   border-radius: 14px;
+}
+
+.booking-total > div {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 1 1 100%;
 }
 
 .booking-total__label {
@@ -564,11 +694,12 @@ const {
 .booking-total__value {
   font: 800 22px 'Manrope', sans-serif;
   color: var(--eg-ink);
+  white-space: nowrap;
 }
 
 .booking-total__btn {
   height: 54px;
-  padding: 0 26px;
+  padding: 0 22px;
   border: none;
   border-radius: 15px;
   background: var(--eg-green);
@@ -577,7 +708,11 @@ const {
   cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .booking-total__btn:disabled {
@@ -587,5 +722,6 @@ const {
 
 .booking-total__btn .ms {
   font-size: 20px;
+  flex-shrink: 0;
 }
 </style>

@@ -49,6 +49,31 @@ describe('POST /routes', () => {
     expect(res.json()).toMatchObject({ fromCity: 'Бишкек', toCity: 'Алматы', status: 'ACTIVE' });
   });
 
+  it('persists per-class whole-cabin prices', async () => {
+    const app = await getApp();
+    const { headers } = await makeUser({ role: 'admin' });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/routes',
+      headers,
+      payload: {
+        fromCity: 'Бишкек',
+        toCity: 'Талас',
+        durationLabel: '5 часов',
+        price: 300_000,
+        cabinPriceSedan: 1_000_000,
+        cabinPriceMinivan: 1_800_000,
+        cabinPriceBus: 3_000_000,
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json()).toMatchObject({
+      cabinPriceSedan: 1_000_000,
+      cabinPriceMinivan: 1_800_000,
+      cabinPriceBus: 3_000_000,
+    });
+  });
+
   it('operator is forbidden from creating → 403', async () => {
     const app = await getApp();
     const { headers } = await makeUser({ role: 'operator' });

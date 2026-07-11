@@ -33,6 +33,31 @@ describe('unitPrice (per-seat override)', () => {
     const clear = await app.inject({ method: 'PATCH', url: `/bookings/${booking.id}/payment`, headers, payload: { unitPrice: null } });
     expect(clear.json().total).toBe(200_000); // back to route price * pax
   });
+
+  it("flight.seatPrice overrides route.price; an explicit unitPrice still wins", async () => {
+    const app = await getApp();
+    const { headers } = await makeUser({ role: 'admin' });
+    const route = await makeRoute({ price: 100_000 });
+    // Flight sets its own per-seat price, higher than the route default.
+    const flight = await makeFlight({ routeId: route.id, seatPrice: 150_000, departAt: hoursFromNow(48) });
+    const phone = uniquePhone();
+
+    const booking = (await app.inject({
+      method: 'POST',
+      url: '/bookings/admin',
+      headers,
+      payload: { flightId: flight.id, pax: 2, name: 'X', phone, status: 'CONFIRMED' },
+    })).json();
+    expect(booking.total).toBe(300_000); // 150000 (flight seat price) * 2, not the route's 100000
+
+    // Clearing unitPrice on edit falls back to the flight's seat price, not the route's.
+    const cleared = await app.inject({ method: 'PATCH', url: `/bookings/${booking.id}/payment`, headers, payload: { unitPrice: null } });
+    expect(cleared.json().total).toBe(300_000);
+
+    // A per-booking unitPrice still overrides the flight seat price.
+    const overridden = await app.inject({ method: 'PATCH', url: `/bookings/${booking.id}/payment`, headers, payload: { unitPrice: 200_000 } });
+    expect(overridden.json().total).toBe(400_000);
+  });
 });
 
 describe('PATCH /bookings/:id/payment — passenger count change', () => {

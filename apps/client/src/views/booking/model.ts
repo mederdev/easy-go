@@ -1,4 +1,4 @@
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import type { StopKind } from '@easygo/shared';
 import { formatMoney } from '@easygo/shared';
@@ -88,7 +88,37 @@ export function useBookingModel() {
   });
 
   const unitPrice = computed(() => flight.value?.route?.price ?? 0);
-  const total = computed(() => unitPrice.value * store.pax);
+  const unitPriceLabel = computed(() => money(unitPrice.value));
+
+  // ── "Весь салон": buy the whole car at the flight's flat cabin price. ──
+  const wholeCabin = ref(false);
+  // Only offered when the operator set a cabin price for this flight.
+  const cabinAvailable = computed(() => flight.value?.cabinPrice != null);
+  const cabinPrice = computed(() => flight.value?.cabinPrice ?? 0);
+  // The whole cabin can only be sold on an empty flight — otherwise it's shown
+  // but disabled (someone already holds a seat).
+  const cabinDisabled = computed(() => (flight.value?.seatsTaken ?? 0) > 0);
+  // Savings vs. buying every seat individually — the "hook" to take the salon.
+  const cabinSavings = computed(() => {
+    const seats = flight.value?.seatsTotal ?? 0;
+    return Math.max(0, unitPrice.value * seats - cabinPrice.value);
+  });
+  const cabinPriceLabel = computed(() => money(cabinPrice.value));
+  const cabinSavingsLabel = computed(() => money(cabinSavings.value));
+
+  // If the flight fills up while the form is open, drop the salon selection.
+  watch(cabinDisabled, (disabled) => {
+    if (disabled) wholeCabin.value = false;
+  });
+
+  function toggleCabin(): void {
+    if (cabinDisabled.value) return;
+    wholeCabin.value = !wholeCabin.value;
+  }
+
+  const total = computed(() =>
+    wholeCabin.value ? cabinPrice.value : unitPrice.value * store.pax,
+  );
   const totalLabel = computed(() => money(total.value));
 
   function validate(): boolean {
@@ -123,6 +153,7 @@ export function useBookingModel() {
       await store.submit({
         flightId: flight.value.id,
         pax: store.pax,
+        wholeCabin: wholeCabin.value,
         name: name.value.trim(),
         phone: phone.value.trim(),
         whatsapp: whatsappSame.value,
@@ -150,8 +181,17 @@ export function useBookingModel() {
     departDateLabel,
     departTime,
     totalLabel,
+    unitPriceLabel,
     maxPax,
     submit,
+    // Whole-cabin ("весь салон")
+    wholeCabin,
+    toggleCabin,
+    cabinAvailable,
+    cabinDisabled,
+    cabinPriceLabel,
+    cabinSavings,
+    cabinSavingsLabel,
     // Pickup/dropoff points
     stops,
     stopsError,

@@ -180,6 +180,9 @@ export function createApiClient(opts: ApiClientOptions) {
         request<Booking>('DELETE', `/me/bookings/${bookingId}/stops/${stopId}`),
       customRequests: () =>
         request<{ items: CustomRequest[]; total: number }>('GET', '/me/custom-requests'),
+      // Cancel = remove the client's own individual request (индивидуальная заявка).
+      deleteCustomRequest: (id: string) =>
+        request<{ id: string }>('DELETE', `/me/custom-requests/${id}`),
     },
 
     config: {

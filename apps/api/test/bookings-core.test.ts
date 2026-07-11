@@ -27,6 +27,68 @@ describe('POST /bookings (public)', () => {
     expect(client?.lastBookingAt).not.toBeNull();
   });
 
+  it('whole-cabin booking keeps the client\'s real pax and is priced at the flat cabin price', async () => {
+    const app = await getApp();
+    const route = await makeRoute({ price: 350_000 });
+    const flight = await makeFlight({ routeId: route.id, seatsTotal: 7, cabinPrice: 1_500_000 });
+    const phone = uniquePhone();
+
+    // The client buys the whole car but only travels with 3 people — the booking
+    // must record pax=3 (so the admin can offer the spare seats), not seatsTotal.
+    const res = await app.inject({ method: 'POST', url: '/bookings', payload: { flightId: flight.id, pax: 3, wholeCabin: true, name: 'Гость', phone } });
+    expect(res.statusCode).toBe(201);
+    const b = res.json();
+    expect(b.wholeCabin).toBe(true);
+    expect(b.pax).toBe(3); // exactly what the client set
+    expect(b.total).toBe(1_500_000); // flat cabin price, not 350000 * 3
+  });
+
+  it('confirmed whole-cabin booking with fewer passengers still locks every seat', async () => {
+    const app = await getApp();
+    const { headers } = await makeUser({ role: 'admin' });
+    const route = await makeRoute({ price: 350_000 });
+    const flight = await makeFlight({ routeId: route.id, seatsTotal: 4, cabinPrice: 1_500_000 });
+    const phone = uniquePhone();
+
+    // 3 passengers, whole cabin, confirmed straight away.
+    const res = await app.inject({
+      method: 'POST',
+      url: '/bookings/admin',
+      headers,
+      payload: { flightId: flight.id, pax: 3, wholeCabin: true, name: 'Гость', phone, status: 'CONFIRMED' },
+    });
+    expect(res.statusCode).toBe(201);
+    const b = res.json();
+    expect(b.pax).toBe(3);
+
+    // The whole car is reserved (all 4 seats) and the flight is closed, even
+    // though only 3 people travel — nobody else can book onto it.
+    const f = await prisma.flight.findUnique({ where: { id: flight.id } });
+    expect(f?.seatsTaken).toBe(4);
+    expect(f?.status).toBe('CLOSED');
+
+    // Cancelling frees the entire car back, not just the 3 passenger seats.
+    await app.inject({ method: 'PATCH', url: `/bookings/${b.id}/status`, headers, payload: { status: 'CANCELLED_BY_COMPANY' } });
+    const after = await prisma.flight.findUnique({ where: { id: flight.id } });
+    expect(after?.seatsTaken).toBe(0);
+    expect(after?.status).toBe('SCHEDULED');
+  });
+
+  it('whole-cabin booking on a flight without a cabin price → 400', async () => {
+    const app = await getApp();
+    const flight = await makeFlight({ seatsTotal: 7, cabinPrice: null });
+    const res = await app.inject({ method: 'POST', url: '/bookings', payload: { flightId: flight.id, pax: 1, wholeCabin: true, name: 'X', phone: uniquePhone() } });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('whole-cabin booking on an occupied flight → 409 CABIN_UNAVAILABLE', async () => {
+    const app = await getApp();
+    const flight = await makeFlight({ seatsTotal: 7, seatsTaken: 2, cabinPrice: 1_500_000 });
+    const res = await app.inject({ method: 'POST', url: '/bookings', payload: { flightId: flight.id, pax: 1, wholeCabin: true, name: 'X', phone: uniquePhone() } });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe('CABIN_UNAVAILABLE');
+  });
+
   it('upserts the client by phone (second booking reuses the row)', async () => {
     const app = await getApp();
     const flight = await makeFlight();

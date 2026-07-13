@@ -154,7 +154,7 @@ const {
           </label>
         </div>
         <div class="field">
-          <span class="label">Цена за весь салон ({{ config.currency }})</span>
+          <span class="label">Цена за весь салон ({{ config.currency }}) <span class="opt">(необязательно)</span></span>
           <span class="hint-sub">Ориентир для индивидуальных заявок — своя цена под каждый тип машины.</span>
           <div class="three">
             <label class="field">
@@ -285,6 +285,9 @@ const {
 .label.sub {
   font-weight: 500;
   text-transform: none;
+}
+.opt {
+  color: #c4c8c0;
 }
 .field {
   display: flex;

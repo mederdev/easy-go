@@ -345,7 +345,7 @@ const {
         </div>
         <div class="two">
           <label class="field">
-            <span class="label">Цена за весь салон ({{ config.currency }})</span>
+            <span class="label">Цена за весь салон ({{ config.currency }}) <span class="opt">(необязательно)</span></span>
             <input v-model="form.cabinPriceMajor" inputmode="decimal" placeholder="20000" />
           </label>
           <label class="field">

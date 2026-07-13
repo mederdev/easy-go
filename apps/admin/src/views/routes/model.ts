@@ -96,18 +96,24 @@ export function useRoutesModel() {
       form.error.value = 'Укажите корректную цену.';
       return;
     }
-    // Whole-cabin default prices per car class — required so a custom request on
-    // this route can be quoted for whichever car the client picks.
+    // Whole-cabin default prices per car class — optional. When provided they let
+    // a custom request on this route be quoted for whichever car the client picks;
+    // a blank field leaves that class without a default cabin price.
     const cabinFields: Array<[keyof typeof formData, string]> = [
       ['cabinSedanMajor', 'седан'],
       ['cabinMinivanMajor', 'минивэн'],
       ['cabinBusMajor', 'бус'],
     ];
-    const cabinMinor: Record<string, number> = {};
+    const cabinMinor: Record<string, number | null> = {};
     for (const [key, label] of cabinFields) {
-      const n = Number(String(formData[key]).replace(',', '.'));
+      const str = String(formData[key]).trim();
+      if (!str) {
+        cabinMinor[key] = null;
+        continue;
+      }
+      const n = Number(str.replace(',', '.'));
       if (!Number.isFinite(n) || n <= 0) {
-        form.error.value = `Укажите цену за салон (${label}).`;
+        form.error.value = `Укажите корректную цену за салон (${label}).`;
         return;
       }
       cabinMinor[key] = toMinor(n, config.currency);

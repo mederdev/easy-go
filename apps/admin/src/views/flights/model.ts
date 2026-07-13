@@ -358,10 +358,17 @@ export function useFlightsModel() {
       form.error.value = 'Выберите машину.';
       return;
     }
-    const cabinPriceNum = Number(String(formData.cabinPriceMajor).replace(',', '.'));
-    if (!Number.isFinite(cabinPriceNum) || cabinPriceNum <= 0) {
-      form.error.value = 'Укажите цену за весь салон.';
-      return;
+    // Whole-cabin price is optional. When left blank the flight simply has no
+    // "весь салон" price; only validate a value that was actually entered.
+    const cabinPriceStr = String(formData.cabinPriceMajor).trim();
+    let cabinPrice: number | null = null;
+    if (cabinPriceStr) {
+      const cabinPriceNum = Number(cabinPriceStr.replace(',', '.'));
+      if (!Number.isFinite(cabinPriceNum) || cabinPriceNum <= 0) {
+        form.error.value = 'Укажите корректную цену за весь салон.';
+        return;
+      }
+      cabinPrice = toMinor(cabinPriceNum, config.currency);
     }
     // Per-seat price is optional (a null falls back to the route price), but must
     // be a positive number when the operator does enter one.
@@ -391,7 +398,7 @@ export function useFlightsModel() {
         carId: formData.carId,
         departAt: depart.toISOString(),
         seatsTotal: Number(formData.seatsTotal) || 11,
-        cabinPrice: toMinor(cabinPriceNum, config.currency),
+        cabinPrice,
         seatPrice,
         pickupAddress: formData.pickupAddress.trim() || null,
         dropoffAddress: formData.dropoffAddress.trim() || null,

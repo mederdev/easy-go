@@ -43,7 +43,7 @@ export const CreateFlightInput = z.object({
   pickupAddress: z.string().nullish(),
   dropoffAddress: z.string().nullish(),
   seatsTotal: z.number().int().positive().default(11),
-  cabinPrice: z.number().int().positive(), // minor units, flat "весь салон" price — mandatory
+  cabinPrice: z.number().int().positive().nullish(), // minor units, flat "весь салон" price; null/omit = no whole-cabin price
   seatPrice: z.number().int().positive().nullish(), // minor units, per-seat price; null/omit = use route.price
   status: FlightStatus.default('SCHEDULED'),
 });

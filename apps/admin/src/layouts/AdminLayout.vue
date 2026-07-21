@@ -1,17 +1,22 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { useBadgesStore } from '@/stores/badges';
 import { USER_ROLE_LABEL } from '@easygo/shared';
+
+type BadgeKey = 'bookings' | 'applications';
 
 interface NavItem {
   to: string;
   label: string;
   icon: string;
+  /** Which sidebar counter to show as a pill on this item, if any. */
+  badge?: BadgeKey;
 }
 
 const navMain: NavItem[] = [
-  { to: '/', label: 'Бронирования', icon: 'receipt_long' },
+  { to: '/', label: 'Бронирования', icon: 'receipt_long', badge: 'bookings' },
   { to: '/flights', label: 'Рейсы', icon: 'event_seat' },
   { to: '/routes', label: 'Маршруты', icon: 'route' },
   { to: '/service-addons', label: 'Доп. услуги', icon: 'storefront' },
@@ -22,7 +27,7 @@ const navMain: NavItem[] = [
 ];
 
 const navSecondary: NavItem[] = [
-  { to: '/applications', label: 'Заявки на сотр.', icon: 'handshake' },
+  { to: '/applications', label: 'Заявки на сотр.', icon: 'handshake', badge: 'applications' },
   { to: '/docs', label: 'Документация', icon: 'help' },
   { to: '/settings', label: 'Настройки', icon: 'settings' },
 ];
@@ -30,6 +35,24 @@ const navSecondary: NavItem[] = [
 const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
+const badges = useBadgesStore();
+
+/** Cap the pill at 99+ so a large backlog never blows out the layout. */
+function badgeLabel(item: NavItem): string | null {
+  if (!item.badge) return null;
+  const n = badges[item.badge];
+  if (!n) return null;
+  return n > 99 ? '99+' : String(n);
+}
+
+// Poll the sidebar counters while the shell is mounted, and refresh promptly
+// whenever the operator navigates (e.g. after handling items on another screen).
+onMounted(() => badges.start());
+onUnmounted(() => badges.stop());
+watch(
+  () => route.path,
+  () => void badges.refresh(),
+);
 
 const title = computed(() => (route.meta.title as string | undefined) ?? 'EasyGo');
 const subtitle = computed(() => (route.meta.subtitle as string | undefined) ?? '');
@@ -105,7 +128,8 @@ function onCta(): void {
           :class="{ active: isActive(item.to) }"
         >
           <span class="material-symbols-outlined">{{ item.icon }}</span>
-          {{ item.label }}
+          <span class="nav-label">{{ item.label }}</span>
+          <span v-if="badgeLabel(item)" class="nav-badge">{{ badgeLabel(item) }}</span>
         </RouterLink>
         <div class="divider" />
         <RouterLink
@@ -116,7 +140,8 @@ function onCta(): void {
           :class="{ active: isActive(item.to) }"
         >
           <span class="material-symbols-outlined">{{ item.icon }}</span>
-          {{ item.label }}
+          <span class="nav-label">{{ item.label }}</span>
+          <span v-if="badgeLabel(item)" class="nav-badge">{{ badgeLabel(item) }}</span>
         </RouterLink>
       </nav>
       <button class="user" type="button" @click="logout">
@@ -227,6 +252,24 @@ function onCta(): void {
 }
 .nav-item .material-symbols-outlined {
   font-size: 21px;
+}
+.nav-label {
+  flex: 1;
+  min-width: 0;
+}
+.nav-badge {
+  flex: none;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--eg-brand);
+  color: #fff;
+  font: 800 11px var(--eg-font);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 .nav-item.active {
   background: var(--eg-brand-light);

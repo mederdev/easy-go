@@ -1,11 +1,13 @@
 import { onMounted, ref } from 'vue';
 import type { DriverApplication, PartnerApplication } from '@easygo/shared';
 import { api, errorMessage } from '@/lib/api';
+import { useBadgesStore } from '@/stores/badges';
 import { initials } from '@/lib/format';
 
 /** Applications inbox: driver/partner tabs with accept/reject actions on the
  *  pending entries. */
 export function useApplicationsModel() {
+  const badges = useBadgesStore();
   type Tab = 'drivers' | 'partners';
   const tab = ref<Tab>('drivers');
 
@@ -38,6 +40,7 @@ export function useApplicationsModel() {
       const updated = await api.applications.setDriverStatus(app.id, status);
       const idx = drivers.value.findIndex((x) => x.id === app.id);
       if (idx !== -1) drivers.value.splice(idx, 1, updated);
+      void badges.refresh();
     } catch (e) {
       error.value = errorMessage(e);
     } finally {
@@ -51,6 +54,7 @@ export function useApplicationsModel() {
       const updated = await api.applications.setPartnerStatus(app.id, status);
       const idx = partners.value.findIndex((x) => x.id === app.id);
       if (idx !== -1) partners.value.splice(idx, 1, updated);
+      void badges.refresh();
     } catch (e) {
       error.value = errorMessage(e);
     } finally {

@@ -43,3 +43,11 @@ export async function enqueueBookingNotification(bookingId: string): Promise<voi
 export async function enqueueCustomRequestNotification(id: string): Promise<void> {
   await notificationsQueue.add('custom-request-created', { id }, { ...notifyOpts, jobId: `custom-request-${id}` });
 }
+
+export async function enqueueDriverApplicationNotification(id: string): Promise<void> {
+  await notificationsQueue.add('driver-application-created', { id }, { ...notifyOpts, jobId: `driver-application-${id}` });
+}
+
+export async function enqueuePartnerApplicationNotification(id: string): Promise<void> {
+  await notificationsQueue.add('partner-application-created', { id }, { ...notifyOpts, jobId: `partner-application-${id}` });
+}

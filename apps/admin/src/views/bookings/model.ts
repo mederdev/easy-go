@@ -4,12 +4,14 @@ import type { AdminCreateBookingInput, ApplicationStatus, Booking, BookingAddon,
 import { APPLICATION_STATUS_LABEL, BOOKING_STATUS_LABEL, CAR_FEATURE_LABEL, CAR_TYPE_LABEL, PAYMENT_STATUS_LABEL, STOP_KIND_LABEL, formatMoney, paxLabel, seatsLabel, toMajor, toMinor } from '@easygo/shared';
 import { api, errorMessage } from '@/lib/api';
 import { useConfigStore } from '@/stores/config';
+import { useBadgesStore } from '@/stores/badges';
 import { bookingRouteLabel, dateLabel, dateTimeLabel, flightRouteLabel, initials, timeLabel } from '@/lib/format';
 
 /** Bookings CRM: list with filters/search/pagination, detail drawer with status
  *  changes, and the operator-side create-booking modal. */
 export function useBookingsModel() {
   const config = useConfigStore();
+  const badges = useBadgesStore();
   const route = useRoute();
   const router = useRouter();
 
@@ -560,6 +562,8 @@ export function useBookingsModel() {
       selected.value = merged;
       const idx = items.value.findIndex((x) => x.id === merged.id);
       if (idx !== -1) items.value.splice(idx, 1, merged);
+      // Leaving NEW (confirm / cancel) changes the sidebar counter.
+      void badges.refresh();
     } catch (e) {
       statusError.value = errorMessage(e);
     } finally {
@@ -729,6 +733,8 @@ export function useBookingsModel() {
       createOpen.value = false;
       offset.value = 0;
       await load();
+      // A newly created NEW booking bumps the sidebar counter.
+      void badges.refresh();
     } catch (e) {
       createError.value = errorMessage(e);
     } finally {
@@ -988,6 +994,8 @@ export function useBookingsModel() {
       customSelected.value = updated;
       const idx = customItems.value.findIndex((x) => x.id === updated.id);
       if (idx !== -1) customItems.value.splice(idx, 1, updated);
+      // Leaving NEW (reviewing / accept / reject) changes the sidebar counter.
+      void badges.refresh();
     } catch (e) {
       customStatusError.value = errorMessage(e);
     } finally {
@@ -1182,6 +1190,7 @@ export function useBookingsModel() {
       const updated = await api.customRequests.setStatus(customSelected.value.id, 'ACCEPTED');
       const idx = customItems.value.findIndex((x) => x.id === updated.id);
       if (idx !== -1) customItems.value.splice(idx, 1, updated);
+      void badges.refresh();
       approveOpen.value = false;
       closeCustom();
     } catch (e) {

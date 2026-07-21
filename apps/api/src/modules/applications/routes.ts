@@ -10,19 +10,27 @@ import { prisma } from '../../lib/prisma.js';
 import { Errors } from '../../lib/errors.js';
 import { normalizePhone } from '../../lib/phone.js';
 import { parse } from '../../lib/validate.js';
+import {
+  enqueueDriverApplicationNotification,
+  enqueuePartnerApplicationNotification,
+} from '../../lib/queue.js';
 
 const routes: FastifyPluginAsync = async (app) => {
   // ── Public submissions (client app "Водителям" / "Партнёрам") ──
   app.post('/drivers', { config: { idempotent: true } }, async (request, reply) => {
     const input = parse(CreateDriverApplicationInput, request.body);
     reply.code(201);
-    return prisma.driverApplication.create({ data: { ...input, phone: normalizePhone(input.phone) } });
+    const created = await prisma.driverApplication.create({ data: { ...input, phone: normalizePhone(input.phone) } });
+    await enqueueDriverApplicationNotification(created.id).catch(() => undefined);
+    return created;
   });
 
   app.post('/partners', { config: { idempotent: true } }, async (request, reply) => {
     const input = parse(CreatePartnerApplicationInput, request.body);
     reply.code(201);
-    return prisma.partnerApplication.create({ data: input });
+    const created = await prisma.partnerApplication.create({ data: input });
+    await enqueuePartnerApplicationNotification(created.id).catch(() => undefined);
+    return created;
   });
 
   // ── Admin review ──

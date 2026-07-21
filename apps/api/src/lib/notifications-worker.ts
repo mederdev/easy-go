@@ -21,6 +21,12 @@ export function startNotificationsWorker(): Worker {
       } else if (job.name === 'custom-request-created') {
         const { id } = job.data as { id: string };
         await notifyCustomRequestCreated(id);
+      } else if (job.name === 'driver-application-created') {
+        const { id } = job.data as { id: string };
+        await notifyDriverApplicationCreated(id);
+      } else if (job.name === 'partner-application-created') {
+        const { id } = job.data as { id: string };
+        await notifyPartnerApplicationCreated(id);
       }
     },
     { connection: makeRedis(), concurrency: 2 },
@@ -82,6 +88,40 @@ async function notifyCustomRequestCreated(id: string): Promise<void> {
     lines.push(`Оснащение: ${req.features.map((f) => CAR_FEATURE_LABEL[f]).join(', ')}`);
   }
   if (req.comment) lines.push(`Комментарий: ${escapeHtml(req.comment)}`);
+
+  await broadcast(lines.join('\n'), config.telegramNotifyChatId);
+}
+
+async function notifyDriverApplicationCreated(id: string): Promise<void> {
+  const app = await prisma.driverApplication.findUnique({ where: { id } });
+  if (!app) return;
+
+  const config = await getConfig();
+  const lines = [
+    `<b>🤝 Новая заявка на сотрудничество (водитель)</b>`,
+    `Имя: ${escapeHtml(app.name)}`,
+    `Телефон: ${escapeHtml(app.phone)}`,
+    `Авто: ${app.hasCar ? escapeHtml(app.carInfo ?? 'есть') : 'нет'}`,
+  ];
+  if (app.experience) lines.push(`Опыт: ${escapeHtml(app.experience)}`);
+  if (app.directions) lines.push(`Направления: ${escapeHtml(app.directions)}`);
+  if (app.about) lines.push(`О себе: ${escapeHtml(app.about)}`);
+
+  await broadcast(lines.join('\n'), config.telegramNotifyChatId);
+}
+
+async function notifyPartnerApplicationCreated(id: string): Promise<void> {
+  const app = await prisma.partnerApplication.findUnique({ where: { id } });
+  if (!app) return;
+
+  const config = await getConfig();
+  const lines = [
+    `<b>🤝 Новая заявка на сотрудничество (партнёр)</b>`,
+    `Компания: ${escapeHtml(app.company)}`,
+  ];
+  if (app.sphere) lines.push(`Сфера: ${escapeHtml(app.sphere)}`);
+  lines.push(`Контакт: ${escapeHtml(app.contacts)}`);
+  if (app.proposal) lines.push(`Предложение: ${escapeHtml(app.proposal)}`);
 
   await broadcast(lines.join('\n'), config.telegramNotifyChatId);
 }
